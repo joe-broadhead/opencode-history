@@ -1,0 +1,14 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`the tarball holds the whitelisted files only, under 1 MB 1`] = `
+[
+  "CHANGELOG.md",
+  "LICENSE",
+  "NOTICE",
+  "README.md",
+  "dist/index.js",
+  "dist/tui.js",
+  "package.json",
+  "skills/history-recall/SKILL.md",
+]
+`;

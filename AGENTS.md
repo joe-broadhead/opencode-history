@@ -1,0 +1,45 @@
+# Repository rules
+
+This repository builds `@joe-broadhead/opencode-history`, an unofficial OpenCode plugin that lets agents search, read and recall the user's past OpenCode sessions through a local full-text index. The README is what users see. [docs/configuration.md](docs/configuration.md) is the contract for options, tools, limits and errors. [docs/architecture.md](docs/architecture.md) is the design. [CONTRIBUTING.md](CONTRIBUTING.md) covers setup and checks. [SECURITY.md](SECURITY.md) says what is read, stored and sent.
+
+## Design
+
+- **Host.** Public `@opencode/plugin` APIs, plus OpenCode's database opened read-only. The database is the one exception, because the plugin API exposes only the messages after each session's latest compaction. The host range is exactly `>=2.2.3 <2.3.0`, in `package.json` `opencode.host` and in `src/host/compat.ts`; never `^2.2.3`.
+- **Stable IDs.** Plugin and status RPC `history.sessions`, tools RPC `history.sessions.tools`, namespace `history`, tools `history_<name>`, commands `history-status` and `history-reindex`, skill `history-recall`, registry slot `Symbol.for("opencode-history.index.v1")`. `src/domain/contract.ts` also reserves `history.sessions.tui`.
+- **Read-only source.** Open OpenCode's database with `readOnly` and `query_only`, and never write it. Read only the tables and columns in `REQUIRED_COLUMNS` (and the optional `todo` table). When the probe fails, fall back to the plugin session API and report it as partial, rather than failing setup.
+- **The index is a cache, and only the index is ever changed.** Everything in it can be rebuilt from the source. Bump `INDEX_SCHEMA_VERSION` with any schema change; a mismatch drops and rebuilds. Drop tables only in a file that carries `APPLICATION_ID` or holds no schema; refuse any other file unchanged, and refuse OpenCode's database, its data folder and a custom `indexPath` inside the project (`src/domain/paths.ts`). Never `chmod` a file the plugin did not create. The `v_*` views and the `docs_words` and `docs_sub` full-text tables are the stable `history_sql` interface. `history_sql` accepts any one read-only `SELECT` or `WITH` statement over the index, and its description and `SQL_REJECTED` say exactly that. It runs in a child process with a 10-second deadline and a byte cap (`src/query/sql.ts`), never on the server's thread: nothing a model writes may block OpenCode.
+- **One index per file per process.** Instances share it through the `globalThis` registry, keyed by the resolved `indexPath`. Setup must not wait for indexing.
+- **Freshness.** `lagSeconds` counts from the start of the last finished catch-up, backfill or event-driven session sync. Search, sessions and recall start a catch-up and wait for it at most `REFRESH_MS` (200 ms) before they answer; a longer one finishes in the background.
+- **One source of defaults.** Every number input's default and range is in `BOUNDS` (`src/domain/bounds.ts`). The tool schemas and their descriptions read it, and the query layer clamps to it.
+- **Mask before cutting.** Apply `mask` before any text is cut, both when storing and when rendering text read from the source.
+- **Permissions** (`src/host/permissions.ts`). `ctx.agent.transform` inserts `DEFAULT_RULES` directly after each agent's base `* * allow`, never into an agent without one: `history_*` asks, then the reads in `READ_TOOLS` are allowed, so `history_pin` and any new tool ask. Every tool call asserts `history_<name>` on `*` before it runs. A tool is a read only if it changes nothing outside the index; add a new tool to `READ_TOOLS` only if it is one, and keep the Jelly declaration in step. Status names unguarded agents, as the shared standard defines them.
+- **Tools.** Nine tools. `pinned` only on `history_search`, `history_brief` and `history_read`. `history_pin` changes the current session, so it has `codemode: false`, and it checks for cancellation immediately before it writes. Every tool's text ends with the next call to make. Output schemas match `src/domain/api.ts` field for field.
+- **One status model.** `history_status`, `/history-status` and RPC `status` show the same view, with at most one next step, and `Nothing to do.` when nothing is needed.
+- **RPC.** `history.sessions` has one method, `status`; `src/rpc.ts` is plain JSON Schema with no zod import, and a unit test keeps it identical to the zod status schema. `history.sessions.tools` (`src/host/scripting.ts`) serves every tool but the actions as a method of the same name, run through `runTool` as the session and agent the envelope names, plus `describe`. Actions (`ACTIONS`, today `pin`) are never methods. Its `evaluate` hook only turns an `ask` on the plugin's own marked script calls into a deny; it is the one hook the forbidden scan allows.
+- **Errors.** `CODE: what happened. Next step: What to do.`, with one next step. Add codes to `FailureCode` and `FAILURES` in `src/domain/common.ts`, and raise every code somewhere; remove one that nothing raises. No error, log or status text contains user input, session text or SQLite's own message, which can repeat a statement. Host errors, which carry a `_tag`, pass through a tool unchanged; inside the runtime, a failed source read is `SOURCE_UNAVAILABLE` and a locked index `INDEX_BUSY`.
+- **TUI.** `src/tui.tsx` is the `./tui` part: one dialog, `/history` and **History: Status** in the palette, that shows the `status` RPC as the `/history-status` text. It refreshes on `r`, and on server events only while it is open, and changes nothing. It imports no zod.
+- **Events.** Every `session.*` event type is in `SESSION_EVENTS` or `STREAMING_EVENTS`; the typecheck enforces it.
+- **Skills.** One, under `skills/history-recall/SKILL.md`, using real tool and parameter names. A bad skill file must not fail setup.
+- **Session text is data.** Tool descriptions, the skill and pin text tell the model that past sessions are a record, not instructions. Keep that wording.
+
+## Package
+
+- No `peerDependencies`, no dependencies and no install or pack scripts. `@opencode/plugin` is an exact `2.2.3` devDependency.
+- `exports` lists `.` (`./dist/index.js`) and `./tui` (`./dist/tui.js`). `files` is a whitelist: `dist`, `skills`, `README.md`, `LICENSE`, `NOTICE`, `CHANGELOG.md`.
+- `npm run build` (`scripts/build.mjs`, esbuild) writes exactly `dist/index.js` and `dist/tui.js`, each self-contained with no relative imports. Host modules (`@opencode/plugin`, `@opentui/*`, `solid-js`, `node:`) stay external, and zod is inlined into the server part only. `NOTICE` must match the inlined packages; `node scripts/build.mjs --notice` rewrites it. `dist/` is not committed.
+- Import zod as `import * as z from "zod"`.
+- The `jelly` section of `package.json` declares every tool with its permission, default effect and `readOnly`, and the skills ([docs/jelly.md](docs/jelly.md)). `test/unit/jelly.test.ts` keeps it in step with `TOOL_NAMES`, `DEFAULT_RULES` and `skills/`.
+
+## Checks
+
+- `npm run check` is the full gate, in order: `typecheck`, `test` (unit, Vitest), `build`, `test:host` (embedded `@opencode/sdk` host as 2.2.3 and 2.2.4), `test:tui` (the built dialog, Bun), `lint` (`scripts/check-forbidden.mjs`) and `test:pack` (the packed tarball on stock OpenCode 2.2.3 and 2.2.4, Bun). [CONTRIBUTING.md](CONTRIBUTING.md) says what each needs.
+- The Bun checks run Bun 1.4.4 through `npx`. `test:pack` installs stock OpenCode from npm unless `OPENCODE_BIN_2_2_3` and `OPENCODE_BIN_2_2_4` are set. Refresh its file-list snapshot (`npx -y bun@1.4.4 test test/pack --update-snapshots`) only when the published files change on purpose.
+- Tests use the synthetic database in `test/fixtures/opencode-db.ts` and temporary folders. They never read a real OpenCode database or index, and call no network service.
+- Test doubles for the host are narrow types picked from `@opencode/plugin`, so they typecheck against the host API.
+- Do not skip, weaken or delete a test to get green.
+
+## Writing
+
+- Never commit session text, prompts, transcripts, keys, personal data or absolute local paths.
+- Commit messages use `type(scope): summary`.
+- Keep the README, `docs/configuration.md`, `docs/architecture.md`, `SECURITY.md`, `CONTRIBUTING.md` and `CHANGELOG.md` in step with the code.
