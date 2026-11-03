@@ -1,0 +1,83 @@
+import type { Plugin } from "@opencode/plugin"
+import { formatFailure, HistoryError } from "../domain/common.js"
+import { loadConfig } from "../domain/config.js"
+import { PLUGIN_ID } from "../domain/contract.js"
+import { INDEX_PATH_MESSAGES, indexPathProblem } from "../domain/paths.js"
+import { History } from "../rpc.js"
+import { VERSION } from "../version.js"
+import { commandTransform } from "./commands.js"
+import { checkHost } from "./compat.js"
+import { noModel } from "./errors.js"
+import { registerDefaultRules, type Rule } from "./permissions.js"
+import { followEvents } from "./events.js"
+import { rpcHandlers } from "./rpc-handlers.js"
+import { registerScripting } from "./scripting.js"
+import type { CreateRuntime } from "./runtime.js"
+import { loadSkills, skillTransform } from "./skills.js"
+import { buildStatus, fallbackFailure } from "./status.js"
+import { toolTransform } from "./tools.js"
+
+export interface PluginSources {
+  readonly createRuntime: CreateRuntime
+  /** The installed package root, which holds skills/. */
+  readonly packageRoot: string
+}
+
+type GenerateInput = Parameters<Plugin.Context["experimental"]["generate"]["text"]>[0]
+
+/** A failure that stops setup, with its code in the text, since the host logs only the message. Other errors pass. */
+function setupFailure(error: unknown) {
+  if (!(error instanceof HistoryError)) return error
+  return Object.assign(new Error(formatFailure(error)), { code: error.code, ...error.hint ? { hint: error.hint } : {} })
+}
+
+export function createPlugin({ createRuntime, packageRoot }: PluginSources): Plugin.Plugin {
+  return {
+    id: PLUGIN_ID,
+    async setup(ctx) {
+      const config = loadConfig(ctx.options)
+      const host = checkHost(ctx.app.version, config.allowUntestedHost)
+      if (host.next) console.warn(formatFailure({ code: "HOST_UNTESTED", message: `OpenCode ${host.found} is untested (tested: ${host.required}); History runs because allowUntestedHost is set.`, hint: "Use a tested OpenCode version if something fails." }))
+      // Refuse a dangerous indexPath before anything opens it. Options may come from a project's own opencode.json.
+      const problem = indexPathProblem(config.indexPath, {
+        database: config.database,
+        projectFolders: [ctx.location.directory, ctx.location.project.directory],
+        custom: typeof (ctx.options as { indexPath?: unknown } | undefined)?.indexPath === "string",
+      })
+      if (problem) throw setupFailure(new HistoryError("INDEX_PATH_REFUSED", { message: INDEX_PATH_MESSAGES[problem] }))
+      const version = VERSION
+      const model = config.recall.model as GenerateInput["model"]
+      const runtime = await createRuntime({
+        config,
+        session: ctx.session,
+        generate: async prompt => {
+          try { return (await ctx.experimental.generate.text({ prompt, ...model ? { model } : {} })).text } catch (error) { throw noModel(error) ? new HistoryError("RECALL_MODEL_UNAVAILABLE") : error }
+        },
+      }).catch((error: unknown) => { throw setupFailure(error) })
+      if (runtime.fallback) console.warn(formatFailure(fallbackFailure(runtime.fallback)))
+      const shutdown = new AbortController()
+      let stopScripting = async () => {}
+      const close = async () => { shutdown.abort(); await stopScripting(); await runtime.close() }
+      try {
+        const location = { projectID: ctx.location.project.id, directory: ctx.location.directory }
+        const defaults = { scope: config.defaultScope, synthesize: config.recall.synthesize }
+        const agents = async () => (await ctx.agent.list({ location: { directory: ctx.location.directory } })).data as readonly { id: string; permissions: Rule[] }[]
+        const status = () => buildStatus({ version, host, config, runtime, agents, tools: () => ctx.tool.list() })
+        const assert = (request: Parameters<typeof ctx.permission.assert>[0]) => ctx.permission.assert(request)
+        const skills = await loadSkills(packageRoot)
+        await registerDefaultRules(ctx.agent)
+        await ctx.tool.transform(toolTransform({ runtime, session: ctx.session, status, location, defaults, assert: request => assert(request as never) }))
+        await ctx.rpc.register(History, rpcHandlers({ status }))
+        stopScripting = await registerScripting(ctx, { runtime, session: ctx.session, status, location, defaults })
+        await ctx.command.transform(commandTransform({ synthetic: input => ctx.session.synthetic(input), runtime, status }))
+        await ctx.skill.transform(skillTransform(skills))
+        // Session events keep the index fresh. The loop ends when the plugin unloads.
+        void followEvents(options => ctx.event.subscribe(options), event => runtime.onEvent(event), shutdown.signal)
+        return close
+      } catch (error) {
+        await close().catch(() => undefined)
+        throw error
+      }
+    },
+  }
+}

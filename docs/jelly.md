@@ -1,0 +1,43 @@
+# In Jelly
+
+[Jelly](https://heyjelly.ai) runs OpenCode agents. It reads the `jelly` section of this
+package's `package.json` as JSON, without loading the plugin, when a person reviews the exact
+version, and uses it as follows.
+
+Jelly names the plugin **History** (`jelly.title`), with the package name and version beneath.
+
+## Tools and permissions
+
+9 tools are declared (8 read-only). Jelly's agents have no base "allow everything"
+rule, so this plugin's own default rules, which it puts after that rule, never reach them. Jelly
+writes each declared `ask` or `deny` as that tool's default instead (the person's own choice
+replaces it), and denies a read-only helper every tool not marked `readOnly`. A declared `allow`
+changes nothing in Jelly.
+
+- Ask: `history.pin`, which pins a past session's brief or messages into the current session's
+  instructions.
+- Off: none.
+- Everything else runs, as the plugin's own rules let it: search, brief, read, sessions, files,
+  recall, SQL and status, which only read the history index and OpenCode's database.
+
+Keep `jelly.tools` in step with the plugin's tools and default rules; `test/**/jelly.test.ts`
+checks each declared tool and effect against them.
+
+## Skills
+
+Declared: `history-recall`. Jelly refuses an install whose skill ids collide with another
+plugin's or the agent's own.
+
+## Views
+
+None yet.
+
+## Signing in
+
+None. History reads the OpenCode history on the machine it runs on and has no account, so it
+declares no sign-ins.
+
+## Versions
+
+Jelly's curated catalogue pins an exact version. Publish each release under a new version, so
+that a review in Jelly can tell two releases apart.

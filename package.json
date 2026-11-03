@@ -1,0 +1,135 @@
+{
+  "name": "@joe-broadhead/opencode-history",
+  "version": "0.0.0",
+  "description": "Unofficial OpenCode plugin: search, read and recall your past OpenCode sessions",
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "history"
+  ],
+  "homepage": "https://github.com/joe-broadhead/opencode-history#readme",
+  "bugs": {
+    "url": "https://github.com/joe-broadhead/opencode-history/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/joe-broadhead/opencode-history.git"
+  },
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.js",
+    "./tui": "./dist/tui.js"
+  },
+  "files": [
+    "dist",
+    "skills",
+    "README.md",
+    "LICENSE",
+    "NOTICE",
+    "CHANGELOG.md"
+  ],
+  "opencode": {
+    "host": ">=2.2.3 <2.3.0"
+  },
+  "jelly": {
+    "title": "History",
+    "tools": [
+      {
+        "name": "history.search",
+        "permission": "history_search",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
+        "name": "history.brief",
+        "permission": "history_brief",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
+        "name": "history.read",
+        "permission": "history_read",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
+        "name": "history.sessions",
+        "permission": "history_sessions",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
+        "name": "history.files",
+        "permission": "history_files",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
+        "name": "history.recall",
+        "permission": "history_recall",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
+        "name": "history.sql",
+        "permission": "history_sql",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
+        "name": "history.pin",
+        "permission": "history_pin",
+        "effect": "ask",
+        "readOnly": false
+      },
+      {
+        "name": "history.status",
+        "permission": "history_status",
+        "effect": "allow",
+        "readOnly": true
+      }
+    ],
+    "skills": [
+      "history-recall"
+    ],
+    "rpc": [],
+    "views": [],
+    "signIns": [],
+    "contributes": {
+      "homeFeeds": [],
+      "homeWidgets": [],
+      "workKinds": [],
+      "settings": []
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --maxWorkers=2",
+    "build": "node scripts/build.mjs",
+    "test:host": "vitest run -c vitest.host.config.ts && OPENCODE_HOST_VERSION=2.2.4 vitest run -c vitest.host.config.ts",
+    "test:tui": "npx -y bun@1.4.4 test test/tui",
+    "test:pack": "npx -y bun@1.4.4 test test/pack",
+    "bench": "vitest run -c vitest.bench.config.ts --silent=false",
+    "lint": "node scripts/check-forbidden.mjs",
+    "check": "npm run typecheck && npm test && npm run build && npm run test:host && npm run test:tui && npm run lint && npm run test:pack"
+  },
+  "devDependencies": {
+    "@babel/core": "7.29.7",
+    "@babel/preset-typescript": "7.27.1",
+    "@opencode/client": "2.2.3",
+    "@opencode/plugin": "2.2.3",
+    "@opencode/sdk": "2.2.3",
+    "@opencode/util": "2.2.3",
+    "@opentui/core": "0.8.0",
+    "@opentui/solid": "0.8.0",
+    "@types/bun": "1.4.4",
+    "@types/node": "24.19.2",
+    "babel-preset-solid": "1.9.16",
+    "esbuild": "0.28.2",
+    "solid-js": "1.9.18",
+    "typescript": "5.9.3",
+    "vitest": "5.0.5",
+    "zod": "4.6.7"
+  }
+}
