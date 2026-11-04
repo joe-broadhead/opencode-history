@@ -60,7 +60,7 @@ describe("the jelly declaration", () => {
     expect(pkg.files).toContain(jelly.icon)
     const icon = readFileSync(new URL(`../../${jelly.icon}`, import.meta.url), "utf8")
     expect(Buffer.byteLength(icon)).toBeLessThan(2048)
-    expect(icon.trim()).toMatch(/^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" viewBox="0 0 (24 24|32 32)"[^>]*>[\s\S]*<\/svg>$/)
+    expect(icon.trim()).toMatch(/^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" viewBox="0 0 (24 24|32 32|48 48)"[^>]*>[\s\S]*<\/svg>$/)
     const elements = [...icon.matchAll(/<([A-Za-z][A-Za-z0-9]*)/g)].map(match => match[1])
     expect(elements.filter(name => !["svg", "g", "path", "circle", "ellipse", "rect", "line", "polyline", "polygon"].includes(name!))).toEqual([])
     expect(icon).not.toMatch(/<title|<style|<script|href=|<!|&/i)
