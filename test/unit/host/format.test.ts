@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest"
 import { HOST_RANGE } from "../../../src/host/compat.js"
-import { formatBrief, formatFiles, formatRead, formatRecall, formatSearch, formatSessions, formatSql, formatStatus, indexNotes, oneLine, when } from "../../../src/host/format.js"
+import { formatBrief, formatFiles, formatRead, formatRecall, formatSearch, formatSessions, formatSql, formatStatus, indexNotes, oneLine, size, when } from "../../../src/host/format.js"
 import { INDEX, SAMPLES } from "../../host/samples.js"
 
 describe("result text", () => {
@@ -123,7 +123,7 @@ describe("result text", () => {
   })
 
   test("status rows end with exactly one next step", () => {
-    const view = { version: "0.1.0", host: { required: HOST_RANGE, found: "2.3.0", availability: "HOST_UNTESTED" as const, next: "Use 2.2.x." }, connection: "host untested" as const, tools: { visible: 9, unknown: [] as string[] }, index: { ...INDEX, lagSeconds: 3.4 }, database: "/d/opencode.db", indexPath: "/d/index.db", defaultScope: "project" as const, recall: { synthesize: false, model: null }, unguardedAgents: [] as string[], next: "Use 2.2.x." }
+    const view = { version: "0.1.0", host: { version: "2.3.0", range: HOST_RANGE, tested: false }, state: "host_untested" as const, tools: { visible: 9, unknown: [] as string[] }, index: { ...INDEX, lagSeconds: 3.4 }, database: "/d/opencode.db", indexPath: "/d/index.db", indexBytes: 535_822_336, masksChanged: false, defaultScope: "project" as const, recall: { synthesize: false, model: null }, unguardedAgents: [] as string[], nextStep: "Use 2.2.x." }
     expect(formatStatus(view).split("\n")).toEqual([
       "History status",
       "Connection: host untested",
@@ -132,17 +132,27 @@ describe("result text", () => {
       "Index: ready, 42 of 42 sessions, 3 s behind",
       "Source: OpenCode database",
       "Database: /d/opencode.db",
-      "Index file: /d/index.db",
+      "Index file: /d/index.db (511 MB)",
       "Default scope: project",
       "Recall answers: off (default model)",
       "Tools: 9 available",
       "Agents without default rules: none",
-      "OpenCode: 2.3.0 (host untested: tested on >=2.2.3 <2.3.0). History 0.1.0",
+      "OpenCode: 2.3.0 (untested; supported range >=2.2.3 <2.3.0). History 0.1.0",
       "Next step: Use 2.2.x.",
     ])
-    const mismatched = formatStatus({ ...view, mismatch: { file: "1", build: "3" }, next: "Restart." }).split("\n")
-    expect(mismatched.slice(7, 9)).toEqual(["Index file: /d/index.db", "Index schema: version 1 in the file, but this build uses version 3, so every query fails (INDEX_MISMATCH)"])
+    const mismatched = formatStatus({ ...view, mismatch: { file: "1", build: "3" }, nextStep: "Restart." }).split("\n")
+    expect(mismatched.slice(7, 9)).toEqual(["Index file: /d/index.db (511 MB)", "Index schema: version 1 in the file, but this build uses version 3, so every query fails (INDEX_MISMATCH)"])
     expect(mismatched.filter(line => line.startsWith("Next step:"))).toEqual(["Next step: Restart."])
+    const tested = formatStatus({ ...view, host: { version: "2.2.5", range: HOST_RANGE, tested: true }, state: "ready", indexBytes: null, nextStep: "Nothing to do." }).split("\n")
+    expect(tested).toContain("Connection: connected")
+    expect(tested).toContain("Index file: /d/index.db")
+    expect(tested).toContain("OpenCode: 2.2.5 (tested). History 0.1.0")
+    const masks = formatStatus({ ...view, masksChanged: true }).split("\n")
+    expect(masks.slice(7, 9)).toEqual(["Index file: /d/index.db (511 MB)", "Masks: changed since text was indexed, so the index file holds that text masked the old way until /history-reindex rebuild"])
+  })
+
+  test("sizes read in the largest unit that keeps them at least 1", () => {
+    expect([0, 512, 1536, 10 * 1024, 535_822_336, 3 * 1024 ** 3].map(size)).toEqual(["0 B", "512 B", "1.5 KB", "10 KB", "511 MB", "3.0 GB"])
   })
 
   test("helpers", () => {

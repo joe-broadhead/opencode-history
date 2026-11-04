@@ -54,7 +54,7 @@ describe("RPC handlers", () => {
   const setup = (overrides: Partial<RpcSources> = {}) => {
     const runtime = fakeRuntime()
     const sources: RpcSources = {
-      status: () => buildStatus({ version: "1.0.0", host: { required: HOST_RANGE, found: "2.2.3", availability: "AVAILABLE" }, config: { database: "/d", indexPath: "/i", defaultScope: "directory", recall: { synthesize: false } }, runtime, agents: async () => [] }),
+      status: () => buildStatus({ version: "1.0.0", host: { version: "2.2.3", range: HOST_RANGE, tested: true }, config: { database: "/d", indexPath: "/i", defaultScope: "directory", recall: { synthesize: false } }, runtime, agents: async () => [] }),
       ...overrides,
     }
     return { runtime, handlers: rpcHandlers(sources) }
@@ -62,7 +62,22 @@ describe("RPC handlers", () => {
 
   test("status answers the one status view", async () => {
     const view = await setup().handlers.status({}, context)
-    expect(S.StatusSchema.parse(view)).toMatchObject({ version: "1.0.0", defaultScope: "directory", connection: "connected" })
+    expect(S.StatusSchema.parse(view)).toMatchObject({ version: "1.0.0", defaultScope: "directory", state: "ready", nextStep: "Nothing to do." })
+  })
+
+  test("the status carries the shared fields with the shared names, and none of the old ones (S13)", async () => {
+    const view = await setup().handlers.status({}, context) as Record<string, unknown>
+    expect(view).toMatchObject({
+      version: "1.0.0",
+      host: { version: "2.2.3", range: ">=2.2.3 <2.3.0", tested: true },
+      state: "ready",
+      unguardedAgents: [],
+      nextStep: "Nothing to do.",
+    })
+    expect(Object.keys(view.host as object).sort()).toEqual(["range", "tested", "version"])
+    for (const old of ["connection", "next"]) expect(view).not.toHaveProperty(old)
+    expect(STATUS_OUTPUT.required).toEqual(expect.arrayContaining(["version", "host", "state", "unguardedAgents", "nextStep"]))
+    expect(STATUS_OUTPUT.properties.state.enum).toEqual(["ready", "connecting", "failed", "host_untested"])
   })
 
   test("a failure answers `failed` with the code, the text and the next step; an uncoded one is logged without its text", async () => {

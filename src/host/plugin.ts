@@ -6,7 +6,7 @@ import { INDEX_PATH_MESSAGES, indexPathProblem } from "../domain/paths.js"
 import { History } from "../rpc.js"
 import { VERSION } from "../version.js"
 import { commandTransform } from "./commands.js"
-import { checkHost } from "./compat.js"
+import { checkHost, inRange, TESTED_HOSTS } from "./compat.js"
 import { noModel } from "./errors.js"
 import { registerDefaultRules, type Rule } from "./permissions.js"
 import { followEvents } from "./events.js"
@@ -37,7 +37,10 @@ export function createPlugin({ createRuntime, packageRoot }: PluginSources): Plu
     async setup(ctx) {
       const config = loadConfig(ctx.options)
       const host = checkHost(ctx.app.version, config.allowUntestedHost)
-      if (host.next) console.warn(formatFailure({ code: "HOST_UNTESTED", message: `OpenCode ${host.found} is untested (tested: ${host.required}); History runs because allowUntestedHost is set.`, hint: "Use a tested OpenCode version if something fails." }))
+      if (!host.tested) {
+        const why = inRange(host.version ?? "") ? `inside the supported range ${host.range}` : `outside the supported range ${host.range}; History runs because allowUntestedHost is set`
+        console.warn(formatFailure({ code: "HOST_UNTESTED", message: `OpenCode ${host.version ?? "of no known version"} is untested (tested: ${TESTED_HOSTS.join(", ")}), ${why}.`, hint: "Use a tested OpenCode version if something fails." }))
+      }
       // Refuse a dangerous indexPath before anything opens it. Options may come from a project's own opencode.json.
       const problem = indexPathProblem(config.indexPath, {
         database: config.database,

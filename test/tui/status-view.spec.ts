@@ -20,16 +20,18 @@ interface Deferred { resolve(view: unknown): void; reject(error: Error): void; s
 const BUILDING = "The index is still being built (40 of 42 sessions), and results cover only the indexed sessions. Wait for it to finish."
 const view = (version: string, overrides: Partial<StatusView> = {}): StatusView => ({
   version,
-  host: { required: ">=2.2.3 <2.3.0", found: "2.2.3", availability: "AVAILABLE" },
-  connection: "connecting",
+  host: { version: "2.2.3", range: ">=2.2.3 <2.3.0", tested: true },
+  state: "connecting",
   tools: { visible: 9, unknown: [] },
   index: { ready: false, sessionsIndexed: 40, sessionsTotal: 42, lagSeconds: 0, source: "opencode-db", complete: true },
   database: "/data/opencode/history-source.db",
   indexPath: "/data/opencode-history/index.db",
+  indexBytes: 2_621_440,
+  masksChanged: false,
   defaultScope: "project",
   recall: { synthesize: true, model: "anthropic/claude-sonnet" },
   unguardedAgents: [],
-  next: BUILDING,
+  nextStep: BUILDING,
   ...overrides,
 })
 
@@ -112,7 +114,7 @@ test("renders the /history-status text from the status RPC, with its one next st
     "Index: building, 40 of 42 sessions",
     "Source: OpenCode database",
     "Database: /data/opencode/history-source.db",
-    "Index file: /data/opencode-history/index.db",
+    "Index file: /data/opencode-history/index.db (2.5 MB)",
     "Default scope: project",
     "Recall answers: on (anthropic/claude-sonnet)",
     `OpenCode: 2.2.3 (tested). History ${VERSION}`,
@@ -128,7 +130,7 @@ test("renders the /history-status text from the status RPC, with its one next st
 
 test("nothing to do says so", async () => {
   const ui = await open()
-  const { next: _, ...ready } = view(VERSION, { index: { ready: true, sessionsIndexed: 42, sessionsTotal: 42, lagSeconds: 0, source: "opencode-db", complete: true } })
+  const ready = view(VERSION, { state: "ready", nextStep: "Nothing to do.", index: { ready: true, sessionsIndexed: 42, sessionsTotal: 42, lagSeconds: 0, source: "opencode-db", complete: true } })
   ui.requests[0]!.resolve(ready)
   const frame = await ui.frame()
   expect(frame).toContain("Index: ready, 42 of 42 sessions")
@@ -138,7 +140,7 @@ test("nothing to do says so", async () => {
 test("an index file at another schema shows its row and the restart as the next step", async () => {
   const ui = await open()
   const restart = "The history index was rebuilt for another version of this plugin, likely by another OpenCode process. Restart every OpenCode process, so they all run one version of the plugin."
-  ui.requests[0]!.resolve(view(VERSION, { mismatch: { file: "1", build: "3" }, next: restart }))
+  ui.requests[0]!.resolve(view(VERSION, { mismatch: { file: "1", build: "3" }, nextStep: restart }))
   const frame = await ui.frame()
   const row = "Index schema: version 1 in the file, but this build uses version 3, so every query fails (INDEX_MISMATCH)"
   expect(frame).toContain(row)

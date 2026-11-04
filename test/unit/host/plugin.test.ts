@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, test, vi } from "vitest"
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
-import { tmpdir } from "node:os"
+import { readFileSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { FAILURES } from "../../../src/domain/common.js"
@@ -11,6 +10,7 @@ import type { RuntimeOptions } from "../../../src/host/runtime.js"
 import { History } from "../../../src/rpc.js"
 import { fakeRuntime, type FakeRuntime } from "../../host/runtime.js"
 import { fakeSession } from "../../host/session.js"
+import { tempDir } from "../../temp.js"
 
 const packageRoot = fileURLToPath(new URL("../../../", import.meta.url))
 const VERSION = (JSON.parse(readFileSync(new URL("../../../package.json", import.meta.url), "utf8")) as { version: string }).version
@@ -108,7 +108,7 @@ describe("setup", () => {
   test("the status RPC carries the package version and the options", async () => {
     const h = host({ options: { recall: { synthesize: true, model: "anthropic/claude-sonnet" } } }), { cleanup } = await setup(h)
     expect(await h.rpc.handlers!.status!({}, { error: () => { throw new Error("unexpected") } })).toMatchObject({
-      version: VERSION, host: { found: "2.2.3", availability: "AVAILABLE" }, recall: { synthesize: true, model: "anthropic/claude-sonnet" }, defaultScope: "project",
+      version: VERSION, host: { version: "2.2.3", range: ">=2.2.3 <2.3.0", tested: true }, state: expect.stringMatching(/^(ready|connecting)$/), recall: { synthesize: true, model: "anthropic/claude-sonnet" }, defaultScope: "project",
     })
     await cleanup()
   })
@@ -206,7 +206,7 @@ describe("setup", () => {
   test("an existing database that is not a History index fails setup and keeps its tables", async () => {
     const { createRuntime } = await import("../../../src/runtime.js")
     const { openDb } = await import("../../../src/domain/sqlite.js")
-    const dir = mkdtempSync(join(tmpdir(), "history-plugin-"))
+    const dir = tempDir("history-plugin-")
     try {
       const victim = join(dir, "victim.db")
       const db = openDb(victim)
@@ -227,7 +227,7 @@ describe("setup", () => {
 
   test("a runtime that cannot open fails setup with its code", async () => {
     const { createRuntime } = await import("../../../src/runtime.js")
-    const dir = mkdtempSync(join(tmpdir(), "history-plugin-"))
+    const dir = tempDir("history-plugin-")
     try {
       // The index folder would have to be inside a file.
       writeFileSync(join(dir, "file"), "")

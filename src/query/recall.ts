@@ -161,7 +161,8 @@ export async function recall(
     if (!text) text = `#${snippet.seq} ${snippet.kind}: ${unmark(snippet.text)}`
     text = clip(text, Math.min(perWindow, left))
     covered.set(snippet.sessionID, [...ranges, { from, to }])
-    const title = titles.get(snippet.sessionID)?.title ?? hit.title
+    // Titles come from the index; masking them again applies a pattern added after they were stored, before the model sees them.
+    const title = mask(titles.get(snippet.sessionID)?.title ?? hit.title)
     evidence.push({ sessionID: snippet.sessionID, title, seq: snippet.seq, time: snippet.time, text })
     left -= text.length
   }
