@@ -2,7 +2,7 @@
 // `npm run check`. The index is built once into the system temp folder and reused while the generator and schema stay
 // the same. BENCH_DOCS sets the size.
 import { statSync } from "node:fs"
-import { tmpdir } from "node:os"
+import { TEMP_BASE } from "../temp.js"
 import { join } from "node:path"
 import { afterAll, beforeAll, describe, expect, test } from "vitest"
 import type { Caller, IndexState, SearchInput } from "../../src/domain/api.js"
@@ -21,7 +21,7 @@ let path: string
 
 beforeAll(() => {
   const started = performance.now()
-  const index = benchIndex(join(tmpdir(), "opencode-history-bench"), { docs: DOCS })
+  const index = benchIndex(join(TEMP_BASE, "opencode-history-bench"), { docs: DOCS })
   path = index.path
   if (index.built) console.log(`built ${DOCS} docs in ${Math.round(performance.now() - started)} ms`)
   db = openDb(path, { readOnly: true })

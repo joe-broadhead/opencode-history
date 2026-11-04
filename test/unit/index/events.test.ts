@@ -1,11 +1,11 @@
-import { mkdtempSync, rmSync } from "node:fs"
-import { tmpdir } from "node:os"
+import { rmSync } from "node:fs"
 import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { eventRouter } from "../../../src/index/events.js"
 import { IndexStore } from "../../../src/index/store.js"
 import { Indexer } from "../../../src/index/sync.js"
 import { chat, extract, FakeSource, tick, titleDoc } from "./fakes.js"
+import { tempDir } from "../../temp.js"
 
 let calls: string[]
 let fail: boolean
@@ -140,7 +140,7 @@ describe("eventRouter with an indexer", () => {
   let store: IndexStore
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "history-events-"))
+    dir = tempDir("history-events-")
     store = IndexStore.open(join(dir, "index.db"))
   })
 

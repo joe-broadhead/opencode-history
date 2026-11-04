@@ -1,15 +1,15 @@
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync } from "node:fs"
-import { tmpdir } from "node:os"
+import { mkdirSync, rmSync, symlinkSync } from "node:fs"
 import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { canonicalPath, indexPathProblem } from "../../src/domain/paths.js"
+import { tempDir } from "../temp.js"
 
 let root: string
 let env: Record<string, string>
 let database: string
 
 beforeEach(() => {
-  root = realpathSync(mkdtempSync(join(tmpdir(), "history-paths-")))
+  root = tempDir("history-paths-")
   env = { HOME: join(root, "home"), XDG_DATA_HOME: join(root, "home", ".local", "share") }
   database = join(env.XDG_DATA_HOME!, "opencode", "opencode.db")
   mkdirSync(join(env.XDG_DATA_HOME!, "opencode"), { recursive: true })

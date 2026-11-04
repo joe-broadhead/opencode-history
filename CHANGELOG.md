@@ -4,11 +4,31 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- OpenCode 2.2.5 is a tested host, next to 2.2.3 and 2.2.4.
+- Status shows the index file's size, as `Index file: <path> (511 MB)` and `indexBytes`, and the README says how large the index grows and how to make it smaller.
+- A mask pattern you add now applies at once to everything the tools return, `history_sql` included, not only to text indexed after it. Status shows a `Masks:` row and asks for `/history-reindex rebuild` until the index file is rewritten with the new patterns.
+- README sections on updating the plugin, and on what to run after installing it.
+
+### Changed
+
+- The status RPC (`history.sessions` `status`) uses the field names every plugin's status RPC shares:
+  - `connection` is now `state`, in machine words: `ready` (was `connected`), `connecting`, `failed` and `host_untested` (was `host untested`). The `/history-status` rows keep their words.
+  - `next` is now `nextStep`, always present, and `Nothing to do.` when nothing is needed.
+  - `host` is now `{ version, range, tested }`; it was `{ required, found, availability, next }`. `tested` is true only for 2.2.3, 2.2.4 and 2.2.5.
+- An OpenCode release inside `>=2.2.3 <2.3.0` that is not tested, such as 2.2.6, still starts, but status now reports it as untested (`host_untested`), with a next step, and its OpenCode row reads `2.2.6 (untested; supported range >=2.2.3 <2.3.0)`. Before, every release in the range was called tested.
+- The tools RPC words a bad envelope as every plugin's tools RPC does, such as `"extra" is not allowed`, `"sessionID" must be a non-empty string`, `"input" is missing` and `describe takes no input`, instead of zod's messages. A call without `input` is now refused; before, it ran with `{}`.
+- `SESSION_UNKNOWN` and `SESSION_AGENT_REQUIRED` have the next step every plugin uses: create a session that names an agent and pass its id.
+- The Uninstall steps run in the same order as every plugin's: pins first, while the plugin can still remove them, then the plugin, its index, and copied rules.
+- The scripting docs say that `opencode api` runs in the service's default location, your home directory, and how to target a project, and that it exits with status 1 on an RPC error.
+
 ### Fixed
 
 - A `history_sql` statement no longer keeps running after OpenCode stops. Before, a statement that never ended went on using a CPU core after OpenCode crashed or was killed. Now its process stops by itself at the 10-second limit, and as soon as OpenCode exits, crashes or reloads the plugin.
 - `QUERY_INVALID` now gives a next step that fits its cause. A short substring, a bad date or an empty path no longer gets advice about regular expressions.
 - `/history-reindex` with an unknown argument answers in the usual error format: `INPUT_INVALID: /history-reindex takes no argument or rebuild. Next step: …`.
+- `/history-reindex rebuild` now overwrites the text it drops and empties the write-ahead log, so text that only a newer mask pattern covers no longer stays in the index file's free space.
 - `history_pin` keeps the whole pin within `maxChars`. Before, its header line came on top, so `maxChars: 500` pinned about 730 characters.
 
 ## [0.0.0] - 2026-11-03

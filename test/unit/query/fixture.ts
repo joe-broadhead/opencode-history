@@ -1,6 +1,5 @@
 // A temporary sidecar index built from schema.ts, helpers to insert rows directly, and an in-memory source.
-import { mkdtempSync, rmSync } from "node:fs"
-import { tmpdir } from "node:os"
+import { rmSync } from "node:fs"
 import { join } from "node:path"
 import type { Caller, IndexState } from "../../../src/domain/api.js"
 import type { DocKind, FileOp, SourceMessage } from "../../../src/domain/contract.js"
@@ -8,6 +7,7 @@ import { openDb, type Db } from "../../../src/domain/sqlite.js"
 import { TABLES, TRIGGERS, VIEWS } from "../../../src/index/schema.js"
 import type { MessageSource } from "../../../src/query/read.js"
 import type { TodoSource } from "../../../src/query/brief.js"
+import { tempDir } from "../../temp.js"
 
 export const DAY = 86_400_000
 export const NOW = Date.parse("2026-11-01T12:00:00Z")
@@ -25,7 +25,7 @@ export interface Sidecar {
 }
 
 export function sidecar(): Sidecar {
-  const dir = mkdtempSync(join(tmpdir(), "history-query-"))
+  const dir = tempDir("history-query-")
   const path = join(dir, "index.db")
   const db = openDb(path)
   db.exec("pragma journal_mode = wal")

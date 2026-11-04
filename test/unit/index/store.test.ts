@@ -1,11 +1,11 @@
-import { chmodSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
-import { tmpdir } from "node:os"
+import { chmodSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import type { Doc, FileTouch, SourceSession } from "../../../src/domain/contract.js"
 import { openDb } from "../../../src/domain/sqlite.js"
 import { SCHEMA_VERSION, VIEW_NAMES } from "../../../src/index/schema.js"
 import { APPLICATION_ID, ForeignIndexError, IndexStore, SeqStraddleError, TITLE_SEQ, type Batch, type IndexedLink } from "../../../src/index/store.js"
+import { tempDir } from "../../temp.js"
 
 let dir: string
 let path: string
@@ -74,7 +74,7 @@ const snapshot = () => ({
 })
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "history-store-"))
+  dir = tempDir("history-store-")
   path = join(dir, "state", "history", "index.db")
   store = IndexStore.open(path)
 })

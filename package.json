@@ -107,7 +107,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --maxWorkers=2",
     "build": "node scripts/build.mjs",
-    "test:host": "vitest run -c vitest.host.config.ts && OPENCODE_HOST_VERSION=2.2.4 vitest run -c vitest.host.config.ts",
+    "test:host": "node scripts/test-host.mjs",
     "test:tui": "npx -y bun@1.4.4 test test/tui",
     "test:pack": "npx -y bun@1.4.4 test test/pack",
     "bench": "vitest run -c vitest.bench.config.ts --silent=false",

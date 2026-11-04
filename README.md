@@ -6,7 +6,7 @@ Unofficial; not affiliated with OpenCode.
 
 ## Requirements
 
-- OpenCode `>=2.2.3 <2.3.0`, tested on 2.2.3 and 2.2.4. On any other version the plugin does not start, unless you set [`allowUntestedHost`](https://github.com/joe-broadhead/opencode-history/blob/HEAD/docs/configuration.md#options).
+- OpenCode `>=2.2.3 <2.3.0`, tested on 2.2.3, 2.2.4 and 2.2.5. Another release inside that range starts too, and status says it is untested. Outside `>=2.2.3 <2.3.0` the plugin does not start, unless you set [`allowUntestedHost`](https://github.com/joe-broadhead/opencode-history/blob/HEAD/docs/configuration.md#options).
 - macOS or Linux.
 - Nothing else: no native programs, downloads or accounts. The index is SQLite with full-text search, through the `node:sqlite` module of OpenCode's runtime.
 
@@ -16,7 +16,16 @@ Unofficial; not affiliated with OpenCode.
 opencode plugin add @joe-broadhead/opencode-history
 ```
 
-Restart OpenCode. On first start the plugin indexes every session in OpenCode's database in the background, newest first. The tools work while it runs, over the sessions indexed so far. `/history-status`, or `/history` in the terminal UI, shows the progress.
+Run `opencode reload`, or restart OpenCode. Then run `/history-status`. On first start the plugin indexes every session in OpenCode's database in the background, newest first. The tools work while it runs, over the sessions indexed so far. `/history-status`, or `/history` in the terminal UI, shows the progress.
+
+## Update
+
+```sh
+opencode plugin update @joe-broadhead/opencode-history
+opencode reload
+```
+
+An entry pinned to a version (`@joe-broadhead/opencode-history@0.0.1`) does not update: remove the `@version` from `plugins` first. The index is kept; when a new version changes its layout, the plugin rebuilds it in the background.
 
 ## Sign in
 
@@ -60,7 +69,7 @@ The index holds prompts, replies, tool calls and their output, compaction summar
 
 ### Commands
 
-- `/history-status` posts the status into the session: the connection, index progress and how far behind it is, the source, the database and index paths, the default scope, recall answers, the tools, agents without the default rules, the OpenCode version and one Next step.
+- `/history-status` posts the status into the session: the connection, index progress and how far behind it is, the source, the database and index paths with the index's size, the default scope, recall answers, the tools, agents without the default rules, the OpenCode version and one Next step.
 - `/history-reindex` catches the index up with OpenCode's sessions. `/history-reindex rebuild` drops the index and indexes everything again.
 
 ### Status dialog
@@ -152,7 +161,9 @@ Start with `/history-status` or `history_status`. They end with one next step. E
 | `Agents without default rules: …` | Those agents run every History tool, `history_pin` included, without asking. Put the block status shows first in each agent's own `permissions`. |
 | `Index: ..., 35 s behind` | Seconds since the index was last in step with OpenCode. The next search, sessions or recall call catches up, or run `/history-reindex`. |
 | A recent session is missing | Search, sessions and recall catch up for up to about 200 ms before they answer. A longer catch-up finishes in the background, so run `/history-reindex` to wait for it. |
-| `HOST_UNTESTED` | Use OpenCode 2.2.3 or a later 2.2.x, or set `allowUntestedHost: true` and accept the warning. |
+| `HOST_UNTESTED`, `Connection: host untested` | The OpenCode release is not one of the tested 2.2.3, 2.2.4 and 2.2.5. Inside `>=2.2.3 <2.3.0` the plugin still runs; outside it, it starts only with `allowUntestedHost: true`. If something fails, use a tested release. |
+| `Masks: changed since text was indexed` | You changed `mask` or `maskDefaults` after text was indexed. Results already use the new patterns, but the index file holds the old text: run `/history-reindex rebuild`. |
+| A large index file | The index takes about 2.7 times the text it holds, about 500 MB for 200,000 indexed texts, and status shows its size in the `Index file` row. It grows with your history; a deleted session leaves it, but the file keeps its size and reuses the space. To make it smaller, set `index.toolResults: false`, which leaves out tool output, or a lower `index.maxDocChars`, then delete the index file (with its `-wal` and `-shm` files) and restart OpenCode: the plugin builds a new one. |
 | `OPTIONS_INVALID` | The message names the option. Fix it in the plugin entry and restart. |
 | `SOURCE_UNAVAILABLE` | OpenCode's database stopped answering. Check that `database` points at OpenCode's `opencode.db`, then restart OpenCode. |
 | `INDEX_UNAVAILABLE` | `indexPath` must be a file the plugin can create and write. Fix it and restart. |
@@ -174,11 +185,15 @@ The full list of codes is in [docs/configuration.md](https://github.com/joe-broa
 
 ## Uninstall
 
-```sh
-opencode plugin remove @joe-broadhead/opencode-history
-```
+1. History has no sign-in, so there is nothing to sign out of. Remove your pins while the plugin is still installed: they are instruction entries that OpenCode keeps on the sessions where you made them, and the plugin cannot remove them once it is gone. In each such session, call `history_pin` with `"action": "list"`, then `"action": "remove"` for each one.
+2. Remove the plugin, then run `opencode reload` or restart OpenCode:
 
-Removing the plugin keeps the index. To delete it, remove `~/.local/share/opencode-history` (or your `indexPath`, with its `-wal` and `-shm` files). OpenCode's database is not touched either way. Pins are instruction entries that OpenCode keeps on the sessions where you made them; the plugin does not remove them when it is uninstalled, so remove them first with `history_pin` and `"action": "remove"`. Rules you added to `permissions` stay until you remove them.
+   ```sh
+   opencode plugin remove @joe-broadhead/opencode-history
+   ```
+
+3. Delete the index, which removing the plugin keeps: `~/.local/share/opencode-history`, or your `indexPath` with its `-wal` and `-shm` files. OpenCode's database is not touched either way.
+4. Remove the `history_*` rules you copied into `permissions` or into an agent's own permissions.
 
 ## Links
 
