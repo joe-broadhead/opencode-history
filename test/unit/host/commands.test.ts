@@ -58,7 +58,7 @@ describe("commands", () => {
     expect(t.posts.map(p => p.text)).toEqual([
       "Index caught up: 42 of 42 sessions.",
       "Index rebuilt: 42 of 42 sessions.",
-      "Unknown argument. Use /history-reindex to catch up, or /history-reindex rebuild to index everything again.",
+      "INPUT_INVALID: /history-reindex takes no argument or rebuild. Next step: Run /history-reindex, or /history-reindex rebuild to index everything again.",
     ])
     expect(t.posts.every(p => p.resume === false && p.description === "History reindex")).toBe(true)
     expect([reindexMode(""), reindexMode("catch-up"), reindexMode("REBUILD"), reindexMode("x")]).toEqual(["catch-up", "catch-up", "rebuild", undefined])
