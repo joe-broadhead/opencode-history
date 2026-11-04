@@ -49,8 +49,8 @@ export const FAILURES: { readonly [C in FailureCode]: readonly [message: string,
   PIN_TOO_LARGE: ["The text to pin is larger than OpenCode allows for one instruction entry.", "Pin a shorter range, or set a lower maxChars."],
   EVENTS_UNAVAILABLE: ["OpenCode's session events stopped, so the index may lag behind new sessions.", "Wait, since the plugin subscribes again by itself, and restart OpenCode if it persists."],
   PERMISSION_DENIED: ["The session's agent may not use this tool.", "Add an allow rule for the tool's action to that agent, or call as a session whose agent allows it."],
-  SESSION_UNKNOWN: ["OpenCode has no session with that ID.", "Pass the ID of an existing session as sessionID."],
-  SESSION_AGENT_REQUIRED: ["That session names no agent, so there are no rules to run the tool under.", "Call as a session that names an agent."],
+  SESSION_UNKNOWN: ["OpenCode has no session with that ID.", "Create a session that names an agent, such as POST /api/session with {\"agent\":\"build\"}, and pass its id."],
+  SESSION_AGENT_REQUIRED: ["That session names no agent, so there are no rules to run the tool under.", "Create a session that names an agent, such as POST /api/session with {\"agent\":\"build\"}, and pass its id."],
   OPERATION_FAILED: ["The tool failed unexpectedly.", "Retry, and if it persists, call history_status."],
 }
 

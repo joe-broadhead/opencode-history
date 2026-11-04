@@ -58,7 +58,7 @@ async function setup(options: SetupOptions = {}) {
       },
     },
   }
-  const status = () => buildStatus({ version: "0.0.0", host: { required: HOST_RANGE, found: "2.2.3", availability: "AVAILABLE" }, config: { database: "/d", indexPath: "/i", defaultScope: "project", recall: { synthesize: false } }, runtime, agents: async () => [] })
+  const status = () => buildStatus({ version: "0.0.0", host: { version: "2.2.3", range: HOST_RANGE, tested: true }, config: { database: "/d", indexPath: "/i", defaultScope: "project", recall: { synthesize: false } }, runtime, agents: async () => [] })
   const stop = await registerScripting(ctx as never, { runtime, session: session.session, status, location: { projectID: "prj_app", directory: "/work/app" }, defaults: { scope: "project", synthesize: false } })
   return { runtime, session, contract: contract!, handlers, asserts, hook: hook!, disposed, stop }
 }
@@ -81,6 +81,25 @@ describe("tools RPC contract", () => {
     const h = await setup()
     expect([...EXCLUDED]).toEqual([...ACTIONS])
     for (const name of TOOL_NAMES) expect(Object.hasOwn(h.contract.methods, name), name).toBe(!ACTIONS.has(name))
+  })
+
+  test("checks the envelope with the shared wording, one message per problem (INSTALL-12)", async () => {
+    const h = await setup()
+    type Validated = { value?: unknown; issues?: { message: string }[] }
+    const validate = (method: string, value: unknown) =>
+      ((h.contract.methods as Record<string, { input: Record<string, any> }>)[method]!.input["~standard"].validate(value)) as Validated
+    const messages = (method: string, value: unknown) => validate(method, value).issues?.map(issue => issue.message) ?? []
+    expect(messages("search", "nope")).toEqual([`the envelope must be an object, such as {"sessionID":"<session>","input":<the tool's input>}`])
+    expect(messages("search", { operation: "x", params: {} })).toEqual([`"operation" is not allowed`, `"params" is not allowed`, `"sessionID" must be a non-empty string`, `"input" is missing`])
+    expect(messages("search", { sessionID: "", input: {} })).toEqual([`"sessionID" must be a non-empty string`])
+    expect(messages("search", { sessionID: "ses_1", input: {}, extra: 1 })).toEqual([`"extra" is not allowed`])
+    expect(validate("search", { sessionID: "ses_1", input: { query: "x" } })).toEqual({ value: { sessionID: "ses_1", input: { query: "x" } } })
+    expect(messages("describe", { sessionID: "ses_1" })).toEqual(["describe takes no input"])
+    for (const empty of [undefined, null, {}]) expect(validate("describe", empty).issues, String(empty)).toBeUndefined()
+    // The validator is hidden: the contract still reads as plain JSON Schema.
+    const search = (h.contract.methods as Record<string, { input: object }>)["search"]!.input
+    expect(Object.keys(search)).toEqual(["type", "properties", "required", "additionalProperties"])
+    expect(JSON.stringify(search)).not.toContain("standard")
   })
 
   test("describes each method's action and its input and output as JSON Schema", async () => {

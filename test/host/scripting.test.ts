@@ -71,7 +71,7 @@ describe(`tools RPC on @opencode/sdk, host version ${HOST_VERSION}`, () => {
     const sql = await run("sql", sessions.build!, { sql: "select count(*) as n from v_sessions" })
     expect(sql.value, sql.message).toMatchObject({ columns: ["n"], rows: [[expect.any(Number)]], truncated: false })
     const status = await run("status", sessions.build!, {})
-    expect(status.value).toMatchObject({ connection: expect.stringMatching(/^(connected|connecting)$/), unguardedAgents: expect.any(Number) })
+    expect(status.value).toMatchObject({ state: expect.stringMatching(/^(ready|connecting)$/), unguardedAgents: expect.any(Number) })
     expect((await host.sdk.session.get({ sessionID: sessions.build! } as never) as { time?: unknown }).time).toEqual(before)
   })
 
@@ -108,6 +108,24 @@ describe(`tools RPC on @opencode/sdk, host version ${HOST_VERSION}`, () => {
   test("names an unknown session with SESSION_UNKNOWN, and a session without an agent with SESSION_AGENT_REQUIRED", async () => {
     expect(await run("status", "ses_does_not_exist", {})).toMatchObject({ type: "failed", code: "SESSION_UNKNOWN" })
     expect(await run("status", sessions.agentless!, {})).toMatchObject({ type: "failed", code: "SESSION_AGENT_REQUIRED" })
+  })
+
+  test("a bad envelope is rpc.invalid_input, worded as every plugin's tools RPC words it", async () => {
+    const raw = async (method: string, body: unknown): Promise<{ value?: unknown; type?: string; message?: string }> => {
+      try {
+        return { value: await tools()[method]!(body, { location }) }
+      } catch (error) {
+        const e = error as { type?: string; message?: string }
+        return { type: e.type, message: e.message }
+      }
+    }
+    expect(await raw("search", { operation: "x" })).toEqual({
+      type: "rpc.invalid_input",
+      message: ['"operation" is not allowed', '"sessionID" must be a non-empty string', '"input" is missing'].join("\n"),
+    })
+    expect(await raw("search", { sessionID: sessions.build, input: {}, extra: true })).toEqual({ type: "rpc.invalid_input", message: '"extra" is not allowed' })
+    expect(await raw("describe", { sessionID: sessions.build })).toEqual({ type: "rpc.invalid_input", message: "describe takes no input" })
+    expect((await raw("describe", {})).value).toBeDefined()
   })
 
   test("has no pin method", async () => {

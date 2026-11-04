@@ -27,7 +27,52 @@ export const EXCLUDED: ReadonlySet<string> = new Set(ACTIONS)
 
 export const UNATTENDED = "A script cannot answer an approval prompt; this needs an allow rule for the session's agent."
 
-const Envelope = z.strictObject({ sessionID: z.string().min(1).max(256), input: z.unknown() })
+type JsonSchema = Record<string, unknown>
+const plainObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value)
+
+/**
+ * The envelope's messages: the one wording every plugin's tools RPC uses (the shared tools-rpc module's README,
+ * "Envelope errors"). History checks its own envelope, but says the same.
+ */
+export const ENVELOPE_MESSAGES = {
+  notObject: `the envelope must be an object, such as {"sessionID":"<session>","input":<the tool's input>}`,
+  unknownKey: (key: string) => `"${key}" is not allowed`,
+  sessionID: `"sessionID" must be a non-empty string`,
+  inputMissing: `"input" is missing`,
+  describe: "describe takes no input",
+} as const
+
+/**
+ * A plain JSON Schema with a strict Standard Schema validator attached, not enumerable. OpenCode prefers the validator
+ * and answers its issues with `rpc.invalid_input`; it would otherwise drop unknown keys of an object that has
+ * properties instead of refusing them. The contract still serialises as plain JSON Schema.
+ */
+const standard = (schema: JsonSchema, issues: (value: unknown) => string[]): JsonSchema =>
+  Object.defineProperty({ ...schema }, "~standard", {
+    value: { version: 1, vendor: "history", validate: (value: unknown) => {
+      const found = issues(value)
+      return found.length === 0 ? { value } : { issues: found.map(message => ({ message })) }
+    } },
+    enumerable: false,
+  })
+
+/** The envelope's problems, one message each; none when it is valid. `input` is checked by the tool's own schema. */
+export function envelopeIssues(value: unknown): string[] {
+  if (!plainObject(value)) return [ENVELOPE_MESSAGES.notObject]
+  return [
+    ...Object.keys(value).filter(key => key !== "sessionID" && key !== "input").map(ENVELOPE_MESSAGES.unknownKey),
+    ...typeof value["sessionID"] === "string" && value["sessionID"] !== "" ? [] : [ENVELOPE_MESSAGES.sessionID],
+    ...Object.hasOwn(value, "input") ? [] : [ENVELOPE_MESSAGES.inputMissing],
+  ]
+}
+
+const ENVELOPE = standard(
+  { type: "object", properties: { sessionID: { type: "string", minLength: 1 }, input: {} }, required: ["sessionID", "input"], additionalProperties: false },
+  envelopeIssues,
+)
+/** describe's input: nothing, or an empty object. */
+const DESCRIBE_INPUT = standard({ type: "object", properties: {}, required: [], additionalProperties: false }, value =>
+  value === undefined || value === null || (plainObject(value) && Object.keys(value).length === 0) ? [] : [ENVELOPE_MESSAGES.describe])
 
 /** Every method's one declared error: the code from the error table and its next step. */
 const Failure = z.strictObject({ code: z.string(), next: z.string() })
@@ -115,7 +160,10 @@ export async function registerScripting(ctx: ScriptingContext, sources: Omit<Too
   const invoke = async (tool: ToolDefinition, raw: unknown, context: Context): Promise<unknown> => {
     try {
       if (context.signal.aborted) throw new HistoryError("CANCELLED")
-      const { sessionID, input } = parse(Envelope, raw, "INPUT_INVALID")
+      // OpenCode checks the envelope first; this repeats it for a caller that does not.
+      const problems = envelopeIssues(raw)
+      if (problems.length) throw new HistoryError("INPUT_INVALID", { message: `The envelope is invalid: ${problems.join("; ")}.` })
+      const { sessionID, input } = raw as { sessionID: string; input: unknown }
       const call = await session(sessionID)
       const result = bounded(await runTool(tool, { ...sources, assert }, call, parse(tool.input, input ?? {}, "INPUT_INVALID"), context.signal))
       // RPC output must be a JSON value: drop undefined keys.
@@ -129,8 +177,8 @@ export async function registerScripting(ctx: ScriptingContext, sources: Omit<Too
   const contract = Rpc.define({
     id: TOOLS_RPC_ID,
     methods: {
-      describe: { input: z.strictObject({}).optional(), output: Description },
-      ...Object.fromEntries(tools.map(tool => [tool.name, { input: Envelope, output: tool.output, errors: { failed: Failure } }])),
+      describe: { input: DESCRIBE_INPUT, output: Description },
+      ...Object.fromEntries(tools.map(tool => [tool.name, { input: ENVELOPE, output: tool.output, errors: { failed: Failure } }])),
     },
     events: {},
   })
