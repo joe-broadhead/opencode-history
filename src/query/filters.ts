@@ -4,7 +4,7 @@ import type { Caller, Filters, Hidden, HiddenReason, Scope } from "../domain/api
 import { DOC_KINDS } from "../domain/contract.js"
 import type { Db, Value } from "../domain/sqlite.js"
 import { escapeLike, placeholders, trimSlash } from "./common.js"
-import { parseTime, QueryError } from "./parse.js"
+import { parseTime, QUERY_HINTS, QueryError } from "./parse.js"
 
 /** A SQL condition and its parameters. */
 export interface Where {
@@ -70,7 +70,7 @@ const SCOPES: readonly Scope[] = ["session", "directory", "project", "all"]
  */
 export function pathMatch(path: string, directory: string): Where {
   let clean = path.trim().replace(/^\.\//, "")
-  if (!clean || clean === "/" || clean === ".") throw new QueryError("path must name a file or folder")
+  if (!clean || clean === "/" || clean === ".") throw new QueryError("path must name a file or folder", "query", { hint: QUERY_HINTS.path })
   if (/[*?[]/.test(clean)) {
     return clean.startsWith("/") || clean.startsWith("*")
       ? { sql: "f.path glob ?", params: [clean] }
@@ -111,9 +111,9 @@ export function filterSql(db: Db, caller: Caller, filters: Filters, now: number,
   }
 
   const scope = filters.scope ?? "project"
-  if (!SCOPES.includes(scope)) throw new QueryError("scope must be session, directory, project or all")
+  if (!SCOPES.includes(scope)) throw new QueryError("scope must be session, directory, project or all", "query", { hint: QUERY_HINTS.scope })
   const named = filters.sessionID ?? (scope === "session" ? caller.sessionID : null)
-  if (scope === "session" && !named) throw new QueryError('scope "session" needs a sessionID when there is no calling session')
+  if (scope === "session" && !named) throw new QueryError('scope "session" needs a sessionID when there is no calling session', "query", { hint: QUERY_HINTS.sessionScope })
   if (named) {
     add("(s.id = ? or s.root_id = ?)", named, named)
     if (!filters.includeSubagents) hide("subagents", "s.id = ?", named)

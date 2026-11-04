@@ -7,15 +7,36 @@
  */
 export type QueryFailure = "query" | "cursor" | "session" | "message" | "sql_rejected" | "sql_failed" | "sql_timeout" | "recall"
 
+/**
+ * The next step for each cause of QUERY_INVALID, so the advice fits the mistake. A cause without one gets the code's
+ * general next step.
+ */
+export const QUERY_HINTS = {
+  regex: 'Check the regular expression, or search with match: "words".',
+  substring: 'Use a substring of at least 3 characters, or search with match: "words".',
+  time: "Use an ISO date such as 2026-10-01 or an age such as 7d.",
+  words: 'Search with plain words, or with match: "substring" for exact text.',
+  excluded: "Add a word to search for besides the excluded terms.",
+  empty: "Pass at least one search term in query.",
+  match: 'Use match: "words", "substring" or "regex".',
+  path: "Pass a file or folder path, such as src/auth.ts.",
+  scope: 'Use scope "session", "directory", "project" or "all".',
+  sessionScope: 'Pass sessionID with scope "session", or use another scope.',
+  question: "Pass the question to answer.",
+} as const
+
 /** A request the query layer cannot serve. Messages say what to change and never repeat input values or history text. */
 export class QueryError extends Error {
+  /** The next step, when it is more specific than the failure code's own. */
+  readonly hint?: string
   constructor(
     message: string,
     readonly reason: QueryFailure = "query",
-    options?: { cause?: unknown },
+    options?: { cause?: unknown; hint?: string },
   ) {
-    super(message, options)
+    super(message, options?.cause === undefined ? undefined : { cause: options.cause })
     this.name = "QueryError"
+    if (options?.hint !== undefined) this.hint = options.hint
   }
 }
 
@@ -369,7 +390,7 @@ export function parseTime(value: string, now: number, edge: "since" | "until"): 
   }
   const time = ISO.test(text) ? Date.parse(DATE_ONLY.test(text) ? `${text}T00:00:00Z` : text) : Number.NaN
   if (!Number.isFinite(time)) {
-    throw new QueryError(`${edge} must be an ISO date such as "2026-10-01" or an age such as "36h", "7d", "2w", "3m" or "1y"`)
+    throw new QueryError(`${edge} must be an ISO date such as "2026-10-01" or an age such as "36h", "7d", "2w", "3m" or "1y"`, "query", { hint: QUERY_HINTS.time })
   }
   return DATE_ONLY.test(text) && edge === "until" ? time + DAY - 1 : time
 }
@@ -382,13 +403,13 @@ export function parseRegex(pattern: string): RegExp {
   const literal = /^\/(.+)\/([dgimsuvy]*)$/s.exec(pattern)
   const source = literal ? literal[1]! : pattern
   const flags = literal ? literal[2]! : "i"
-  if (!source) throw new QueryError("regex pattern is empty")
+  if (!source) throw new QueryError("regex pattern is empty", "query", { hint: QUERY_HINTS.regex })
   try {
     return new RegExp(source, flags.includes("g") ? flags : `${flags}g`)
   } catch (error) {
     // V8 puts the pattern before the last colon; keep only the reason.
     const reason = error instanceof Error && error.message.startsWith("Invalid regular expression") ? error.message.split(": ").at(-1) : "invalid flags"
-    throw new QueryError(`invalid regex: ${reason}`)
+    throw new QueryError(`invalid regex: ${reason}`, "query", { hint: QUERY_HINTS.regex })
   }
 }
 

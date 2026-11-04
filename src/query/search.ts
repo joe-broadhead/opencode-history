@@ -6,7 +6,7 @@ import type { Db } from "../domain/sqlite.js"
 import { bounded, iso, placeholders, summaries, trimSlash } from "./common.js"
 import { filterSql, hiddenCounts, hidingColumns, type Filtered, type Where } from "./filters.js"
 import {
-  decodeCursor, encodeCursor, hasJoined, highlightTerms, joinedPattern, joinedWords, MIN_SUBSTRING, nearMatch, parseQuery, parseRegex, QueryError,
+  decodeCursor, encodeCursor, hasJoined, highlightTerms, joinedPattern, joinedWords, MIN_SUBSTRING, nearMatch, parseQuery, parseRegex, QUERY_HINTS, QueryError,
   requiredLiteral, substringCandidates, termMatch, toMatch, trigramMatch, usableQuery, type ParsedQuery, type Term,
 } from "./parse.js"
 
@@ -96,7 +96,7 @@ interface Hits {
 }
 
 const ftsFailure = (error: unknown) =>
-  error instanceof Error && /fts5|syntax error/i.test(error.message) ? new QueryError("the query could not be searched; use plain words", "query", { cause: error }) : error
+  error instanceof Error && /fts5|syntax error/i.test(error.message) ? new QueryError("the query could not be searched", "query", { cause: error, hint: QUERY_HINTS.words }) : error
 
 /** The best docs for one words-mode MATCH, scored by bm25 and kind. */
 function ftsHits(db: Db, match: string, where: Where): { hits: DocHit[]; truncated: boolean } {
@@ -764,12 +764,12 @@ const MODES: readonly MatchMode[] = ["words", "substring", "regex"]
 export async function search(db: Db, caller: Caller, input: SearchInput, state: IndexState, options: SearchOptions = {}): Promise<SearchOutput> {
   const now = options.now ?? Date.now()
   const mode = input.match ?? "words"
-  if (!MODES.includes(mode)) throw new QueryError("match must be words, substring or regex")
+  if (!MODES.includes(mode)) throw new QueryError("match must be words, substring or regex", "query", { hint: QUERY_HINTS.match })
   const limit = bounded(input.limit, BOUNDS.search.limit)
   const snippetCount = bounded(input.snippets, BOUNDS.search.snippets)
   const offset = decodeCursor(input.cursor)
   const texts = phrasingsOf(input.query, mode === "regex")
-  if (texts.length === 0) throw new QueryError("query is empty")
+  if (texts.length === 0) throw new QueryError("query is empty", "query", { hint: QUERY_HINTS.empty })
   const where = filterSql(db, caller, input, now, "docs")
   const deadline = performance.now() + SCAN_BUDGET_MS
 
@@ -786,7 +786,7 @@ export async function search(db: Db, caller: Caller, input: SearchInput, state: 
     })
   } else if (mode === "substring") {
     const parsed = texts.map(parseQuery)
-    if (parsed.every(query => !substringCandidates(query))) throw new QueryError(`substring search needs a term of at least ${MIN_SUBSTRING} characters to include`)
+    if (parsed.every(query => !substringCandidates(query))) throw new QueryError(`substring search needs a term of at least ${MIN_SUBSTRING} characters`, "query", { hint: QUERY_HINTS.substring })
     hits = await substringHits(db, parsed, where, deadline, limit)
     highlighters = parsed.map(query => ({ kind: "literal", terms: highlightTerms(query, "substring").map(fold) }))
     probes = parsed.flatMap(query => {
@@ -798,7 +798,7 @@ export async function search(db: Db, caller: Caller, input: SearchInput, state: 
     })
   } else {
     const parsed = texts.map(parseQuery)
-    if (parsed.every(query => toMatch(query, "words") === undefined)) throw new QueryError("query has nothing to include; excluded terms need at least one word to search for")
+    if (parsed.every(query => toMatch(query, "words") === undefined)) throw new QueryError("query has nothing to include; excluded terms need at least one word to search for", "query", { hint: QUERY_HINTS.excluded })
     hits = wordsHits(db, parsed, where, limit)
     highlighters = parsed.map(query => {
       const full = toMatch(query, "words")
