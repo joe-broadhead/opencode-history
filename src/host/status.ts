@@ -9,10 +9,12 @@ import type { HistoryRuntime, IndexSchema, SourceFallback } from "./runtime.js"
 
 /**
  * The state, in the shared machine words (S13): `failed` when every query fails (an index at another schema) or the
- * history is partial (OpenCode's database could not be used), `host_untested`, `connecting` while the first index
- * builds, otherwise `ready`: History has no service to connect to. The Connection row shows it in the S9 words.
+ * history is partial (OpenCode's database could not be used), `connecting` while the first index builds, otherwise
+ * `ready`: History has no service to connect to. The Connection row shows it in the S9 words. History has no
+ * status-only mode, which is what `host_untested` means: outside the range it does not start at all, unless
+ * `allowUntestedHost` is set, and then it works normally. An untested host shows in `host.tested` and the OpenCode row.
  */
-export type State = "ready" | "connecting" | "failed" | "host_untested"
+export type State = "ready" | "connecting" | "failed"
 
 /** One status model for the history_status tool, the command, the RPC and the TUI. */
 export interface StatusView {
@@ -67,9 +69,8 @@ export const MASKS_CHANGED =
 
 export const BUILDING = "Wait for the index to finish building, since until then results cover only the sessions indexed so far."
 
-export function stateOf(host: HostCheck, view: Pick<StatusView, "index" | "mismatch">): State {
+export function stateOf(view: Pick<StatusView, "index" | "mismatch">): State {
   if (view.mismatch || view.index.source === "context") return "failed"
-  if (!host.tested) return "host_untested"
   return view.index.ready ? "ready" : "connecting"
 }
 
@@ -97,7 +98,7 @@ export async function buildStatus({ version, host, config, runtime, agents, tool
   const { model } = config.recall
   const base = { index, ...schema.file !== schema.build ? { mismatch: schema } : {} }
   const view = {
-    version, host: { version: host.version, range: host.range, tested: host.tested }, state: stateOf(host, base), index,
+    version, host: { version: host.version, range: host.range, tested: host.tested }, state: stateOf(base), index,
     ...index.source === "context" ? { fallback: runtime.fallback ?? "SOURCE_UNAVAILABLE" as const } : {},
     tools: { visible: ours.length, unknown: ours.filter(id => !known.has(id)).filter(id => SAFE_NAME.test(id)).slice(0, 20) },
     database: config.database,

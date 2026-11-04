@@ -123,10 +123,10 @@ describe("result text", () => {
   })
 
   test("status rows end with exactly one next step", () => {
-    const view = { version: "0.1.0", host: { version: "2.3.0", range: HOST_RANGE, tested: false }, state: "host_untested" as const, tools: { visible: 9, unknown: [] as string[] }, index: { ...INDEX, lagSeconds: 3.4 }, database: "/d/opencode.db", indexPath: "/d/index.db", indexBytes: 535_822_336, masksChanged: false, defaultScope: "project" as const, recall: { synthesize: false, model: null }, unguardedAgents: [] as string[], nextStep: "Use 2.2.x." }
+    const view = { version: "0.1.0", host: { version: "2.3.0", range: HOST_RANGE, tested: false }, state: "ready" as const, tools: { visible: 9, unknown: [] as string[] }, index: { ...INDEX, lagSeconds: 3.4 }, database: "/d/opencode.db", indexPath: "/d/index.db", indexBytes: 535_822_336, masksChanged: false, defaultScope: "project" as const, recall: { synthesize: false, model: null }, unguardedAgents: [] as string[], nextStep: "Use 2.2.x." }
     expect(formatStatus(view).split("\n")).toEqual([
       "History status",
-      "Connection: host untested",
+      "Connection: connected",
       "Account: none; History needs no sign-in",
       "Access: reads OpenCode's database read-only and writes only its own index; history_pin asks before it changes a session",
       "Index: ready, 42 of 42 sessions, 3 s behind",

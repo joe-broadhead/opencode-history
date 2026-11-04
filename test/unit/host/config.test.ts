@@ -17,8 +17,8 @@ describe("host check", () => {
     expect(TESTED_HOSTS).toEqual(["2.2.3", "2.2.4", "2.2.5"])
     for (const version of TESTED_HOSTS) expect(checkHost(version, false)).toEqual({ version, range: HOST_RANGE, tested: true })
   })
-  test("a release inside the range that is not tested starts, untested, with a next step", () => {
-    expect(checkHost("2.2.6", false)).toEqual({ version: "2.2.6", range: HOST_RANGE, tested: false, next: "OpenCode 2.2.6 is inside the supported range but untested. If something fails, use OpenCode 2.2.3, 2.2.4 or 2.2.5." })
+  test("a release inside the range that is not tested sets up normally, untested, with no next step of its own", () => {
+    expect(checkHost("2.2.6", false)).toEqual({ version: "2.2.6", range: HOST_RANGE, tested: false })
   })
   test("a host outside the range is refused with the next step", () => {
     expect(() => checkHost("2.3.0", false)).toThrow("HOST_UNTESTED: History supports OpenCode >=2.2.3 <2.3.0, found 2.3.0. Next step: Use OpenCode 2.2.3, 2.2.4 or 2.2.5, or another release inside >=2.2.3 <2.3.0, or set the plugin option allowUntestedHost: true to run anyway.")

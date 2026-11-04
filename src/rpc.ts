@@ -18,7 +18,7 @@ const INDEX = object({ ready: boolean, sessionsIndexed: integer, sessionsTotal: 
 export const STATUS_OUTPUT = object({
   version: string,
   host: object({ version: nullable(string), range: string, tested: boolean }, ["version", "range", "tested"]),
-  state: choice(["ready", "connecting", "failed", "host_untested"]),
+  state: choice(["ready", "connecting", "failed"]),
   index: INDEX,
   fallback: choice(["SOURCE_UNAVAILABLE", "SOURCE_SCHEMA_UNKNOWN"]),
   tools: object({ visible: integer, unknown: list(string) }, ["visible", "unknown"]),

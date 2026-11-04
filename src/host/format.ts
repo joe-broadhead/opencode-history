@@ -237,7 +237,7 @@ export const ACCOUNT_TEXT = "none; History needs no sign-in"
 export const ACCESS_TEXT = "reads OpenCode's database read-only and writes only its own index; history_pin asks before it changes a session"
 const FALLBACK_TEXT = { SOURCE_UNAVAILABLE: "OpenCode's database could not be read", SOURCE_SCHEMA_UNKNOWN: "OpenCode's database has an unknown layout" } as const
 /** The Connection row's words for each state: the S9 labels. */
-export const CONNECTION_WORDS: { readonly [S in State]: string } = { ready: "connected", connecting: "connecting", failed: "failed", host_untested: "host untested" }
+export const CONNECTION_WORDS: { readonly [S in State]: string } = { ready: "connected", connecting: "connecting", failed: "failed" }
 /** The row that shows only when the mask options changed after text was indexed. */
 export const MASKS_ROW = "Masks:"
 /** A byte count in the largest unit that keeps it at least 1: `512 B`, `3.4 KB`, `511 MB`. */

@@ -86,4 +86,4 @@ A tool input the tool's own schema refuses is `INPUT_INVALID`, naming the fields
 
 ## Status
 
-`history.sessions` keeps one method, `status`, the status view the `/history` dialog shows. It needs no session. Its shared fields have the same names in every plugin: `version`, `host` (`version`, `range`, `tested`), `state` (`ready`, `connecting`, `failed` or `host_untested` for History), `unguardedAgents` and `nextStep`. The rest are History's own; [configuration.md](configuration.md#status) lists them all.
+`history.sessions` keeps one method, `status`, the status view the `/history` dialog shows. It needs no session. Its shared fields have the same names in every plugin: `version`, `host` (`version`, `range`, `tested`), `state` (`ready`, `connecting` or `failed` for History), `unguardedAgents` and `nextStep`. The rest are History's own; [configuration.md](configuration.md#status) lists them all.

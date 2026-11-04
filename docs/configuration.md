@@ -88,7 +88,7 @@ It does not cover directory and project paths, agent, model and tool names, IDs,
 | Version | Result |
 | --- | --- |
 | 2.2.3, 2.2.4, 2.2.5 | Tested. Loads. |
-| 2.2.6, 2.2.10 | Inside the range, untested. Loads, with a `HOST_UNTESTED` warning in the server log; status reports `host untested` and says to use a tested release if something fails. |
+| 2.2.6, 2.2.10 | Inside the range, untested. Loads normally, with a `HOST_UNTESTED` warning in the server log. Status works as usual: `host.tested` is `false` and the OpenCode row says untested, but the state and the next step are not changed by it. |
 | 2.2.2, 2.3.0, 3.0.0 | Outside the range. Refused, unless `allowUntestedHost` is `true`. |
 | Prerelease, dev build, `unknown` | Outside the range. Refused, unless `allowUntestedHost` is `true`. |
 
@@ -96,7 +96,7 @@ Do not write the range as `^2.2.3`. That would accept 2.3.
 
 The refusal text is: `HOST_UNTESTED: History supports OpenCode >=2.2.3 <2.3.0, found <version>. Next step: Use OpenCode 2.2.3, 2.2.4 or 2.2.5, or another release inside >=2.2.3 <2.3.0, or set the plugin option allowUntestedHost: true to run anyway.`
 
-With `allowUntestedHost: true`, a version outside the range loads too, with the same warning and status as an untested one inside it.
+With `allowUntestedHost: true`, a version outside the range loads too and works normally, with the same warning; its next step says to use a tested release if something fails. History has no status-only mode, so its state is never `host_untested`.
 
 ## Source
 
@@ -333,7 +333,7 @@ The status RPC has the plugin ID, `history.sessions`, and no events. Its contrac
 | --- | --- |
 | `version` | The plugin version. |
 | `host` | `version`, the OpenCode version (`null` when OpenCode gives none); `range`, the supported range `>=2.2.3 <2.3.0`; and `tested`, true only for 2.2.3, 2.2.4 and 2.2.5. |
-| `state` | `ready`; `connecting` while the first index builds; `failed` when the history is partial (`fallback`) or every query fails (`mismatch`); `host_untested`. The Connection row shows the same states as `connected`, `connecting`, `failed` and `host untested`. |
+| `state` | `ready`; `connecting` while the first index builds; `failed` when the history is partial (`fallback`) or every query fails (`mismatch`). The Connection row shows the same states as `connected`, `connecting` and `failed`. An untested host does not change it; see `host.tested`. |
 | `index.ready` | The first full pass has finished. Before that, results cover only the sessions indexed so far. |
 | `index.sessionsIndexed`, `index.sessionsTotal` | Sessions in the index, and the source's count when it was last listed in full. |
 | `index.lagSeconds` | How far the index may be behind OpenCode: seconds since the index was last known to be in step, which is the start of the last finished catch-up, full pass or session sync after a session event. Search, sessions and recall catch up first, so their results usually carry `0`. |
@@ -348,7 +348,7 @@ The status RPC has the plugin ID, `history.sessions`, and no events. Its contrac
 | `unguardedAgents` | The agents that miss the default rules (see [Permissions](#permissions)). `history_status` gives their count instead, and a `permissions` line that points to `/history-status`. |
 | `permissionsBlock` | Present when `unguardedAgents` is not empty: the block to put first in their own `permissions`. |
 | `mismatch` | Present only when the index file's schema is not this build's, after another OpenCode process running another version of the plugin rebuilt it: `file`, its version, or `null` when it has none, and `build`, this build's. Every query then fails with `INDEX_MISMATCH`. |
-| `nextStep` | One next step, exactly the Next step row: the first of an untested host, an index file at another schema (`INDEX_MISMATCH`), the fallback source (`SOURCE_UNAVAILABLE` or `SOURCE_SCHEMA_UNKNOWN`), changed masks, unguarded agents, or an index still building; `Nothing to do.` when nothing is needed. |
+| `nextStep` | One next step, exactly the Next step row: the first of a host outside the range that runs because of `allowUntestedHost`, an index file at another schema (`INDEX_MISMATCH`), the fallback source (`SOURCE_UNAVAILABLE` or `SOURCE_SCHEMA_UNKNOWN`), changed masks, unguarded agents, or an index still building; `Nothing to do.` when nothing is needed. |
 
 `version`, `host`, `state`, `unguardedAgents` and `nextStep` are the fields every plugin's status RPC shares, with these names. Before 0.0.1 they were `host.found`, `host.required`, `host.availability`, `connection` and `next`.
 
