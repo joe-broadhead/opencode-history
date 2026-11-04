@@ -496,6 +496,23 @@ describe("failures", () => {
     ])
   })
 
+  it("gives QUERY_INVALID a next step that fits its cause", async () => {
+    const { runtime } = await indexed()
+    const failure = (work: Promise<unknown>) => work.then(() => undefined, (error: { code: string; message: string; hint?: string }) => error)
+    expect(await failure(runtime.search(CALLER, { query: "🚀", match: "substring" }))).toMatchObject({
+      code: "QUERY_INVALID",
+      message: "The search query cannot be used: substring search needs a term of at least 3 characters.",
+      hint: 'Use a substring of at least 3 characters, or search with match: "words".',
+    })
+    expect(await failure(runtime.search(CALLER, { query: "/(/", match: "regex" }))).toMatchObject({ hint: 'Check the regular expression, or search with match: "words".' })
+    expect(await failure(runtime.sessions(CALLER, { since: "last tuesday" }))).toMatchObject({ hint: "Use an ISO date such as 2026-10-01 or an age such as 7d." })
+    expect(await failure(runtime.search(CALLER, { query: "-login" }))).toMatchObject({ hint: "Add a word to search for besides the excluded terms." })
+    expect(await failure(runtime.files(CALLER, { path: "/" }))).toMatchObject({ hint: "Pass a file or folder path, such as src/auth.ts." })
+    expect(await failure(runtime.recall(CALLER, { question: "  ", synthesize: false }))).toMatchObject({ hint: "Pass the question to answer." })
+    // No cause names a regular expression unless one was given.
+    expect(FAILURES.QUERY_INVALID[1]).not.toMatch(/regular expression/)
+  })
+
   it("says what to change, and never repeats the input or SQLite's text", async () => {
     const { runtime } = await indexed()
     const failure = (work: Promise<unknown>) => work.then(

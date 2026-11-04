@@ -421,7 +421,7 @@ When an unexpected error is reported only by a code, `OPERATION_FAILED` or a com
 | `SESSION_NOT_FOUND` | No indexed session has that ID. Find it with `history_search` or `history_sessions`. |
 | `MESSAGE_NOT_FOUND` | The session has no message at that `seq` or ID. Call `history_read` without `at` to see its range. |
 | `CURSOR_INVALID` | Repeat the call without `cursor`. |
-| `QUERY_INVALID` | The query, regular expression, date, path or other filter cannot be used; the message says which. Fix it, or search with `match: "words"`. |
+| `QUERY_INVALID` | The query, regular expression, date, path or other filter cannot be used; the message says which, and the next step fits it: for example "Use a substring of at least 3 characters, or search with match: \"words\".", or "Use an ISO date such as 2026-10-01 or an age such as 7d." |
 | `SQL_REJECTED` | The SQL was not one read-only `SELECT` or `WITH` statement over the index. Rewrite it as one, best over the `v_*` views. |
 | `SQL_TIMEOUT` | The statement ran longer than 10 seconds and was stopped. Narrow it: filter by time or session, and bound a recursive `WITH` with a `LIMIT` or a `WHERE` on its counter. |
 | `SQL_FAILED` | Check the view and column names. The message names the kind of mistake: an unknown column, table or function, an ambiguous column, a syntax error, or too many params. |

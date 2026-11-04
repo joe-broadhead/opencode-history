@@ -72,7 +72,7 @@ export function toFailure(error: unknown, fallback: FailureCode = "OPERATION_FAI
   const code = QUERY_FAILURES[error.reason]
   const detail =
     error.reason === "query" || error.reason === "sql_rejected" ? error.message : error.reason === "sql_failed" ? sqliteMistake(error.cause) : undefined
-  return new HistoryError(code, detail ? { message: `${FAILURES[code][0].replace(/\.$/, "")}: ${detail}.` } : {})
+  return new HistoryError(code, { ...detail ? { message: `${FAILURES[code][0].replace(/\.$/, "")}: ${detail}.` } : {}, ...error.hint ? { hint: error.hint } : {} })
 }
 
 /** One index file and the work that keeps it fresh, shared by every plugin instance that opens that file. */

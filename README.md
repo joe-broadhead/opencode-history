@@ -161,7 +161,7 @@ Start with `/history-status` or `history_status`. They end with one next step. E
 | `INDEX_FAILED` | Run `/history-status`, and if it persists, delete the index file and restart OpenCode. |
 | `INDEX_MISMATCH`, `Index schema: ...` | Another OpenCode process running another version of the plugin rebuilt the index for its own version; status shows both versions. Restart every OpenCode process so they all run one version; the index is then rebuilt for it. |
 | `SESSION_NOT_FOUND` | Find the session ID with `history_search` or `history_sessions`. |
-| `QUERY_INVALID` | Fix the regular expression or the date, or search with `match: "words"`. |
+| `QUERY_INVALID` | Fix what the message names: a substring of at least 3 characters, the regular expression, the date, the path or another filter. The next step fits the mistake. |
 | `SQL_REJECTED`, `SQL_FAILED` | Write one read-only `SELECT` or `WITH` statement, best over the `v_*` views. The message says what was wrong. |
 | `SQL_TIMEOUT` | The statement ran longer than 10 seconds and was stopped. Filter by time or session, and bound a recursive `WITH`. |
 | `PERMISSION_DENIED`, `SESSION_UNKNOWN`, `SESSION_AGENT_REQUIRED` | Scripts only: the session's agent may not use the tool, the session does not exist, or it names no agent. See [Scripting](https://github.com/joe-broadhead/opencode-history/blob/HEAD/docs/scripting.md). |
