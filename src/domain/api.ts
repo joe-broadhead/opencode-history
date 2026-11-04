@@ -1,5 +1,5 @@
 // Inputs and outputs of the query layer. Tools, RPC and the TUI all use these shapes.
-import type { DocKind, FileOp } from "./contract.js"
+import type { DocKind, FileOp, MessageKind } from "./contract.js"
 
 export type Scope = "session" | "directory" | "project" | "all"
 export type MatchMode = "words" | "substring" | "regex"
@@ -131,7 +131,7 @@ export interface ReadInput {
   readonly at?: number | string
   readonly before?: number
   readonly after?: number
-  readonly kinds?: readonly DocKind[]
+  readonly kinds?: readonly MessageKind[]
   readonly full?: boolean
   readonly maxChars?: number
 }
@@ -176,7 +176,7 @@ export interface BriefOutput {
   readonly todos: readonly { readonly content: string; readonly status: string }[]
 }
 
-export interface FilesInput extends Filters {
+export interface FilesInput extends Omit<Filters, "kinds"> {
   readonly path: string
   readonly ops?: readonly FileOp[]
   readonly limit?: number

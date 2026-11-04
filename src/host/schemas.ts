@@ -6,7 +6,7 @@ import type {
 import { BOUNDS, MAX_PHRASINGS, type Bound } from "../domain/bounds.js"
 import { integer, text } from "../domain/common.js"
 import { SCOPES } from "../domain/config.js"
-import { DOC_KINDS, type DocKind, type FileOp } from "../domain/contract.js"
+import { DOC_KINDS, type DocKind, type FileOp, type MessageKind } from "../domain/contract.js"
 import type { StatusView } from "./status.js"
 
 // Tool input and output schemas. Inputs carry the defaults the model sees, from BOUNDS, which the query layer clamps
@@ -19,6 +19,9 @@ export const ranged = (bound: Bound, what: string) =>
 
 const FILE_OPS = ["read", "edit", "write", "patch", "search"] as const satisfies readonly FileOp[]
 const kind = z.enum(DOC_KINDS as [DocKind, ...DocKind[]])
+/** The kinds a message shows: every kind but titles, which are not messages. */
+const READ_KINDS = DOC_KINDS.filter((k): k is MessageKind => k !== "title")
+const messageKind = z.enum(READ_KINDS as [MessageKind, ...MessageKind[]])
 const op = z.enum(FILE_OPS)
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/, "must be an ID such as ses_...")
 export const sessionID = id
@@ -63,8 +66,10 @@ export const SessionsInputSchema = z.strictObject({
   ...filters,
 }) satisfies z.ZodType<SessionsInput>
 
+// Files filters touches, not texts, so it takes no kinds.
+const { kinds: _kinds, ...fileFilters } = filters
 export const FilesInputSchema = z.strictObject({
-  ...filters,
+  ...fileFilters,
   path: text(4096).min(1).describe("A file or folder, for example src/auth or src/auth/login.ts. A relative path matches the end of a recorded path, in any checkout; an absolute path matches only that file or folder. Globs such as src/*.ts also work."),
   ops: z.array(op).min(1).max(FILE_OPS.length).optional().describe("Only these operations: read, edit, write, patch, search. Default: all."),
   limit: ranged(BOUNDS.files.limit, "Files to return"),
@@ -75,7 +80,8 @@ export const ReadInputSchema = z.strictObject({
   at: z.union([integer.min(0), id]).optional().describe("Where to start reading: a snippet's seq number, or a message ID. Omit to start at the first message."),
   before: ranged(BOUNDS.read.before, "Messages to include before `at`"),
   after: ranged(BOUNDS.read.after, "Messages to include after `at`"),
-  kinds: z.array(kind).min(1).max(DOC_KINDS.length).optional().describe(`Only show these kinds of text: ${KIND_TEXT}. Default: all.`),
+  kinds: z.array(messageKind).min(1).max(READ_KINDS.length).optional()
+    .describe("Only show these kinds of text: user, assistant, summary (compaction summaries), reasoning, synthetic, tool_call, tool_result. Default: all but reasoning, which full: true shows."),
   full: z.boolean().optional().describe("Show whole messages, including long tool output, instead of trimmed text. Default false."),
   maxChars: ranged(BOUNDS.read.maxChars, "Most characters of message text to return"),
 }) satisfies z.ZodType<ReadInput>
