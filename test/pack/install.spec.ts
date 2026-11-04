@@ -129,7 +129,7 @@ for (const version of VERSIONS) describe(`stock OpenCode ${version}`, () => {
     // The binary's own version, not the slot's label, so a newer release can stand in for a slot.
     const found = host.version
     expect(view.host).toEqual({ version: found, range: HOST_RANGE, tested: TESTED_HOSTS.includes(found) })
-    expect(view.state).toMatch(/^(ready|connecting|host_untested)$/)
+    expect(view.state).toMatch(/^(ready|connecting)$/)
     expect(view.nextStep).toEqual(expect.any(String))
     // With no options, the database and the index are under the isolated XDG data home, and the database is the
     // file this OpenCode release writes.

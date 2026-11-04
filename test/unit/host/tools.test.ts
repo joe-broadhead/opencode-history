@@ -259,11 +259,16 @@ describe("status", () => {
       defaultScope: "project", recall: { synthesize: true, model: "openrouter/anthropic/claude" }, unguardedAgents: [], nextStep: "Nothing to do.",
     })
   })
-  test("the state is ready, connecting, failed or host_untested, and an untested host inside the range is host_untested", async () => {
+  test("the state is ready, connecting or failed; an untested host inside the range leaves the state and the next step alone", async () => {
     const runtime = fakeRuntime()
     const view = (host: HostCheck) => buildStatus({ version: "1.2.3", host, config: CONFIG, runtime, agents: async () => [] })
     expect(await view(host)).toMatchObject({ state: "ready", nextStep: "Nothing to do." })
-    expect(await view(checkHost("2.2.6", false))).toMatchObject({ state: "host_untested", host: { version: "2.2.6", range: HOST_RANGE, tested: false }, nextStep: expect.stringMatching(/^OpenCode 2\.2\.6 is inside the supported range but untested/) })
+    const untested = await view(checkHost("2.2.6", false))
+    expect(untested).toMatchObject({ state: "ready", host: { version: "2.2.6", range: HOST_RANGE, tested: false }, nextStep: "Nothing to do." })
+    expect(formatStatus(untested)).toContain("\nConnection: connected\n")
+    expect(formatStatus(untested)).toContain("\nOpenCode: 2.2.6 (untested; supported range >=2.2.3 <2.3.0). History 1.2.3\n")
+    // Outside the range with allowUntestedHost, it runs normally too, and keeps the host's next step.
+    expect(await view(checkHost("2.3.0", true))).toMatchObject({ state: "ready", host: { tested: false }, nextStep: expect.stringMatching(/outside the supported range and allowUntestedHost is set/) })
     runtime.index = { ...INDEX, ready: false }
     expect(await view(host)).toMatchObject({ state: "connecting", nextStep: BUILDING })
   })

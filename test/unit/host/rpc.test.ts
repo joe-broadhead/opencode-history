@@ -77,7 +77,7 @@ describe("RPC handlers", () => {
     expect(Object.keys(view.host as object).sort()).toEqual(["range", "tested", "version"])
     for (const old of ["connection", "next"]) expect(view).not.toHaveProperty(old)
     expect(STATUS_OUTPUT.required).toEqual(expect.arrayContaining(["version", "host", "state", "unguardedAgents", "nextStep"]))
-    expect(STATUS_OUTPUT.properties.state.enum).toEqual(["ready", "connecting", "failed", "host_untested"])
+    expect(STATUS_OUTPUT.properties.state.enum).toEqual(["ready", "connecting", "failed"])
   })
 
   test("a failure answers `failed` with the code, the text and the next step; an uncoded one is logged without its text", async () => {

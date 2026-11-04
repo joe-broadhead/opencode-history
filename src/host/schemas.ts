@@ -172,7 +172,7 @@ export const RecallOutputSchema = z.strictObject({
 export const StatusSchema = z.strictObject({
   version: z.string().max(64),
   host: z.strictObject({ version: z.string().max(64).nullable(), range: z.string().max(64), tested: z.boolean() }),
-  state: z.enum(["ready", "connecting", "failed", "host_untested"]),
+  state: z.enum(["ready", "connecting", "failed"]),
   index: IndexStateSchema,
   fallback: z.enum(["SOURCE_UNAVAILABLE", "SOURCE_SCHEMA_UNKNOWN"]).optional(),
   tools: z.strictObject({ visible: z.number().int().min(0), unknown: z.array(z.string().max(128)).max(20) }),

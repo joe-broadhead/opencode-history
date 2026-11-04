@@ -14,10 +14,10 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Changed
 
 - The status RPC (`history.sessions` `status`) uses the field names every plugin's status RPC shares:
-  - `connection` is now `state`, in machine words: `ready` (was `connected`), `connecting`, `failed` and `host_untested` (was `host untested`). The `/history-status` rows keep their words.
+  - `connection` is now `state`, in machine words: `ready` (was `connected`), `connecting` and `failed`. The old `host untested` is gone: an untested host no longer changes the state, and shows in `host.tested` instead. The `/history-status` rows keep their words.
   - `next` is now `nextStep`, always present, and `Nothing to do.` when nothing is needed.
   - `host` is now `{ version, range, tested }`; it was `{ required, found, availability, next }`. `tested` is true only for 2.2.3, 2.2.4 and 2.2.5.
-- An OpenCode release inside `>=2.2.3 <2.3.0` that is not tested, such as 2.2.6, still starts, but status now reports it as untested (`host_untested`), with a next step, and its OpenCode row reads `2.2.6 (untested; supported range >=2.2.3 <2.3.0)`. Before, every release in the range was called tested.
+- An OpenCode release inside `>=2.2.3 <2.3.0` that is not tested, such as 2.2.6, works as before, but status now says it is untested: `host.tested` is `false` and its OpenCode row reads `2.2.6 (untested; supported range >=2.2.3 <2.3.0)`. Before, every release in the range was called tested.
 - The tools RPC words a bad envelope as every plugin's tools RPC does, such as `"extra" is not allowed`, `"sessionID" must be a non-empty string`, `"input" is missing` and `describe takes no input`, instead of zod's messages. A call without `input` is now refused; before, it ran with `{}`.
 - `SESSION_UNKNOWN` and `SESSION_AGENT_REQUIRED` have the next step every plugin uses: create a session that names an agent and pass its id.
 - The Uninstall steps run in the same order as every plugin's: pins first, while the plugin can still remove them, then the plugin, its index, and copied rules.
