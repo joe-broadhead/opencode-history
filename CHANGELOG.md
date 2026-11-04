@@ -9,6 +9,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - A `history_sql` statement no longer keeps running after OpenCode stops. Before, a statement that never ended went on using a CPU core after OpenCode crashed or was killed. Now its process stops by itself at the 10-second limit, and as soon as OpenCode exits, crashes or reloads the plugin.
 - `QUERY_INVALID` now gives a next step that fits its cause. A short substring, a bad date or an empty path no longer gets advice about regular expressions.
 - `/history-reindex` with an unknown argument answers in the usual error format: `INPUT_INVALID: /history-reindex takes no argument or rebuild. Next step: …`.
+- `history_pin` keeps the whole pin within `maxChars`. Before, its header line came on top, so `maxChars: 500` pinned about 730 characters.
 
 ## [0.0.0] - 2026-11-03
 

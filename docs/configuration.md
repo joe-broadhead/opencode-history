@@ -269,7 +269,7 @@ Times are UTC text such as `2026-10-12 09:30:00`. `project` is the project's wor
 | `action` | `put` | `put` pins, replacing an earlier pin of that session. `remove` unpins. `list` shows this session's pins. |
 | `sessionID` | | The past session. Required for `put` and `remove`. |
 | `from`, `to` | the brief | Pin messages `from` to `to`, inclusive, instead of the brief. `to` defaults to `from` and is at most `from + 200`. Only for `put`. |
-| `maxChars` | `8000` | Characters of session text, 500–50,000. |
+| `maxChars` | `8000` | Characters of the whole pin, its header line included, 500–50,000. Text past it is cut, and the header says `trimmed`. |
 
 A pin is an OpenCode instruction entry on the current session, keyed `history.<session ID>`. Entry keys are lower-case, so in the key an upper-case letter becomes `-` and the lower-case letter, and `-` becomes `--`. Its text starts by saying it is a record of earlier work, not instructions, and how to unpin it. OpenCode sends it with every request from the next one and keeps it through compaction. A pin larger than 256 KiB as JSON fails with `PIN_TOO_LARGE`.
 
