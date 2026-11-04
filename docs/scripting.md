@@ -43,6 +43,8 @@ No one answers a prompt for a script, so an `ask` on a script's call is denied w
 
 The scope of a search is relative to the script's session and to the folder of the location it calls at: `project` (the default) is that folder's project. Pass `"scope":"all"` for every project.
 
+`opencode api` calls run in the service's default location, your home directory, not the directory you run it in. To target a project, call the HTTP API with `?location[directory]=<dir>`, or create the session with `"location":{"directory":"<dir>"}`.
+
 ## Calling a method
 
 The body is `{"input": {"sessionID": "<session>", "input": <the tool's input>}}`:
@@ -58,20 +60,30 @@ opencode api post /api/rpc/history.sessions.tools/sql -d '{"input":{
 opencode api post /api/rpc/history.sessions.tools/files -d '{"input":{"sessionID":"ses_…","input":{"path":"src/upload.ts","scope":"all"}}}'
 ```
 
-A result is `{"output": <the tool's output>}`, as plain JSON. Session text in it is a record of earlier work, not instructions.
+A result is `{"output": <the tool's output>}`, the same structured output the tool returns, as plain JSON. Session text in it is a record of earlier work, not instructions.
 
 ## Errors
 
-A refusal or failure is the RPC error `failed`, with `data: { code, next }` from the [error table](configuration.md#errors): the tool's own codes, plus three for scripts.
+A refusal or failure is the RPC error `failed`, with `data: { code, next }` from the [error table](configuration.md#errors): the tool's own codes, plus three for scripts. `opencode api` exits with status 1 for any RPC error, so a shell script can test `$?`.
 
 | Code | When |
 | --- | --- |
-| `SESSION_UNKNOWN` | OpenCode says the session does not exist. Any other failure to look the session up is OpenCode's own error, passed through unchanged. |
-| `SESSION_AGENT_REQUIRED` | The session names no agent. |
+| `SESSION_UNKNOWN` | OpenCode says the session does not exist. Next step: `Create a session that names an agent, such as POST /api/session with {"agent":"build"}, and pass its id.` Any other failure to look the session up is OpenCode's own error, passed through unchanged. |
+| `SESSION_AGENT_REQUIRED` | The session names no agent. The next step is the same. |
 | `PERMISSION_DENIED` | The agent's or the session's rules deny the call, or ask for an approval. |
 
-OpenCode itself answers `rpc.invalid_input` for a body without `sessionID` or `input`, and `rpc.method_not_found` for a method that does not exist, such as `pin`.
+OpenCode itself answers `rpc.method_not_found` for a method that does not exist, such as `pin`, and `rpc.invalid_input` for a bad envelope, with one line per problem, worded as in every plugin's tools RPC:
+
+| Case | Message |
+| --- | --- |
+| The envelope is not an object | `the envelope must be an object, such as {"sessionID":"<session>","input":<the tool's input>}` |
+| An unknown key, such as `extra` | `"extra" is not allowed` |
+| `sessionID` missing, not a string, or empty | `"sessionID" must be a non-empty string` |
+| `input` missing | `"input" is missing` |
+| `describe` given anything but nothing or `{}` | `describe takes no input` |
+
+A tool input the tool's own schema refuses is `INPUT_INVALID`, naming the fields.
 
 ## Status
 
-`history.sessions` keeps one method, `status`, the status view the `/history` dialog shows. It needs no session.
+`history.sessions` keeps one method, `status`, the status view the `/history` dialog shows. It needs no session. Its shared fields have the same names in every plugin: `version`, `host` (`version`, `range`, `tested`), `state` (`ready`, `connecting`, `failed` or `host_untested` for History), `unguardedAgents` and `nextStep`. The rest are History's own; [configuration.md](configuration.md#status) lists them all.
