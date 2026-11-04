@@ -8,6 +8,8 @@ export const INDEX_SCHEMA_VERSION = 3
 /** Kinds of searchable text taken from a session. */
 export type DocKind = "title" | "user" | "assistant" | "summary" | "reasoning" | "synthetic" | "tool_call" | "tool_result"
 
+/** The kinds of text a message shows: every kind but titles. */
+export type MessageKind = Exclude<DocKind, "title">
 export const DOC_KINDS: readonly DocKind[] = ["title", "user", "assistant", "summary", "reasoning", "synthetic", "tool_call", "tool_result"]
 
 /** Ranking weight per kind. */

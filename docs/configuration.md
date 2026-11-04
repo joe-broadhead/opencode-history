@@ -153,7 +153,7 @@ OpenCode checks tool input against each tool's schema before the call, and a res
 | --- | --- | --- |
 | `scope` | the `defaultScope` option | `project`: sessions of the caller's project. `directory`: sessions started in the caller's directory or below it. `all`: every project. `session`: only the current session, for example to recover what was said before a compaction. |
 | `since`, `until` | unset | An ISO date or date-time, or an age: `h`, `d`, `w`, `m` (30 days) or `y` (365 days), such as `36h` or `2m`. A bare date is UTC, and as `until` it covers the whole day. Search and recall compare the time of each text, files the time of each touch, and sessions keep a session that was active in the window. |
-| `kinds` | all indexed kinds | `title`, `user`, `assistant`, `summary` (compaction summaries), `reasoning`, `synthetic`, `tool_call`, `tool_result`. Sessions keeps sessions with such a text. Files ignores it. |
+| `kinds` | all indexed kinds | `title`, `user`, `assistant`, `summary` (compaction summaries), `reasoning`, `synthetic`, `tool_call`, `tool_result`. Sessions keeps sessions with such a text. Files takes no `kinds`. |
 | `tool` | unset | Only calls and output of this tool, such as `bash`. `shell` also covers the commands you ran yourself. Files reads it as the tool that touched the file. Case-insensitive. |
 | `agent` | unset | Only sessions run by this agent. Case-insensitive. |
 | `path` | unset | Only sessions whose tree touched a matching file. A relative path matches the end of a recorded path on segment boundaries, so `src/auth.ts` finds that file in any checkout. An absolute path matches that file or anything under that folder. `..` is resolved against the caller's directory. `*`, `?` and `[` make a glob that matches whole recorded paths. |
@@ -209,7 +209,7 @@ When a search finds nothing, `hidden` counts the sessions that the default filte
 | `at` | the first message | A `seq`, or a message ID. |
 | `before` | `2` | Messages before `at`, 0–200. Ignored without `at`. |
 | `after` | `10` | Messages after `at`, 0–500. |
-| `kinds` | everything but reasoning | Only these kinds of text. |
+| `kinds` | everything but reasoning, which `full: true` shows | Only these kinds of text: every kind but `title`. |
 | `full` | `false` | Whole messages: tool output and long inputs uncut, and reasoning shown. |
 | `maxChars` | `20000` | Characters of message text, 500–200,000. |
 

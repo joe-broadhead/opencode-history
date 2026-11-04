@@ -195,6 +195,17 @@ describe("inputs", () => {
       expect(schema.properties.path.description, name).toContain("A relative path matches the end of a recorded path")
     }
   })
+  test("read's kinds offer only kinds a message can show, and state the real default: all but reasoning", () => {
+    expect(input("read").safeParse({ sessionID: "ses_1", kinds: ["title"] }).success).toBe(false)
+    expect(input("read").safeParse({ sessionID: "ses_1", kinds: ["reasoning", "tool_call"] }).success).toBe(true)
+    const kinds = (z.toJSONSchema(input("read"), { io: "input" }) as unknown as { properties: { kinds: { description: string; items: { enum: string[] } } } }).properties.kinds
+    expect(kinds.items.enum).not.toContain("title")
+    expect(kinds.description).toContain("Default: all but reasoning, which full: true shows.")
+  })
+  test("files takes no kinds, which it would ignore", () => {
+    expect(input("files").safeParse({ path: "src", kinds: ["user"] }).success).toBe(false)
+    expect((z.toJSONSchema(input("files"), { io: "input" }) as { properties: object }).properties).not.toHaveProperty("kinds")
+  })
   test("bounds, enums and unknown keys are enforced", () => {
     expect(input("read").safeParse({ sessionID: "ses_1", at: "msg_12" }).success).toBe(true)
     for (const bad of [{ sessionID: "ses 1" }, { sessionID: "ses_1", at: -1 }, { sessionID: "ses_1", maxChars: 10 }, { sessionID: "ses_1", extra: true }])
