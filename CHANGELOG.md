@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Jelly shows the plugin's one-line summary ("Search, read and recall your past OpenCode sessions.") and its icon, a neutral clock with a back arrow (`assets/icon.svg`, now in the package). A Jelly release that does not know these two fields refuses the declaration, so this version needs a Jelly that accepts them.
+
 ## [0.0.1] - 2026-11-04
 
 ### Added

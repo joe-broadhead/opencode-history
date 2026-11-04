@@ -13,7 +13,7 @@ import { ACTIONS, TOOL_NAMES } from "../../src/host/tools.js"
 
 type Tool = { name: string; permission: string; effect: string; readOnly: boolean }
 const pkg = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8"))
-const jelly = pkg.jelly as { title: string; tools: Tool[]; skills: string[]; signIns: unknown[]; rpc: unknown[]; views: unknown[] }
+const jelly = pkg.jelly as { title: string; summary: string; icon: string; tools: Tool[]; skills: string[]; signIns: unknown[]; rpc: unknown[]; views: unknown[] }
 const doc = readFileSync(new URL("../../docs/jelly.md", import.meta.url), "utf8")
 const rules: readonly { action: string; resource: string; effect: string }[] = [{ action: "*", resource: "*", effect: "allow" }, ...DEFAULT_RULES]
 const wildcard = (pattern: string) => new RegExp(`^${pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replaceAll("*", ".*")}$`)
@@ -48,6 +48,22 @@ describe("the jelly declaration", () => {
 
   test("names every skill the package ships", () => {
     expect([...jelly.skills].sort()).toEqual(readdirSync(new URL("../../skills", import.meta.url)).sort())
+  })
+
+  test("has a one-line summary of at most 120 characters", () => {
+    expect(jelly.summary).toBe("Search, read and recall your past OpenCode sessions.")
+    expect(jelly.summary.length).toBeLessThanOrEqual(120)
+  })
+
+  test("ships a small icon of drawing elements only, with no title (Jelly's cleaner drops an icon with one)", () => {
+    expect(jelly.icon).toBe("assets/icon.svg")
+    expect(pkg.files).toContain(jelly.icon)
+    const icon = readFileSync(new URL(`../../${jelly.icon}`, import.meta.url), "utf8")
+    expect(Buffer.byteLength(icon)).toBeLessThan(2048)
+    expect(icon.trim()).toMatch(/^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" viewBox="0 0 (24 24|32 32)"[^>]*>[\s\S]*<\/svg>$/)
+    const elements = [...icon.matchAll(/<([A-Za-z][A-Za-z0-9]*)/g)].map(match => match[1])
+    expect(elements.filter(name => !["svg", "g", "path", "circle", "ellipse", "rect", "line", "polyline", "polygon"].includes(name!))).toEqual([])
+    expect(icon).not.toMatch(/<title|<style|<script|href=|<!|&/i)
   })
 })
 

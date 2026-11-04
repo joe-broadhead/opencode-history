@@ -25,7 +25,7 @@ This repository builds `@joe-broadhead/opencode-history`, an unofficial OpenCode
 ## Package
 
 - No `peerDependencies`, no dependencies and no install or pack scripts. `@opencode/plugin` is an exact `2.2.3` devDependency.
-- `exports` lists `.` (`./dist/index.js`) and `./tui` (`./dist/tui.js`). `files` is a whitelist: `dist`, `skills`, `README.md`, `LICENSE`, `NOTICE`, `CHANGELOG.md`.
+- `exports` lists `.` (`./dist/index.js`) and `./tui` (`./dist/tui.js`). `files` is a whitelist: `dist`, `assets/icon.svg` (the icon Jelly shows), `skills`, `README.md`, `LICENSE`, `NOTICE`, `CHANGELOG.md`.
 - `npm run build` (`scripts/build.mjs`, esbuild) writes exactly `dist/index.js` and `dist/tui.js`, each self-contained with no relative imports. Host modules (`@opencode/plugin`, `@opentui/*`, `solid-js`, `node:`) stay external, and zod is inlined into the server part only. `NOTICE` must match the inlined packages; `node scripts/build.mjs --notice` rewrites it. `dist/` is not committed.
 - Import zod as `import * as z from "zod"`.
 - The `jelly` section of `package.json` declares every tool with its permission, default effect and `readOnly`, and the skills ([docs/jelly.md](docs/jelly.md)). `test/unit/jelly.test.ts` keeps it in step with `TOOL_NAMES`, `DEFAULT_RULES` and `skills/`.
