@@ -52,7 +52,7 @@ export function commandTransform(sources: CommandSources) {
       async execute({ sessionID, prompt, delivery }) {
         const mode = reindexMode(prompt.text)
         let text: string
-        if (mode === undefined) text = `Unknown argument. Use /${COMMANDS.reindex} to catch up, or /${COMMANDS.reindex} rebuild to index everything again.`
+        if (mode === undefined) text = formatFailure({ code: "INPUT_INVALID", message: `/${COMMANDS.reindex} takes no argument or rebuild.`, hint: `Run /${COMMANDS.reindex}, or /${COMMANDS.reindex} rebuild to index everything again.` })
         else try { text = indexed(mode, await sources.runtime.reindex(mode)) } catch (error) { text = describe(error, "INDEX_FAILED", COMMANDS.reindex) }
         await post(sessionID, delivery, text, "History reindex")
       },
