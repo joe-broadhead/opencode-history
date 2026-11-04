@@ -23,6 +23,7 @@
   },
   "files": [
     "dist",
+    "assets/icon.svg",
     "skills",
     "README.md",
     "LICENSE",
@@ -34,6 +35,8 @@
   },
   "jelly": {
     "title": "History",
+    "summary": "Search, read and recall your past OpenCode sessions.",
+    "icon": "assets/icon.svg",
     "tools": [
       {
         "name": "history.search",
