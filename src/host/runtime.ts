@@ -16,6 +16,12 @@ export type SourceFallback = Extract<FailureCode, "SOURCE_UNAVAILABLE" | "SOURCE
 /** A host event, as `ctx.event` delivers it. */
 export interface HostEvent { readonly type: string; readonly data: unknown }
 
+/**
+ * The index file: its size with its write-ahead log, null when it cannot be read, and whether the mask options changed
+ * since its text was stored, so the file holds text masked with other patterns until a rebuild.
+ */
+export interface IndexFile { readonly bytes: number | null; readonly masksChanged: boolean }
+
 /** The schema version the index file is at now, null when it has none, and the one this build of the plugin uses. */
 export interface IndexSchema { readonly file: string | null; readonly build: string }
 
@@ -33,6 +39,8 @@ export interface HistoryRuntime {
    * the plugin has rebuilt the file, and then every query fails with INDEX_MISMATCH.
    */
   schema(): Promise<IndexSchema>
+  /** The index file's size, and whether it was masked with other patterns than the current ones. */
+  indexFile(): Promise<IndexFile>
   search(caller: Caller, input: SearchInput): Promise<SearchOutput>
   sessions(caller: Caller, input: SessionsInput): Promise<SessionsOutput>
   files(caller: Caller, input: FilesInput): Promise<FilesOutput>

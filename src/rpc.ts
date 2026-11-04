@@ -17,18 +17,18 @@ const INDEX = object({ ready: boolean, sessionsIndexed: integer, sessionsTotal: 
   ["ready", "sessionsIndexed", "sessionsTotal", "lagSeconds", "source", "complete"])
 export const STATUS_OUTPUT = object({
   version: string,
-  host: object({ required: string, found: string, availability: choice(["AVAILABLE", "HOST_UNTESTED"]), next: string }, ["required", "found", "availability"]),
-  connection: choice(["connected", "connecting", "failed", "host untested"]),
+  host: object({ version: nullable(string), range: string, tested: boolean }, ["version", "range", "tested"]),
+  state: choice(["ready", "connecting", "failed", "host_untested"]),
   index: INDEX,
   fallback: choice(["SOURCE_UNAVAILABLE", "SOURCE_SCHEMA_UNKNOWN"]),
   tools: object({ visible: integer, unknown: list(string) }, ["visible", "unknown"]),
-  database: string, indexPath: string, defaultScope: choice(["project", "directory", "all"]),
+  database: string, indexPath: string, indexBytes: nullable(integer), masksChanged: boolean, defaultScope: choice(["project", "directory", "all"]),
   recall: object({ synthesize: boolean, model: nullable(string) }, ["synthesize", "model"]),
   unguardedAgents: list(string),
   permissionsBlock: list(object({ action: string, resource: string, effect: choice(["allow", "deny", "ask"]) }, ["action", "resource", "effect"])),
   mismatch: object({ file: nullable(string), build: string }, ["file", "build"]),
-  next: string,
-}, ["version", "host", "connection", "index", "tools", "database", "indexPath", "defaultScope", "recall", "unguardedAgents"])
+  nextStep: string,
+}, ["version", "host", "state", "index", "tools", "database", "indexPath", "indexBytes", "masksChanged", "defaultScope", "recall", "unguardedAgents", "nextStep"])
 
 /** A failure: the code, the full `CODE: ... Next step: ...` text as the message, and the next step. */
 const errors = { failed: object({ code: string, next: string }, ["code", "next"]) }

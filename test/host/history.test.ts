@@ -74,7 +74,7 @@ afterAll(async () => {
 describe(`History on @opencode/sdk, host version ${HOST_VERSION}`, () => {
   test("loads with the database and indexPath options, and reports them in its status", async () => {
     const status = await rpc().status({}, { location })
-    expect(status).toMatchObject({ version, database, indexPath, host: { required: HOST_RANGE, found: HOST_VERSION, availability: "AVAILABLE" } })
+    expect(status).toMatchObject({ version, database, indexPath, host: { version: HOST_VERSION, range: HOST_RANGE, tested: true }, state: expect.stringMatching(/^(ready|connecting)$/), nextStep: expect.any(String) })
     expect(status.index.source).toBe("opencode-db")
     expect(status.index.complete).toBe(true)
     expect(existsSync(indexPath)).toBe(true)

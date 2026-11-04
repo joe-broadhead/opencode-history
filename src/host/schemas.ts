@@ -171,19 +171,21 @@ export const RecallOutputSchema = z.strictObject({
 
 export const StatusSchema = z.strictObject({
   version: z.string().max(64),
-  host: z.strictObject({ required: z.string().max(64), found: z.string().max(64), availability: z.enum(["AVAILABLE", "HOST_UNTESTED"]), next: z.string().max(4096).optional() }),
-  connection: z.enum(["connected", "connecting", "failed", "host untested"]),
+  host: z.strictObject({ version: z.string().max(64).nullable(), range: z.string().max(64), tested: z.boolean() }),
+  state: z.enum(["ready", "connecting", "failed", "host_untested"]),
   index: IndexStateSchema,
   fallback: z.enum(["SOURCE_UNAVAILABLE", "SOURCE_SCHEMA_UNKNOWN"]).optional(),
   tools: z.strictObject({ visible: z.number().int().min(0), unknown: z.array(z.string().max(128)).max(20) }),
   database: z.string().max(4096),
   indexPath: z.string().max(4096),
+  indexBytes: z.number().int().min(0).nullable(),
+  masksChanged: z.boolean(),
   defaultScope: z.enum(SCOPES),
   recall: z.strictObject({ synthesize: z.boolean(), model: z.string().max(256).nullable() }),
   unguardedAgents: z.array(z.string().max(256)).max(1000),
   permissionsBlock: z.array(z.strictObject({ action: z.string(), resource: z.string(), effect: z.enum(["allow", "deny", "ask"]) })).optional(),
   mismatch: z.strictObject({ file: z.string().max(64).nullable(), build: z.string().max(64) }).optional(),
-  next: z.string().max(4096).optional(),
+  nextStep: z.string().max(4096),
 }) satisfies z.ZodType<StatusView>
 
 /**

@@ -156,12 +156,21 @@ export class IndexStore {
     }
   }
 
-  /** Drop everything and recreate an empty index. */
+  /**
+   * Drop everything and recreate an empty index. The dropped pages are overwritten with zeros and the write-ahead log is
+   * emptied, so text stored before, such as a secret masked only by a newer pattern, does not stay in the file.
+   */
   reset(): void {
-    this.transaction(() => {
-      dropAll(this.db)
-      create(this.db)
-    })
+    this.db.exec("pragma secure_delete = on")
+    try {
+      this.transaction(() => {
+        dropAll(this.db)
+        create(this.db)
+      })
+    } finally {
+      this.db.exec("pragma secure_delete = off")
+    }
+    this.db.exec("pragma wal_checkpoint(truncate)")
   }
 
   /** The schema version the file is at now, which another process running another plugin version may have changed. */

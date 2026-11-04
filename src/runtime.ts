@@ -1,5 +1,6 @@
 // The history runtime: a source of sessions, the shared index kept in step with it, and the query functions over it.
-import { realpathSync } from "node:fs"
+import { createHash } from "node:crypto"
+import { realpathSync, statSync } from "node:fs"
 import { basename, dirname, join, resolve } from "node:path"
 import { fail, FAILURES, HistoryError, logUnexpected, type FailureCode } from "./domain/common.js"
 import { DEFAULT_EXTRACT, INDEX_SCHEMA_VERSION, type ExtractOptions, type Source } from "./domain/contract.js"
@@ -20,6 +21,42 @@ import { sessions } from "./query/sessions.js"
 import { sql } from "./query/sql.js"
 import { contextSource } from "./source/context.js"
 import { openOpencodeSource } from "./source/opencode-db.js"
+
+/** The index meta key that records which mask patterns the stored text was masked with. */
+export const MASKED_WITH = "masked_with"
+
+/** A short fingerprint of mask patterns: the same patterns, in the same order, give the same one. */
+export function maskFingerprint(patterns: readonly RegExp[]): string {
+  return createHash("sha256").update(JSON.stringify(patterns.map(pattern => [pattern.source, pattern.flags]))).digest("hex").slice(0, 16)
+}
+
+/** The output fields that carry text from the index or the source; IDs, cursors, times and counts are never masked. */
+const TEXT_FIELDS = new Set(["title", "firstPrompt", "lastReply", "summaries", "commands", "text", "description", "content", "path", "answer"])
+
+/**
+ * `value` with `mask` applied to every text field, at any depth. Text in the index was masked with the patterns in force
+ * when it was stored, so this applies a pattern added later at once. It is best effort for an excerpt the index cut
+ * through a match; `/history-reindex rebuild` stores the text with the current patterns.
+ */
+export function maskOutput<T>(value: T, mask: (text: string) => string): T {
+  const walk = (node: unknown, text: boolean): unknown => {
+    if (typeof node === "string") return text ? mask(node) : node
+    if (Array.isArray(node)) return node.map(item => walk(item, text))
+    if (node === null || typeof node !== "object") return node
+    return Object.fromEntries(Object.entries(node).map(([key, item]) => [key, walk(item, TEXT_FIELDS.has(key))]))
+  }
+  return walk(value, false) as T
+}
+
+/** The bytes of the index file and its write-ahead log, or null when they cannot be read. */
+function indexBytes(path: string): number | null {
+  try {
+    const size = (file: string) => { try { return statSync(file).size } catch { return 0 } }
+    return statSync(path).size + size(`${path}-wal`)
+  } catch {
+    return null
+  }
+}
 
 /** How long search, sessions and recall wait for the catch-up they start before they answer from the index as it is. */
 export const REFRESH_MS = 200
@@ -89,6 +126,8 @@ class SharedIndex {
     readonly source: Source,
     readonly indexer: Indexer,
     readonly fallback: SourceFallback | undefined,
+    /** The fingerprint of the mask patterns this index stores text with. */
+    readonly maskedWith: string,
   ) {
     this.router = eventRouter({ syncSession: id => this.track(indexer.syncSession(id)), deleteSession: id => this.track(indexer.deleteSession(id)) })
   }
@@ -146,6 +185,7 @@ class SharedIndex {
     while (this.running.size > 0) await Promise.allSettled([...this.running])
     if (this.closed) fail("CLOSED")
     this.store.reset()
+    this.store.setMeta(MASKED_WITH, this.maskedWith)
     await this.backfill()
   }
 
@@ -186,7 +226,10 @@ function openIndex(path: string, { source, fallback }: Opened, options: ExtractO
       titleDoc: session => titleDoc(session, options),
       maskTitle: text => maskText(text, options.redact),
     })
-    const shared = new SharedIndex(store, source, indexer, fallback)
+    const maskedWith = maskFingerprint(options.redact)
+    // A new index, or one from before this was recorded, counts as masked with the patterns in force now.
+    if (store.meta(MASKED_WITH) === undefined) store.setMeta(MASKED_WITH, maskedWith)
+    const shared = new SharedIndex(store, source, indexer, fallback, maskedWith)
     shared.start()
     return shared
   } catch (error) {
@@ -272,6 +315,8 @@ export const createRuntime: CreateRuntime = async ({ config, session, generate }
   if (shared.source !== opened.source) opened.source.close()
 
   const mask = (text: string) => maskText(text, config.mask)
+  /** Index text, masked again with the current patterns on its way out. */
+  const masked = <T>(value: T) => maskOutput(value, mask)
   const state = () => shared.indexer.state()
   let closed = false
   const closing = new AbortController()
@@ -304,17 +349,18 @@ export const createRuntime: CreateRuntime = async ({ config, session, generate }
     ...(shared.fallback ? { fallback: shared.fallback } : {}),
     status: () => run("status", state, "STATUS_UNAVAILABLE"),
     schema: () => run("status", () => ({ file: shared.store.schemaVersion() ?? null, build: String(INDEX_SCHEMA_VERSION) }), "STATUS_UNAVAILABLE"),
-    search: (caller, input) => query("search", () => fresh(() => search(shared.store.db, caller, input, state()))),
-    sessions: (caller, input) => query("sessions", () => fresh(() => sessions(shared.store.db, caller, input, state()))),
-    files: (caller, input) => query("files", () => files(shared.store.db, caller, input, state())),
-    read: (_caller, input) => query("read", () => read(shared.store.db, shared.source, input, mask)),
-    brief: (_caller, input) => query("brief", () => brief(shared.store.db, shared.source, input, mask)),
+    indexFile: () => run("status", () => ({ bytes: indexBytes(shared.store.path), masksChanged: shared.store.meta(MASKED_WITH) !== maskFingerprint(config.mask) }), "STATUS_UNAVAILABLE"),
+    search: (caller, input) => query("search", () => fresh(async () => masked(await search(shared.store.db, caller, input, state())))),
+    sessions: (caller, input) => query("sessions", () => fresh(async () => masked(await sessions(shared.store.db, caller, input, state())))),
+    files: (caller, input) => query("files", async () => masked(await files(shared.store.db, caller, input, state()))),
+    read: (_caller, input) => query("read", async () => masked(await read(shared.store.db, shared.source, input, mask))),
+    brief: (_caller, input) => query("brief", async () => masked(await brief(shared.store.db, shared.source, input, mask))),
     // A closing instance stops its statements, so a reload never leaves one running.
     sql: (_caller, input, signal) =>
       query("sql", () => sql(shared.store.path, input, { signal: signal ? AbortSignal.any([signal, closing.signal]) : closing.signal, mask: config.mask })),
     recall: (caller, input) =>
       query("recall", () =>
-        fresh(() => recall(shared.store.db, shared.source, caller, input, state(), (input.synthesize ?? config.recall.synthesize) ? generate : undefined, mask)),
+        fresh(async () => masked(await recall(shared.store.db, shared.source, caller, input, state(), (input.synthesize ?? config.recall.synthesize) ? generate : undefined, mask))),
       ),
     reindex: mode =>
       run("reindex", async () => {

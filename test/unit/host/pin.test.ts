@@ -14,7 +14,7 @@ function setup() {
   const runtime = fakeRuntime(), session = fakeSession(), tools = new Map<string, { input: { parse(v: unknown): unknown }; execute: Execute }>()
   const sources: ToolSources = {
     runtime, session: session.session, location: { projectID: "prj_app", directory: "/work/app" }, defaults: { scope: "project", synthesize: false }, assert: async () => {},
-    status: async () => ({ version: "0", host: { required: HOST_RANGE, found: "2.2.3", availability: "AVAILABLE" }, connection: "connected", tools: { visible: 9, unknown: [] }, index: SAMPLES.search.index, database: "/d", indexPath: "/i", defaultScope: "project", recall: { synthesize: false, model: null }, unguardedAgents: [] }),
+    status: async () => ({ version: "0", host: { version: "2.2.3", range: HOST_RANGE, tested: true }, state: "ready", tools: { visible: 9, unknown: [] }, index: SAMPLES.search.index, database: "/d", indexPath: "/i", indexBytes: null, masksChanged: false, defaultScope: "project", recall: { synthesize: false, model: null }, unguardedAgents: [], nextStep: "Nothing to do." }),
   }
   toolTransform(sources)({ namespace: () => {}, add: (t: { name: string; input: { parse(v: unknown): unknown }; execute: Execute }) => { tools.set(t.name, t) } } as never)
   const pin = (input: unknown, signal = new AbortController().signal) => {

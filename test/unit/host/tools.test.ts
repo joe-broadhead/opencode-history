@@ -4,10 +4,10 @@ import { BOUNDS, MAX_PHRASINGS } from "../../../src/domain/bounds.js"
 import { FAILURES, HistoryError } from "../../../src/domain/common.js"
 import { openDb } from "../../../src/domain/sqlite.js"
 import { TABLES, TRIGGERS, VIEW_NAMES, VIEWS } from "../../../src/index/schema.js"
-import { HOST_RANGE } from "../../../src/host/compat.js"
+import { checkHost, HOST_RANGE, type HostCheck } from "../../../src/host/compat.js"
 import { formatBrief, formatFiles, formatRead, formatRecall, formatSearch, formatSessions, formatSql, formatStatus } from "../../../src/host/format.js"
 import type { PermissionRequest } from "../../../src/host/permissions.js"
-import { BUILDING, buildStatus, fallbackFailure, nextStep, type StatusView } from "../../../src/host/status.js"
+import { BUILDING, buildStatus, fallbackFailure, MASKS_CHANGED, nextStep, type StatusView } from "../../../src/host/status.js"
 import { compactStatus, DESCRIPTIONS, MAX_RESULT_BYTES, NAMESPACE_DESCRIPTION, TOOL_NAMES, toolTransform, type ToolName, type ToolSources } from "../../../src/host/tools.js"
 import { failure, fakeRuntime } from "../../host/runtime.js"
 import { INDEX, SAMPLES } from "../../host/samples.js"
@@ -20,7 +20,7 @@ type Added = {
 }
 function register(overrides: Partial<ToolSources> = {}) {
   const runtime = fakeRuntime(), session = fakeSession(), added: Added[] = [], namespaces: { name: string; description: string }[] = []
-  const status = vi.fn(async (): Promise<StatusView> => buildStatus({ version: "0.0.0", host: { required: HOST_RANGE, found: "2.2.3", availability: "AVAILABLE" }, config: CONFIG, runtime, agents: async () => [] }))
+  const status = vi.fn(async (): Promise<StatusView> => buildStatus({ version: "0.0.0", host: { version: "2.2.3", range: HOST_RANGE, tested: true }, config: CONFIG, runtime, agents: async () => [] }))
   const asserts: PermissionRequest[] = []
   const assert = vi.fn(async (request: PermissionRequest) => { asserts.push(request) })
   const sources: ToolSources = { runtime, session: session.session, status, location: { projectID: "prj_app", directory: "/work/app" }, defaults: { scope: "project", synthesize: false }, assert, ...overrides }
@@ -251,44 +251,61 @@ describe("failures", () => {
 })
 
 describe("status", () => {
-  const host = { required: HOST_RANGE, found: "2.2.3", availability: "AVAILABLE" } as const
+  const host = { version: "2.2.3", range: HOST_RANGE, tested: true } as const
   test("the view shows the options in effect, with the recall model as provider/model", async () => {
     const runtime = fakeRuntime()
     expect(await buildStatus({ version: "1.2.3", host, config: { ...CONFIG, recall: { synthesize: true, model: { providerID: "openrouter", id: "anthropic/claude" } } }, runtime, agents: async () => [] })).toEqual({
-      version: "1.2.3", host, connection: "connected", index: INDEX, tools: { visible: 9, unknown: [] }, database: CONFIG.database, indexPath: CONFIG.indexPath, defaultScope: "project",
-      recall: { synthesize: true, model: "openrouter/anthropic/claude" }, unguardedAgents: [],
+      version: "1.2.3", host, state: "ready", index: INDEX, tools: { visible: 9, unknown: [] }, database: CONFIG.database, indexPath: CONFIG.indexPath, indexBytes: 1_536_000, masksChanged: false,
+      defaultScope: "project", recall: { synthesize: true, model: "openrouter/anthropic/claude" }, unguardedAgents: [], nextStep: "Nothing to do.",
     })
+  })
+  test("the state is ready, connecting, failed or host_untested, and an untested host inside the range is host_untested", async () => {
+    const runtime = fakeRuntime()
+    const view = (host: HostCheck) => buildStatus({ version: "1.2.3", host, config: CONFIG, runtime, agents: async () => [] })
+    expect(await view(host)).toMatchObject({ state: "ready", nextStep: "Nothing to do." })
+    expect(await view(checkHost("2.2.6", false))).toMatchObject({ state: "host_untested", host: { version: "2.2.6", range: HOST_RANGE, tested: false }, nextStep: expect.stringMatching(/^OpenCode 2\.2\.6 is inside the supported range but untested/) })
+    runtime.index = { ...INDEX, ready: false }
+    expect(await view(host)).toMatchObject({ state: "connecting", nextStep: BUILDING })
+  })
+  test("changed masks ask for a rebuild, after a partial source and before unguarded agents", async () => {
+    const runtime = fakeRuntime()
+    runtime.file = { bytes: 10, masksChanged: true }
+    const view = await buildStatus({ version: "1.2.3", host, config: CONFIG, runtime, agents: async () => [{ id: "loose", permissions: [{ action: "*", resource: "*", effect: "allow" }] }] })
+    expect(view).toMatchObject({ masksChanged: true, unguardedAgents: ["loose"], nextStep: MASKS_CHANGED })
+    expect(nextStep(host, { index: { ...INDEX, source: "context" }, unguardedAgents: [], masksChanged: true })).toBe(FAILURES.SOURCE_UNAVAILABLE[1])
   })
   test("the next step goes from the host, to a partial source, to an index still building", () => {
     const building = { ...INDEX, ready: false, sessionsIndexed: 10 }
-    expect(nextStep({ host: { ...host, availability: "HOST_UNTESTED", next: "host" }, index: { ...building, source: "context" }, unguardedAgents: [] })).toBe("host")
-    expect(nextStep({ host, index: { ...building, source: "context" }, unguardedAgents: [] })).toBe(FAILURES.SOURCE_UNAVAILABLE[1])
-    expect(nextStep({ host, index: building, unguardedAgents: [] })).toBe(BUILDING)
-    expect(nextStep({ host, index: INDEX, unguardedAgents: [] })).toBeUndefined()
+    const untested = { ...host, tested: false, next: "host" }
+    const clean = { unguardedAgents: [], masksChanged: false }
+    expect(nextStep(untested, { index: { ...building, source: "context" }, ...clean })).toBe("host")
+    expect(nextStep(host, { index: { ...building, source: "context" }, ...clean })).toBe(FAILURES.SOURCE_UNAVAILABLE[1])
+    expect(nextStep(host, { index: building, ...clean })).toBe(BUILDING)
+    expect(nextStep(host, { index: INDEX, ...clean })).toBe("Nothing to do.")
   })
   test("on the partial source, the next step names why the database was not used, and its fix", async () => {
     const index = { ...INDEX, source: "context" as const, complete: false }
-    expect(nextStep({ host, index, unguardedAgents: [] }, "SOURCE_UNAVAILABLE")).toBe("Check that the database option points at OpenCode's opencode.db, then restart OpenCode.")
-    expect(nextStep({ host, index, unguardedAgents: [] }, "SOURCE_SCHEMA_UNKNOWN")).toBe("Update the plugin, or use the OpenCode version it was tested with.")
+    expect(nextStep(host, { index, unguardedAgents: [], masksChanged: false }, "SOURCE_UNAVAILABLE")).toBe("Check that the database option points at OpenCode's opencode.db, then restart OpenCode.")
+    expect(nextStep(host, { index, unguardedAgents: [], masksChanged: false }, "SOURCE_SCHEMA_UNKNOWN")).toBe("Update the plugin, or use the OpenCode version it was tested with.")
     for (const code of ["SOURCE_UNAVAILABLE", "SOURCE_SCHEMA_UNKNOWN"] as const) expect(fallbackFailure(code)).toMatchObject({ code, hint: FAILURES[code][1] })
     const runtime = Object.assign(fakeRuntime(), { index, fallback: "SOURCE_SCHEMA_UNKNOWN" as const })
     const view = await buildStatus({ version: "1.2.3", host, config: CONFIG, runtime, agents: async () => [] })
-    expect(view).toMatchObject({ connection: "failed", fallback: "SOURCE_SCHEMA_UNKNOWN", next: FAILURES.SOURCE_SCHEMA_UNKNOWN[1] })
+    expect(view).toMatchObject({ state: "failed", fallback: "SOURCE_SCHEMA_UNKNOWN", nextStep: FAILURES.SOURCE_SCHEMA_UNKNOWN[1] })
     expect(formatStatus(view)).toContain("\nSource: plugin session API (partial), incomplete (OpenCode's database has an unknown layout)\n")
   })
   test("an index file at another schema shows its row and the INDEX_MISMATCH next step, after an untested host", async () => {
     const t = register()
     t.runtime.indexSchema = { file: "1", build: "3" }
     const result = await t.run("status", {})
-    expect(result.output).toMatchObject({ mismatch: { file: "1", build: "3" }, next: FAILURES.INDEX_MISMATCH[1] })
+    expect(result.output).toMatchObject({ mismatch: { file: "1", build: "3" }, nextStep: FAILURES.INDEX_MISMATCH[1] })
     expect(t.tool("status").output.safeParse(result.output).success).toBe(true)
     expect(result.content).toContain("\nIndex schema: version 1 in the file, but this build uses version 3, so every query fails (INDEX_MISMATCH)\n")
     expect(result.content).toMatch(/\nNext step: Restart every OpenCode process, so they all run one version of the plugin\.$/)
     t.runtime.indexSchema = { file: null, build: "3" }
     expect((await t.run("status", {})).content).toContain("Index schema: none in the file, but this build uses version 3")
     const mismatch = { file: "1", build: "3" }
-    expect(nextStep({ host: { ...host, availability: "HOST_UNTESTED", next: "host" }, index: INDEX, mismatch, unguardedAgents: [] })).toBe("host")
-    expect(nextStep({ host, index: { ...INDEX, ready: false, source: "context" }, mismatch, unguardedAgents: [] })).toBe(FAILURES.INDEX_MISMATCH[1])
+    expect(nextStep({ ...host, tested: false, next: "host" }, { index: INDEX, mismatch, unguardedAgents: [], masksChanged: false })).toBe("host")
+    expect(nextStep(host, { index: { ...INDEX, ready: false, source: "context" }, mismatch, unguardedAgents: [], masksChanged: false })).toBe(FAILURES.INDEX_MISMATCH[1])
     t.runtime.indexSchema = { file: "3", build: "3" }
     const matched = await t.run("status", {})
     expect(matched.output).not.toHaveProperty("mismatch")

@@ -4,7 +4,7 @@ import {
   type RecallInput, type RecallOutput, type SearchInput, type SearchOutput, type SessionSummary, type SessionsOutput, type SqlOutput,
 } from "../domain/api.js"
 import { NAMESPACE } from "../domain/contract.js"
-import type { StatusView } from "./status.js"
+import type { State, StatusView } from "./status.js"
 
 const plural = (count: number, noun: string) => `${count} ${noun}${count === 1 ? "" : /(?:s|x|ch|sh)$/.test(noun) ? "es" : "s"}`
 /** `2026-10-12T09:30:00.000Z` as `2026-10-12 09:30`; anything else unchanged. */
@@ -236,27 +236,43 @@ export const ACCOUNT_TEXT = "none; History needs no sign-in"
 /** The Access row: what the plugin can do. */
 export const ACCESS_TEXT = "reads OpenCode's database read-only and writes only its own index; history_pin asks before it changes a session"
 const FALLBACK_TEXT = { SOURCE_UNAVAILABLE: "OpenCode's database could not be read", SOURCE_SCHEMA_UNKNOWN: "OpenCode's database has an unknown layout" } as const
+/** The Connection row's words for each state: the S9 labels. */
+export const CONNECTION_WORDS: { readonly [S in State]: string } = { ready: "connected", connecting: "connecting", failed: "failed", host_untested: "host untested" }
+/** The row that shows only when the mask options changed after text was indexed. */
+export const MASKS_ROW = "Masks:"
+/** A byte count in the largest unit that keeps it at least 1: `512 B`, `3.4 KB`, `511 MB`. */
+export function size(bytes: number) {
+  const units = ["B", "KB", "MB", "GB", "TB"]
+  let value = bytes, unit = 0
+  while (value >= 1024 && unit < units.length - 1) { value /= 1024; unit++ }
+  return `${unit === 0 || value >= 10 ? Math.round(value) : value.toFixed(1)} ${units[unit]}`
+}
+function hostText({ host, version }: StatusView) {
+  const note = host.tested ? "tested" : `untested; supported range ${host.range}`
+  return `${host.version ?? "unknown version"} (${note}). History ${version}`
+}
 function toolsText({ tools }: StatusView) {
   const unknown = tools.unknown.length ? `, ${tools.unknown.length} unknown (they ask first): ${tools.unknown.join(", ")}` : ""
   return `${tools.visible} available${unknown}`
 }
 export function formatStatus(view: StatusView, options: { readonly compact?: boolean } = {}) {
-  const { index, host, mismatch } = view
+  const { index, mismatch } = view
   return lines(
     "History status",
-    `Connection: ${view.connection}`,
+    `Connection: ${CONNECTION_WORDS[view.state]}`,
     `Account: ${ACCOUNT_TEXT}`,
     `Access: ${ACCESS_TEXT}`,
     `Index: ${index.ready ? "ready" : "building"}, ${index.sessionsIndexed} of ${index.sessionsTotal} sessions${index.lagSeconds ? `, ${Math.round(index.lagSeconds)} s behind` : ""}`,
     `Source: ${SOURCE_TEXT[index.source]}${index.complete ? "" : ", incomplete"}${view.fallback ? ` (${FALLBACK_TEXT[view.fallback]})` : ""}`,
     `Database: ${view.database}`,
-    `Index file: ${view.indexPath}`,
+    `Index file: ${view.indexPath}${view.indexBytes === null ? "" : ` (${size(view.indexBytes)})`}`,
+    view.masksChanged ? `${MASKS_ROW} changed since text was indexed, so the index file holds that text masked the old way until /history-reindex rebuild` : undefined,
     mismatch ? `${MISMATCH_ROW} ${mismatch.file === null ? "none" : `version ${mismatch.file}`} in the file, but this build uses version ${mismatch.build}, so every query fails (INDEX_MISMATCH)` : undefined,
     `Default scope: ${view.defaultScope}`,
     `Recall answers: ${view.recall.synthesize ? "on" : "off"}${view.recall.model ? ` (${view.recall.model})` : " (default model)"}`,
     `Tools: ${toolsText(view)}`,
     agentsRow(view, options.compact ?? false),
-    `OpenCode: ${host.found} (${host.availability === "AVAILABLE" ? "tested" : `host untested: tested on ${host.required}`}). History ${view.version}`,
-    `Next step: ${view.next ?? NOTHING_TO_DO}`,
+    `OpenCode: ${hostText(view)}`,
+    `Next step: ${view.nextStep}`,
   )
 }

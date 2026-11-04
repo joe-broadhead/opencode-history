@@ -2,7 +2,7 @@
 import type { Caller, IndexState } from "../../src/domain/api.js"
 import type { FailureCode } from "../../src/domain/common.js"
 import { INDEX_SCHEMA_VERSION } from "../../src/domain/contract.js"
-import type { HistoryRuntime, HostEvent, IndexSchema, QueryMethod, ReindexMode } from "../../src/host/runtime.js"
+import type { HistoryRuntime, HostEvent, IndexFile, IndexSchema, QueryMethod, ReindexMode } from "../../src/host/runtime.js"
 import { INDEX, SAMPLES } from "./samples.js"
 
 export const failure = (code: FailureCode, message: string, hint?: string) => Object.assign(new Error(message), { code, ...(hint ? { hint } : {}) })
@@ -18,6 +18,8 @@ export interface FakeRuntime extends HistoryRuntime {
   index: IndexState
   /** The index file's schema next to this build's; set `file` to another version for INDEX_MISMATCH. */
   indexSchema: IndexSchema
+  /** The index file's size and mask state. */
+  file: IndexFile
   closed: boolean
 }
 
@@ -34,6 +36,8 @@ export function fakeRuntime(): FakeRuntime {
     indexSchema: { file: String(INDEX_SCHEMA_VERSION), build: String(INDEX_SCHEMA_VERSION) },
     status: async () => runtime.index,
     schema: async () => runtime.indexSchema,
+    file: { bytes: 1_536_000, masksChanged: false },
+    indexFile: async () => runtime.file,
     search: answer("search"),
     sessions: answer("sessions"),
     files: answer("files"),

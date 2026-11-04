@@ -41,7 +41,7 @@ Every key is optional. There is no permission option. Permissions are OpenCode r
 
 Unknown keys are rejected. A relative path is rejected. `XDG_DATA_HOME` is used only when it is an absolute path.
 
-The plugin reads its options once, at setup. The `index` options, `mask` and `maskDefaults` change how text is stored from then on; text already in the index keeps the old form until `/history-reindex rebuild`. The output side of masking (what `history_read`, `history_brief` and `history_recall` take from OpenCode's database) follows the current options at once.
+The plugin reads its options once, at setup. The `index` options, `mask` and `maskDefaults` change how text is stored from then on; text already in the index keeps the old form until `/history-reindex rebuild`. Masking also applies on the way out: every tool, `history_sql` included, masks what it returns with the current patterns, so a pattern you add takes effect at once. Until the rebuild, the index file itself still holds that text, and a search excerpt that the index cut through a match can show part of it, so status shows a `Masks:` row and asks for the rebuild.
 
 ### Where the index may live
 
@@ -79,23 +79,24 @@ Masking happens before text is cut, so a cut cannot leave half a secret that no 
 - session titles;
 - what `history_read`, `history_brief` (its todos) and `history_recall` read from OpenCode's database at call time.
 
-It does not cover directory and project paths, agent, model and tool names, IDs, or a session's outcome (`succeeded`, `failed` or `interrupted`). `history_sql` returns index text, which was masked when it was stored.
+It does not cover directory and project paths, agent, model and tool names, IDs, or a session's outcome (`succeeded`, `failed` or `interrupted`). `history_sql` returns index text, masked when it was stored and again, with the current patterns, before its cells are cut.
 
 ## Host check
 
-`package.json` states `"opencode": { "host": ">=2.2.3 <2.3.0" }`. Setup compares `ctx.app.version` with that range.
+`package.json` states the supported range, `"opencode": { "host": ">=2.2.3 <2.3.0" }`. The checks run on the tested releases 2.2.3, 2.2.4 and 2.2.5. Setup compares `ctx.app.version` with both.
 
 | Version | Result |
 | --- | --- |
-| 2.2.3, 2.2.4, 2.2.10 | Loads. |
-| 2.2.2, 2.3.0, 3.0.0 | Refused, unless `allowUntestedHost` is `true`. |
-| Prerelease, dev build, `unknown` | Untested. Refused, unless `allowUntestedHost` is `true`. |
+| 2.2.3, 2.2.4, 2.2.5 | Tested. Loads. |
+| 2.2.6, 2.2.10 | Inside the range, untested. Loads, with a `HOST_UNTESTED` warning in the server log; status reports `host untested` and says to use a tested release if something fails. |
+| 2.2.2, 2.3.0, 3.0.0 | Outside the range. Refused, unless `allowUntestedHost` is `true`. |
+| Prerelease, dev build, `unknown` | Outside the range. Refused, unless `allowUntestedHost` is `true`. |
 
 Do not write the range as `^2.2.3`. That would accept 2.3.
 
-The refusal text is: `HOST_UNTESTED: History is tested on OpenCode >=2.2.3 <2.3.0, found <version>. Next step: Use OpenCode 2.2.3 or a later 2.2.x release, or set the plugin option allowUntestedHost: true to run anyway.`
+The refusal text is: `HOST_UNTESTED: History supports OpenCode >=2.2.3 <2.3.0, found <version>. Next step: Use OpenCode 2.2.3, 2.2.4 or 2.2.5, or another release inside >=2.2.3 <2.3.0, or set the plugin option allowUntestedHost: true to run anyway.`
 
-With `allowUntestedHost: true`, setup writes a `HOST_UNTESTED` warning to the server log, status reports `host untested`, and its Next step says to use a tested release if something fails.
+With `allowUntestedHost: true`, a version outside the range loads too, with the same warning and status as an untested one inside it.
 
 ## Source
 
@@ -331,8 +332,8 @@ The status RPC has the plugin ID, `history.sessions`, and no events. Its contrac
 | Field | Meaning |
 | --- | --- |
 | `version` | The plugin version. |
-| `host` | `required` (the range), `found`, `availability` (`AVAILABLE` or `HOST_UNTESTED`) and, when untested, `next`. |
-| `connection` | `connected`; `connecting` while the first index builds; `failed` when the history is partial (`fallback`) or every query fails (`mismatch`); `host untested`. |
+| `host` | `version`, the OpenCode version (`null` when OpenCode gives none); `range`, the supported range `>=2.2.3 <2.3.0`; and `tested`, true only for 2.2.3, 2.2.4 and 2.2.5. |
+| `state` | `ready`; `connecting` while the first index builds; `failed` when the history is partial (`fallback`) or every query fails (`mismatch`); `host_untested`. The Connection row shows the same states as `connected`, `connecting`, `failed` and `host untested`. |
 | `index.ready` | The first full pass has finished. Before that, results cover only the sessions indexed so far. |
 | `index.sessionsIndexed`, `index.sessionsTotal` | Sessions in the index, and the source's count when it was last listed in full. |
 | `index.lagSeconds` | How far the index may be behind OpenCode: seconds since the index was last known to be in step, which is the start of the last finished catch-up, full pass or session sync after a session event. Search, sessions and recall catch up first, so their results usually carry `0`. |
@@ -341,11 +342,15 @@ The status RPC has the plugin ID, `history.sessions`, and no events. Its contrac
 | `fallback` | Present only on the `context` source: `SOURCE_UNAVAILABLE` or `SOURCE_SCHEMA_UNKNOWN`, the reason (above). |
 | `tools` | `visible`, the `history_*` tools OpenCode lists, and `unknown`, the names of any this version does not know. |
 | `database`, `indexPath`, `defaultScope` | The options in effect. |
+| `indexBytes` | The size of the index file with its write-ahead log, in bytes, or `null` when it cannot be read. |
+| `masksChanged` | `true` when the mask options changed after text was indexed: results are masked with the current patterns, but the index file holds that text masked the old way until `/history-reindex rebuild`. |
 | `recall` | `synthesize`, and `model` as `provider/model`, or `null` for OpenCode's default. |
 | `unguardedAgents` | The agents that miss the default rules (see [Permissions](#permissions)). `history_status` gives their count instead, and a `permissions` line that points to `/history-status`. |
 | `permissionsBlock` | Present when `unguardedAgents` is not empty: the block to put first in their own `permissions`. |
 | `mismatch` | Present only when the index file's schema is not this build's, after another OpenCode process running another version of the plugin rebuilt it: `file`, its version, or `null` when it has none, and `build`, this build's. Every query then fails with `INDEX_MISMATCH`. |
-| `next` | One next step, present only when something needs you, the first of: an untested host, an index file at another schema (`INDEX_MISMATCH`), the fallback source (`SOURCE_UNAVAILABLE` or `SOURCE_SCHEMA_UNKNOWN`), unguarded agents, or an index still building. |
+| `nextStep` | One next step, exactly the Next step row: the first of an untested host, an index file at another schema (`INDEX_MISMATCH`), the fallback source (`SOURCE_UNAVAILABLE` or `SOURCE_SCHEMA_UNKNOWN`), changed masks, unguarded agents, or an index still building; `Nothing to do.` when nothing is needed. |
+
+`version`, `host`, `state`, `unguardedAgents` and `nextStep` are the fields every plugin's status RPC shares, with these names. Before 0.0.1 they were `host.found`, `host.required`, `host.availability`, `connection` and `next`.
 
 `/history-status` and the `/history` dialog render it as:
 
@@ -357,7 +362,7 @@ Access: reads OpenCode's database read-only and writes only its own index; histo
 Index: ready, 412 of 412 sessions, 35 s behind
 Source: OpenCode database
 Database: <database>
-Index file: <indexPath>
+Index file: <indexPath> (511 MB)
 Default scope: project
 Recall answers: off (default model)
 Tools: 9 available
@@ -365,6 +370,8 @@ Agents without default rules: none
 OpenCode: 2.2.3 (tested). History <version>
 Next step: Nothing to do.
 ```
+
+On a release inside the range that is not tested, the OpenCode row reads `2.2.6 (untested; supported range >=2.2.3 <2.3.0)`. When the mask options changed after text was indexed, a `Masks:` row follows `Index file:`, and the next step is `/history-reindex rebuild`.
 
 With `mismatch`, a row follows `Index file:`, the connection is `failed`, and the next step is the fix:
 
@@ -407,7 +414,7 @@ When an unexpected error is reported only by a code, `OPERATION_FAILED` or a com
 | Code | Next step |
 | --- | --- |
 | `OPTIONS_INVALID` | Fix the named option, then restart OpenCode. Fails setup. |
-| `HOST_UNTESTED` | Use a tested 2.2.x release, or set `allowUntestedHost`. Fails setup unless set. |
+| `HOST_UNTESTED` | Use OpenCode 2.2.3, 2.2.4 or 2.2.5. Outside `>=2.2.3 <2.3.0` it fails setup unless `allowUntestedHost` is set; inside the range it is a warning. |
 | `INDEX_UNAVAILABLE` | The index could not be opened. Check that `indexPath` is a writable file path, then restart. Fails setup. |
 | `INDEX_PATH_REFUSED` | `indexPath` names OpenCode's database or a file in its data folder, a file inside the project, or an existing file that is not a History index (see [Where the index may live](#where-the-index-may-live)). The file is not changed. Set `indexPath` to a new file elsewhere, or remove it, then restart. Fails setup. |
 | `SKILLS_INVALID` | A skill file is missing or malformed; setup skips it with this warning. Reinstall the plugin. |

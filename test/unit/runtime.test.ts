@@ -1,6 +1,5 @@
 import type { SessionInfo, SessionMessageInfo } from "@opencode/client"
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs"
-import { tmpdir } from "node:os"
+import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import type { Caller } from "../../src/domain/api.js"
@@ -15,6 +14,7 @@ import { QueryError, type QueryFailure } from "../../src/query/parse.js"
 import { createRuntime, QUERY_FAILURES, REFRESH_MS, toFailure } from "../../src/runtime.js"
 import type { ContextSessionApi } from "../../src/source/context.js"
 import { assistantData, createOpencodeDb, idleData, shellData, textPart, toolPart, userData, type OpencodeDbFixture } from "../fixtures/opencode-db.js"
+import { tempDir } from "../temp.js"
 
 const SECRET = "sk-live-0123456789abcdef"
 const CALLER: Caller = { sessionID: null, projectID: "proj_app", directory: "/work/app" }
@@ -26,7 +26,7 @@ afterEach(async () => {
 })
 
 function temp(): string {
-  const dir = mkdtempSync(join(tmpdir(), "history-runtime-"))
+  const dir = tempDir("history-runtime-")
   cleanups.push(() => rmSync(dir, { recursive: true, force: true }))
   return dir
 }
@@ -301,6 +301,46 @@ describe("createRuntime", () => {
     await runtime.reindex("catch-up")
     expect((await runtime.search(CALLER, { query: "SameSite", match: "substring" })).results.map(hit => hit.sessionID)).toEqual(["ses_login"])
     expect((await runtime.search(CALLER, { query: "Same\\w+=", match: "regex" })).results.map(hit => hit.sessionID)).toEqual(["ses_login"])
+  })
+
+  it("applies a mask pattern added after the text was indexed to everything it returns, and says a rebuild is due", async () => {
+    // Indexed with the built-in masks only, so the secret is in the index.
+    const { fixture, indexPath, runtime } = await indexed({ maskDefaults: false })
+    expect((await runtime.sql(CALLER, { sql: "select count(*) from v_docs where text like '%' || ? || '%'", params: [SECRET] })).rows).toEqual([[1]])
+    expect(await runtime.indexFile()).toEqual({ bytes: expect.any(Number), masksChanged: false })
+    await runtime.close()
+    // The pattern added later: the next instance opens the same file.
+    fixture.insertSession({ id: "ses_key", title: `Rotate ${SECRET}` })
+    fixture.insertMessage({ sessionID: "ses_key", type: "user", data: userData(`Rotate ${SECRET} today`) })
+    const later = await open({ database: fixture.path, indexPath, maskDefaults: false, mask: ["sk-live-[0-9a-f]+"] })
+    await later.reindex("catch-up")
+    const outputs = {
+      search: await later.search(CALLER, { query: "Token", snippets: 5 }),
+      sessions: await later.sessions(CALLER, {}),
+      brief: await later.brief(CALLER, { sessionID: "ses_key" }),
+      read: await later.read(CALLER, { sessionID: "ses_key" }),
+      recall: await later.recall(CALLER, { question: "Which key did we rotate?", queries: ["Rotate", "Token"], synthesize: false }),
+      sql: await later.sql(CALLER, { sql: "select text from v_docs" }),
+      sqlTitle: await later.sql(CALLER, { sql: "select title from v_sessions" }),
+    }
+    for (const [name, out] of Object.entries(outputs)) expect(JSON.stringify(out), name).not.toContain(SECRET)
+    expect(outputs.search.results[0]!.snippets[0]!.text).toContain("[masked]")
+    expect(JSON.stringify(outputs.sessions)).toContain("Rotate [masked]")
+    // The index file still holds the old text, so status asks for a rebuild, which clears it from the file's bytes too.
+    const onDisk = () => [indexPath, `${indexPath}-wal`].some(file => existsSync(file) && readFileSync(file).includes(SECRET))
+    expect(onDisk()).toBe(true)
+    expect(await later.indexFile()).toMatchObject({ masksChanged: true })
+    await later.reindex("rebuild")
+    expect(await later.indexFile()).toMatchObject({ masksChanged: false })
+    expect((await later.sql(CALLER, { sql: "select count(*) from doc_texts where text like '%' || ? || '%'", params: [SECRET] })).rows).toEqual([[0]])
+    expect(onDisk()).toBe(false)
+  })
+
+  it("reports the index file's size with its write-ahead log", async () => {
+    const { indexPath, runtime } = await indexed()
+    const { bytes } = await runtime.indexFile()
+    const { statSync } = await import("node:fs")
+    expect(bytes).toBeGreaterThanOrEqual(statSync(indexPath).size)
   })
 
   it("stops a history_sql statement in flight when the instance closes, as on a plugin reload", async () => {

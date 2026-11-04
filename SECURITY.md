@@ -44,7 +44,7 @@ Built-in patterns cover common credential formats: private key blocks, API keys 
 
 Masking runs before any cut, so a cut cannot leave part of a secret that no longer matches. Your `mask` patterns are compiled with the `g` flag only, so they are case-sensitive. The built-in patterns are listed in [docs/configuration.md](docs/configuration.md#built-in-patterns); they are written to leave ordinary code such as `password: string` alone, so a credential in a shape they do not know is not masked unless a `mask` pattern covers it.
 
-Masking does not cover directory and project paths, agent, model and tool names, or IDs. It does not change OpenCode's database, which keeps the original text; OpenCode's own session views still show it. Text indexed before you add a pattern stays in the index until you run `/history-reindex rebuild`, and `history_sql` returns index text as stored.
+Masking does not cover directory and project paths, agent, model and tool names, or IDs. It does not change OpenCode's database, which keeps the original text; OpenCode's own session views still show it. Text indexed before you add a pattern stays in the index file until you run `/history-reindex rebuild`, and status says so. Until then, every tool, `history_sql` included, masks what it returns with the current patterns, except that a search excerpt cut through a match can show part of it. A rebuild overwrites the dropped pages with zeros and empties the write-ahead log, so the old text does not stay in the file's free space.
 
 Masking is a safety net for known formats, such as API key prefixes. It is not a guarantee that no secret reaches the index or the model.
 

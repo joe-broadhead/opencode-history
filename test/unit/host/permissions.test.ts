@@ -70,13 +70,21 @@ describe("unguarded agents", () => {
     ])).toEqual(["custom"])
   })
 
+  test("leave out an agent whose own rules end by asking or denying everything, as QA's probe agents do (LIVE-1)", () => {
+    expect(unguardedAgents([
+      { id: "probe", permissions: [BASE, rule("*", "ask")] },
+      { id: "closed", permissions: [BASE, rule("*", "deny")] },
+      { id: "smoke-bot", permissions: [BASE, rule("*", "allow")] },
+    ])).toEqual(["smoke-bot"])
+  })
+
   test("are named in status with the block and the fix, and counted in the model's compact status", async () => {
     const view = await buildStatus({
-      version: "0.0.0", host: { required: HOST_RANGE, found: "2.2.3", availability: "AVAILABLE" },
+      version: "0.0.0", host: { version: "2.2.3", range: HOST_RANGE, tested: true },
       config: { database: "/d", indexPath: "/i", defaultScope: "project", recall: { synthesize: false } }, runtime: fakeRuntime(),
       agents: async () => [{ id: "build", permissions: [BASE, ...DEFAULT_RULES] }, { id: "reviewer", permissions: [BASE] }],
     })
-    expect(view).toMatchObject({ unguardedAgents: ["reviewer"], permissionsBlock: DEFAULT_RULES, next: AGENT_FIX })
+    expect(view).toMatchObject({ unguardedAgents: ["reviewer"], permissionsBlock: DEFAULT_RULES, nextStep: AGENT_FIX })
     const text = formatStatus(view)
     expect(text).toContain("\nAgents without default rules: reviewer\n  [\n    {\"action\":\"history_*\",\"resource\":\"*\",\"effect\":\"ask\"},\n")
     expect(text.split("\n").at(-1)).toBe(`Next step: ${AGENT_FIX}`)
