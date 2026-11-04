@@ -179,6 +179,30 @@ for (const version of VERSIONS) describe(`stock OpenCode ${version}`, () => {
     expect(out.ticks).toBeGreaterThan(30)
   })
 
+  test("history_sql's child stops within 2 s when this OpenCode binary is killed mid-statement", async () => {
+    const folder = mkdtempSync(join(temp, `orphan-${version}-`))
+    const env = { PATH: "/usr/bin:/bin", HOME: host.home, TMPDIR: folder, BUN_BE_BUN: "1" }
+    const parent = spawn(binary, [join(repo, "test/pack/sql-probe.ts"), folder, "orphan"], { cwd: repo, env, stdio: ["ignore", "pipe", "ignore"] })
+    let child: number | undefined
+    try {
+      const deadline = Date.now() + 30_000
+      while (child === undefined && Date.now() < deadline && parent.exitCode === null) {
+        child = processes().find(entry => entry.ppid === parent.pid)?.pid
+        if (child === undefined) await Bun.sleep(100)
+      }
+      expect(child, "the probe started no SQL child").toBeNumber()
+      await Bun.sleep(500)
+      const killed = Date.now()
+      parent.kill("SIGKILL")
+      while (processes().some(entry => entry.pid === child) && Date.now() - killed < 5000) await Bun.sleep(50)
+      expect(processes().some(entry => entry.pid === child), "the SQL child outlived the killed binary").toBe(false)
+      expect(Date.now() - killed).toBeLessThan(2000)
+    } finally {
+      parent.kill("SIGKILL")
+      if (child !== undefined) try { process.kill(child, "SIGKILL") } catch { /* gone */ }
+    }
+  })
+
   test("registers its skill, read from the installed skills/ folder", async () => {
     const response = await host.api("GET", "/api/skill")
     const list = Array.isArray(response.data) ? response.data : (response.data as { data?: unknown[] }).data ?? []
@@ -266,6 +290,14 @@ async function stop(child: ChildProcess) {
   if (await Promise.race([exited.then(() => true), Bun.sleep(10_000).then(() => false)])) return
   try { process.kill(-child.pid!, "SIGKILL") } catch {}
   await exited
+}
+
+/** Every process with its parent, from `ps`, which reads the same on macOS and Linux. */
+function processes(): { pid: number; ppid: number }[] {
+  return execFileSync("ps", ["-A", "-o", "pid=,ppid="], { encoding: "utf8" }).trim().split("\n").map(line => {
+    const [pid, ppid] = line.trim().split(/\s+/).map(Number)
+    return { pid: pid!, ppid: ppid! }
+  })
 }
 
 function freePort() {

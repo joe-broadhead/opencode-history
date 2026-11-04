@@ -58,72 +58,154 @@ export function checkSql(text: string): string {
   return out.trim().replace(/[;\s]+$/, "")
 }
 
-/**
- * The script the child process runs: one read-only connection, the statement, and the rows as JSON on stdout. It
- * reads its job from stdin, so nothing of the statement is on a command line. CommonJS, for `node -e` and `bun -e`.
- */
-export const RUNNER = `"use strict"
-const { DatabaseSync } = require("node:sqlite")
-let raw = ""
-process.stdin.setEncoding("utf8")
-process.stdin.on("data", chunk => { raw += chunk })
-process.stdin.on("end", () => {
-  const job = JSON.parse(raw)
-  const clip = text => {
-    if (text.length <= job.cellChars) return text
-    let end = Math.max(0, job.cellChars - 1)
-    const code = text.charCodeAt(end - 1)
-    if (end > 0 && code >= 0xd800 && code <= 0xdbff) end--
-    return text.slice(0, end) + "\u2026"
-  }
-  const cell = value => {
-    if (typeof value === "string") return clip(value)
-    if (typeof value === "bigint") return Number.isSafeInteger(Number(value)) ? Number(value) : value.toString()
-    if (value instanceof Uint8Array) return "[blob, " + value.byteLength + " bytes]"
-    return value === undefined ? null : value
-  }
-  let out
-  try {
-    const db = new DatabaseSync(job.path, { readOnly: true })
-    try {
-      db.exec("pragma busy_timeout = " + job.busyMs)
-      db.exec("pragma query_only = 1")
-      const statement = db.prepare(job.statement)
-      let columns = typeof statement.columns === "function" ? statement.columns().map(column => column.name) : null
-      const rows = []
-      let bytes = 0, truncated = false
-      for (const row of statement.iterate(...job.params)) {
-        if (columns === null) columns = Object.keys(row)
-        if (rows.length >= job.limit) { truncated = true; break }
-        const cells = columns.map(name => cell(row[name]))
-        bytes += JSON.stringify(cells).length
-        if (bytes > job.maxBytes && rows.length > 0) { truncated = true; break }
-        rows.push(cells)
-      }
-      out = { ok: true, columns: columns || [], rows, truncated }
-    } finally {
-      db.close()
-    }
-  } catch (error) {
-    out = { ok: false, message: error && error.message ? String(error.message) : String(error), errcode: error && typeof error.errcode === "number" ? error.errcode : undefined }
-  }
-  process.stdout.write(JSON.stringify(out))
-})
-`
-
-/** How long one statement may run before its process is killed. */
+/** How long one statement may run. The child stops itself at this deadline, and the parent kills it soon after. */
 export const SQL_TIMEOUT_MS = 10_000
+/** How long after the deadline the parent kills a child that has not stopped itself. */
+export const SQL_KILL_GRACE_MS = 2000
 /** Most bytes of row data one statement returns; rows past it are cut and the result says truncated. */
 export const SQL_OUTPUT_BYTES = 512 * 1024
-/** Most bytes the child may write at all; past it, it is killed and the call fails with OUTPUT_LIMIT. */
+/** Most bytes the child may write at all; past it, the call fails with OUTPUT_LIMIT. */
 export const SQL_STDOUT_BYTES = 4 * 1024 * 1024
 /** Statements that run at once; more wait their turn. */
 export const SQL_PARALLEL = 2
+/** How often the child checks that the process that started it is still its parent. */
+export const SQL_PARENT_POLL_MS = 200
 
-/** What the child answers. */
+/**
+ * The child's own ceilings, written into its script. It enforces them whatever the job asks for, so once it has
+ * started it needs nothing from its parent: not the deadline, not the row or byte caps, and not a kill.
+ */
+export const SQL_CEILINGS = {
+  timeoutMs: SQL_TIMEOUT_MS,
+  rows: BOUNDS.sql.limit.max,
+  cellChars: SQL_CELL_CHARS,
+  rowBytes: SQL_OUTPUT_BYTES,
+  stdoutBytes: SQL_STDOUT_BYTES,
+  busyMs: SQL_BUSY_MS,
+  pollMs: SQL_PARENT_POLL_MS,
+  // The job is the statement (at most 16,384 characters), its params and a few numbers, as one JSON line.
+  jobChars: 1024 * 1024,
+} as const
+
+/**
+ * The worker thread that runs the statement: one read-only connection, the statement, and the rows, posted back as
+ * one message. SQLite holds the thread it runs on until the statement ends, so it runs here, and the child's main
+ * thread stays free to enforce the deadline and watch for its parent. String cells are masked with the current mask
+ * patterns, then cut.
+ */
+const WORKER = `"use strict"
+const { parentPort, workerData: job } = require("node:worker_threads")
+const { DatabaseSync } = require("node:sqlite")
+const C = ${JSON.stringify(SQL_CEILINGS)}
+const limit = Math.max(0, Math.min(job.limit, C.rows))
+const cellChars = Math.max(1, Math.min(job.cellChars, C.cellChars))
+const maxBytes = Math.max(0, Math.min(job.maxBytes, C.rowBytes))
+const masks = (job.mask || []).map(([source, flags]) => new RegExp(source, flags.includes("g") ? flags : flags + "g"))
+const mask = text => {
+  for (const pattern of masks) text = text.replace(pattern, (match, ...rest) => {
+    if (match === "") return match
+    const groups = rest[rest.length - 1]
+    const keep = typeof groups === "object" && groups !== null ? groups.keep : undefined
+    return (keep || "") + "[masked]"
+  })
+  return text
+}
+const clip = text => {
+  if (text.length <= cellChars) return text
+  let end = Math.max(0, cellChars - 1)
+  const code = text.charCodeAt(end - 1)
+  if (end > 0 && code >= 0xd800 && code <= 0xdbff) end--
+  return text.slice(0, end) + "\\u2026"
+}
+const cell = value => {
+  if (typeof value === "string") return clip(mask(value))
+  if (typeof value === "bigint") return Number.isSafeInteger(Number(value)) ? Number(value) : value.toString()
+  if (value instanceof Uint8Array) return "[blob, " + value.byteLength + " bytes]"
+  return value === undefined ? null : value
+}
+let out
+try {
+  const db = new DatabaseSync(job.path, { readOnly: true })
+  try {
+    db.exec("pragma busy_timeout = " + Math.max(0, Math.min(job.busyMs, C.busyMs)))
+    db.exec("pragma query_only = 1")
+    const statement = db.prepare(job.statement)
+    let columns = typeof statement.columns === "function" ? statement.columns().map(column => column.name) : null
+    const rows = []
+    let bytes = 0, truncated = false
+    for (const row of statement.iterate(...job.params)) {
+      if (columns === null) columns = Object.keys(row)
+      if (rows.length >= limit) { truncated = true; break }
+      const cells = columns.map(name => cell(row[name]))
+      bytes += JSON.stringify(cells).length
+      if (bytes > maxBytes && rows.length > 0) { truncated = true; break }
+      rows.push(cells)
+    }
+    out = { ok: true, columns: columns || [], rows, truncated }
+  } finally {
+    db.close()
+  }
+} catch (error) {
+  out = { ok: false, message: error && error.message ? String(error.message) : String(error), errcode: error && typeof error.errcode === "number" ? error.errcode : undefined }
+}
+parentPort.postMessage(out)
+`
+
+/**
+ * The script the child process runs. It reads its job, one JSON line, from stdin, so nothing of the statement is on a
+ * command line, and runs the statement in a worker thread (WORKER). Its main thread writes the answer as JSON on
+ * stdout. It also ends the process by itself, so the child never outlives its call, when:
+ * - the deadline passes (the job's timeout, at most SQL_TIMEOUT_MS): it answers `timeout` and stops;
+ * - stdin ends: the parent keeps stdin open while it waits, and the system closes it when the parent exits, crashes
+ *   or is killed;
+ * - its parent process ID changes: an orphan is adopted by PID 1 or a subreaper, on macOS and Linux alike.
+ * It stops with SIGKILL, because `process.exit` waits for a worker thread that is stuck inside SQLite. CommonJS, for
+ * `node -e` and `bun -e`.
+ */
+export const RUNNER = `"use strict"
+const { Worker } = require("node:worker_threads")
+const C = ${JSON.stringify(SQL_CEILINGS)}
+const parent = process.ppid
+const stop = () => { try { process.kill(process.pid, "SIGKILL") } finally { process.exit(1) } }
+let answered = false
+const answer = out => {
+  if (answered) return
+  answered = true
+  let text = JSON.stringify(out)
+  if (Buffer.byteLength(text) > C.stdoutBytes) text = JSON.stringify({ ok: false, reason: "output" })
+  // A worker that has finished lets the process exit; one still inside SQLite (a timeout) needs the stop. A parent
+  // that does not read the answer gets the stop too.
+  setTimeout(stop, 1000)
+  process.stdout.write(text, () => out.reason === "timeout" ? stop() : process.exit(0))
+}
+setInterval(() => { if (process.ppid !== parent) stop() }, C.pollMs)
+process.stdin.on("end", stop)
+process.stdin.on("close", stop)
+process.stdin.on("error", stop)
+let raw = "", started = false
+process.stdin.setEncoding("utf8")
+process.stdin.on("data", chunk => {
+  if (started) return
+  raw += chunk
+  const end = raw.indexOf("\\n")
+  if (end < 0) { if (raw.length > C.jobChars) stop(); return }
+  started = true
+  let job
+  try { job = JSON.parse(raw.slice(0, end)) } catch { return answer({ ok: false, message: "the job is not JSON" }) }
+  raw = ""
+  const timeoutMs = Math.max(1, Math.min(Number(job.timeoutMs) || C.timeoutMs, C.timeoutMs))
+  setTimeout(() => answer({ ok: false, reason: "timeout" }), timeoutMs)
+  const worker = new Worker(${JSON.stringify(WORKER)}, { eval: true, workerData: job })
+  worker.on("message", answer)
+  worker.on("error", error => answer({ ok: false, message: error && error.message ? String(error.message) : String(error) }))
+})
+`
+
+/** What the child answers. `reason` says it stopped by itself: at its deadline, or with too much output. */
 type Answer =
   | { readonly ok: true; readonly columns: string[]; readonly rows: unknown[][]; readonly truncated: boolean }
-  | { readonly ok: false; readonly message: string; readonly errcode?: number }
+  | { readonly ok: false; readonly reason: "timeout" | "output" }
+  | { readonly ok: false; readonly reason?: undefined; readonly message: string; readonly errcode?: number }
 
 /** The child's command: this runtime itself, as Bun or Node, with the runner script and an environment of its own. */
 export function runnerCommand(): { readonly file: string; readonly args: string[]; readonly env: Record<string, string> } {
@@ -161,9 +243,14 @@ async function slot(signal?: AbortSignal): Promise<() => void> {
   }
 }
 
-/** Runs one job in a child process, killed when it passes `timeoutMs`, writes too much, or `signal` aborts. */
-function runChild(job: Record<string, unknown>, cwd: string, timeoutMs: number, signal?: AbortSignal): Promise<Answer> {
+/**
+ * Runs one job in a child process. The child stops itself at the job's deadline; this side kills it SQL_KILL_GRACE_MS
+ * later if it has not, when it writes too much, or when `signal` aborts. Stdin stays open until the child exits: its
+ * end tells the child that this process is gone.
+ */
+function runChild(job: Record<string, unknown> & { readonly timeoutMs: number }, cwd: string, signal?: AbortSignal): Promise<Answer> {
   const { file, args, env } = runnerCommand()
+  const timeoutMs = job.timeoutMs
   return new Promise((resolve, reject) => {
     let stop: "timeout" | "output" | "cancelled" | undefined
     const chunks: Buffer[] = []
@@ -173,7 +260,7 @@ function runChild(job: Record<string, unknown>, cwd: string, timeoutMs: number, 
       stop ??= why
       child.kill("SIGKILL")
     }
-    const timer = setTimeout(() => kill("timeout"), timeoutMs)
+    const timer = setTimeout(() => kill("timeout"), timeoutMs + SQL_KILL_GRACE_MS)
     const abort = () => kill("cancelled")
     signal?.addEventListener("abort", abort, { once: true })
     child.stdout.on("data", (chunk: Buffer) => {
@@ -190,28 +277,33 @@ function runChild(job: Record<string, unknown>, cwd: string, timeoutMs: number, 
     child.on("close", () => {
       clearTimeout(timer)
       signal?.removeEventListener("abort", abort)
-      if (stop === "timeout") return reject(new QueryError(`the SQL ran longer than ${timeoutMs / 1000} s and was stopped`, "sql_timeout"))
-      if (stop === "output") return reject(new HistoryError("OUTPUT_LIMIT"))
-      if (stop === "cancelled") return reject(new HistoryError("CANCELLED"))
-      try {
-        resolve(JSON.parse(Buffer.concat(chunks).toString("utf8")) as Answer)
-      } catch (error) {
-        reject(new QueryError("the SQL process gave no answer", "sql_failed", { cause: error }))
-      }
+      child.stdin.destroy()
+      let answer: Answer | undefined
+      try { answer = JSON.parse(Buffer.concat(chunks).toString("utf8")) as Answer } catch { /* no answer: a kill, or a crash */ }
+      const why = stop ?? (answer && !answer.ok ? answer.reason : undefined)
+      if (why === "timeout") return reject(new QueryError(`the SQL ran longer than ${timeoutMs / 1000} s and was stopped`, "sql_timeout"))
+      if (why === "output") return reject(new HistoryError("OUTPUT_LIMIT"))
+      if (why === "cancelled") return reject(new HistoryError("CANCELLED"))
+      if (answer) return resolve(answer)
+      reject(new QueryError("the SQL process gave no answer", "sql_failed"))
     })
-    child.stdin.end(JSON.stringify(job))
+    // One line, and no end: the child reads the job up to the newline, and takes the end of stdin as this process exiting.
+    child.stdin.write(`${JSON.stringify(job)}\n`)
   })
 }
 
 export interface SqlOptions {
   readonly signal?: AbortSignal
+  /** The deadline, at most SQL_TIMEOUT_MS. */
   readonly timeoutMs?: number
+  /** The current mask patterns, applied to every text cell before it is cut, so a pattern added after text was indexed still applies. */
+  readonly mask?: readonly RegExp[]
 }
 
 /**
  * Runs `input.sql` with its params on a fresh read-only connection to the index at `path`, in a child process of its
- * own, so a slow or endless statement cannot block OpenCode: it is killed after SQL_TIMEOUT_MS with SQL_TIMEOUT. Rows
- * stop at the limit and at SQL_OUTPUT_BYTES of data.
+ * own, so a slow or endless statement cannot block OpenCode: it stops after SQL_TIMEOUT_MS with SQL_TIMEOUT, and it
+ * stops by itself when OpenCode goes away. Rows stop at the limit and at SQL_OUTPUT_BYTES of data.
  */
 export async function sql(path: string, input: SqlInput, options: SqlOptions = {}): Promise<SqlOutput> {
   const body = checkSql(input.sql)
@@ -230,13 +322,16 @@ export async function sql(path: string, input: SqlInput, options: SqlOptions = {
       cellChars: SQL_CELL_CHARS,
       maxBytes: SQL_OUTPUT_BYTES,
       busyMs: SQL_BUSY_MS,
-    }, dirname(path), options.timeoutMs ?? SQL_TIMEOUT_MS, options.signal)
+      timeoutMs: Math.min(options.timeoutMs ?? SQL_TIMEOUT_MS, SQL_TIMEOUT_MS),
+      mask: (options.mask ?? []).map(pattern => [pattern.source, pattern.flags]),
+    }, dirname(path), options.signal)
   } finally {
     release()
   }
   if (!answer.ok) {
-    const cause = Object.assign(new Error(answer.message), answer.errcode === undefined ? {} : { errcode: answer.errcode })
-    if (/unable to open|cannot open/i.test(answer.message)) throw new QueryError("the history index could not be opened for reading", "sql_failed", { cause })
+    const failed = answer as Extract<Answer, { message: string }>
+    const cause = Object.assign(new Error(failed.message), failed.errcode === undefined ? {} : { errcode: failed.errcode })
+    if (/unable to open|cannot open/i.test(failed.message)) throw new QueryError("the history index could not be opened for reading", "sql_failed", { cause })
     throw new QueryError("the SQL failed", "sql_failed", { cause })
   }
   return { columns: answer.columns, rows: answer.rows, truncated: answer.truncated }

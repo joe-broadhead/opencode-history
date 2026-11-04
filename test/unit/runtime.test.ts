@@ -303,6 +303,16 @@ describe("createRuntime", () => {
     expect((await runtime.search(CALLER, { query: "Same\\w+=", match: "regex" })).results.map(hit => hit.sessionID)).toEqual(["ses_login"])
   })
 
+  it("stops a history_sql statement in flight when the instance closes, as on a plugin reload", async () => {
+    const { runtime } = await indexed()
+    const pending = runtime.sql(CALLER, { sql: "with recursive r(x) as (select 1 union all select x+1 from r) select count(*) from r" }).catch((e: unknown) => e)
+    await new Promise(resolve => setTimeout(resolve, 300))
+    const closed = performance.now()
+    await runtime.close()
+    expect(await pending).toMatchObject({ code: "CLOSED" })
+    expect(performance.now() - closed).toBeLessThan(2000)
+  })
+
   it("fails with INDEX_MISMATCH, not OPERATION_FAILED, once another plugin version has rebuilt the index for its own schema", async () => {
     const { indexPath, runtime } = await indexed()
     expect((await runtime.search(CALLER, { query: "SameSite", match: "substring" })).total).toBe(1)

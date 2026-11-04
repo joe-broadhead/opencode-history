@@ -274,6 +274,7 @@ export const createRuntime: CreateRuntime = async ({ config, session, generate }
   const mask = (text: string) => maskText(text, config.mask)
   const state = () => shared.indexer.state()
   let closed = false
+  const closing = new AbortController()
   const run = async <T>(operation: string, work: () => T | Promise<T>, fallback?: FailureCode): Promise<T> => {
     if (closed) fail("CLOSED")
     try {
@@ -308,7 +309,9 @@ export const createRuntime: CreateRuntime = async ({ config, session, generate }
     files: (caller, input) => query("files", () => files(shared.store.db, caller, input, state())),
     read: (_caller, input) => query("read", () => read(shared.store.db, shared.source, input, mask)),
     brief: (_caller, input) => query("brief", () => brief(shared.store.db, shared.source, input, mask)),
-    sql: (_caller, input, signal) => query("sql", () => sql(shared.store.path, input, signal ? { signal } : {})),
+    // A closing instance stops its statements, so a reload never leaves one running.
+    sql: (_caller, input, signal) =>
+      query("sql", () => sql(shared.store.path, input, { signal: signal ? AbortSignal.any([signal, closing.signal]) : closing.signal, mask: config.mask })),
     recall: (caller, input) =>
       query("recall", () =>
         fresh(() => recall(shared.store.db, shared.source, caller, input, state(), (input.synthesize ?? config.recall.synthesize) ? generate : undefined, mask)),
@@ -329,6 +332,7 @@ export const createRuntime: CreateRuntime = async ({ config, session, generate }
     async close() {
       if (closed) return
       closed = true
+      closing.abort()
       lease.release()
     },
   }
