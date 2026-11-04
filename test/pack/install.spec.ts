@@ -1,27 +1,29 @@
 // Packs the package as npm would publish it, installs the tarball into an empty project with scripts disabled,
 // imports its entries, and loads it on stock OpenCode 2.2.3 and 2.2.4. Run `npm run build` first.
-// OPENCODE_BIN_2_2_3 and OPENCODE_BIN_2_2_4 name the stock `opencode` binaries when set. When unset, each
-// release is installed into this test's temp project with --ignore-scripts. That is the CI path.
+// It runs on every release in src/host/tested-hosts.json. OPENCODE_BIN_2_2_3, OPENCODE_BIN_2_2_4 and
+// OPENCODE_BIN_2_2_5 name the stock `opencode` binaries when set. When unset, each release is installed into this
+// test's temp project with --ignore-scripts.
 // PACKED_DIR names a folder with the tarball already packed, as release.yml does: the test then checks that exact
 // file, the one that will be published.
 import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test"
 import { execFileSync, spawn, type ChildProcess } from "node:child_process"
 import { randomBytes } from "node:crypto"
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { createServer } from "node:net"
-import { arch, platform, tmpdir } from "node:os"
+import { arch, platform } from "node:os"
 import { join, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
 import { PLUGIN_ID, TUI_ID } from "../../src/domain/contract.js"
-import { HOST_RANGE } from "../../src/host/compat.js"
+import { HOST_RANGE, TESTED_HOSTS } from "../../src/host/compat.js"
+import { tempDir } from "../temp.js"
 
 setDefaultTimeout(300_000)
 const repo = fileURLToPath(new URL("../../", import.meta.url))
 const NAME = "@joe-broadhead/opencode-history"
-const VERSIONS = ["2.2.3", "2.2.4"] as const
+const VERSIONS = TESTED_HOSTS
 const source = JSON.parse(readFileSync(join(repo, "package.json"), "utf8")) as { version: string }
 
-const temp = realpathSync(mkdtempSync(join(tmpdir(), "history-pack-")))
+const temp = tempDir("history-pack-")
 const project = join(temp, "project"), installed = join(project, "node_modules", NAME)
 interface Packed { filename: string; size: number; files: { path: string }[] }
 const PACKED_DIR = process.env.PACKED_DIR
@@ -124,7 +126,11 @@ for (const version of VERSIONS) describe(`stock OpenCode ${version}`, () => {
     expect(response.status).toBe(200)
     const view = (response.data as { output: Record<string, any> }).output
     expect(view.version).toBe(source.version)
-    expect(view.host).toEqual({ required: HOST_RANGE, found: version, availability: "AVAILABLE" })
+    // The binary's own version, not the slot's label, so a newer release can stand in for a slot.
+    const found = host.version
+    expect(view.host).toEqual({ version: found, range: HOST_RANGE, tested: TESTED_HOSTS.includes(found) })
+    expect(view.state).toMatch(/^(ready|connecting|host_untested)$/)
+    expect(view.nextStep).toEqual(expect.any(String))
     // With no options, the database and the index are under the isolated XDG data home, and the database is the
     // file this OpenCode release writes.
     expect(view.database).toBe(join(host.home, ".local/share/opencode/opencode.db"))
@@ -211,8 +217,14 @@ for (const version of VERSIONS) describe(`stock OpenCode ${version}`, () => {
   })
 })
 
-/** The stock CLI for `version`: the OPENCODE_BIN_* path when set, otherwise the npm release with scripts off. */
+/** The stock CLI for `version`: the OPENCODE_BIN_* path when set, otherwise the npm release with scripts off, installed once. */
+const binaries = new Map<string, string>()
 function stockBinary(version: string) {
+  let binary = binaries.get(version)
+  if (!binary) binaries.set(version, binary = installBinary(version))
+  return binary
+}
+function installBinary(version: string) {
   const given = process.env[`OPENCODE_BIN_${version.replaceAll(".", "_")}`]
   if (given) {
     if (!existsSync(given)) throw new Error(`OPENCODE_BIN_${version.replaceAll(".", "_")} does not exist: ${given}`)
@@ -244,7 +256,9 @@ async function serve(version: string, binary: string) {
     HTTP_PROXY: "http://127.0.0.1:9", HTTPS_PROXY: "http://127.0.0.1:9", http_proxy: "http://127.0.0.1:9", https_proxy: "http://127.0.0.1:9",
     NO_PROXY: "127.0.0.1,localhost", no_proxy: "127.0.0.1,localhost",
   }
-  expect(execFileSync(binary, ["--version"], { env, cwd: directory, encoding: "utf8" })).toContain(version)
+  // The slot's label names the release; the binary may be a newer one standing in for it. Tests read its own version.
+  const found = /\d+\.\d+\.\d+\S*/.exec(execFileSync(binary, ["--version"], { env, cwd: directory, encoding: "utf8" }))?.[0]
+  if (!found) throw new Error(`OpenCode ${version}: --version printed no version`)
   const listed = execFileSync(binary, ["debug", "paths"], { env, cwd: directory, encoding: "utf8" }).trim().split("\n").flatMap(line => {
     const value = line.trim().split(/\s+/).slice(1).join(" ")
     return value ? [value] : []
@@ -279,7 +293,7 @@ async function serve(version: string, binary: string) {
   }
   if (!plugin) throw new Error(`OpenCode ${version} did not list ${PLUGIN_ID} (exit ${child.exitCode}). Server log:\n${log}`)
   if (plugin.state?.status !== "active") throw new Error(`${PLUGIN_ID} did not load on OpenCode ${version}: ${JSON.stringify(plugin.state)}. Server log:\n${log}`)
-  return { child, plugin, api, home, directory }
+  return { child, plugin, api, home, directory, version: found }
 }
 
 async function stop(child: ChildProcess) {

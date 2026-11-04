@@ -1,10 +1,10 @@
-import { mkdtempSync, rmSync } from "node:fs"
-import { tmpdir } from "node:os"
+import { rmSync } from "node:fs"
 import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { IndexStore, TITLE_SEQ } from "../../../src/index/store.js"
 import { Indexer, SYNCED_AT, WATERMARK, type IndexerOptions, type Progress } from "../../../src/index/sync.js"
 import { chat, extract, FakeSource, reply, tick, titleDoc, user } from "./fakes.js"
+import { tempDir } from "../../temp.js"
 
 let dir: string
 let store: IndexStore
@@ -31,7 +31,7 @@ const snapshot = (id: string) => ({
 })
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "history-sync-"))
+  dir = tempDir("history-sync-")
   store = IndexStore.open(join(dir, "index.db"))
   source = new FakeSource()
   time = 100_000

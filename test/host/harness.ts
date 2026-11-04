@@ -1,15 +1,16 @@
 // Hosts History in-process on the public @opencode/sdk. Import this module before anything that loads
 // @opencode/*: it points HOME, OPENCODE_TEST_HOME, the XDG variables and TMPDIR at a temporary root, and
 // changes into that root, so the host never reads or writes the user's real OpenCode state.
-import { mkdirSync, mkdtempSync, realpathSync, rmSync } from "node:fs"
-import { tmpdir } from "node:os"
+import { mkdirSync, rmSync } from "node:fs"
 import { join, sep } from "node:path"
 import type { Plugin } from "@opencode/plugin"
 import type { OpenCode } from "@opencode/sdk"
+import { TESTED_HOSTS } from "../../src/host/compat.js"
+import { tempDir } from "../temp.js"
 
-/** The host version reported to plugins. Read before the environment is replaced. */
-export const HOST_VERSION = process.env.OPENCODE_HOST_VERSION ?? "2.2.3"
-export const root = realpathSync(mkdtempSync(join(tmpdir(), "history-host-")))
+/** The host version reported to plugins, the first tested release unless set. Read before the environment is replaced. */
+export const HOST_VERSION = process.env.OPENCODE_HOST_VERSION ?? TESTED_HOSTS[0]!
+export const root = tempDir("history-host-")
 const home = join(root, "home")
 const previousDir = process.cwd()
 for (const dir of [home, join(home, ".config"), join(home, ".local/share"), join(home, ".cache"), join(home, ".local/state"), join(root, "tmp")]) mkdirSync(dir, { recursive: true })

@@ -1,8 +1,8 @@
 // A synthetic OpenCode 2.2.x database for tests. Table layouts follow session_v2, session_message, project and todo.
-import { mkdtempSync, rmSync } from "node:fs"
-import { tmpdir } from "node:os"
+import { rmSync } from "node:fs"
 import { join } from "node:path"
 import { openDb, type Db } from "../../src/domain/sqlite.js"
+import { tempDir } from "../temp.js"
 
 export type FixtureTable = "project" | "session_v2" | "session_message" | "todo"
 
@@ -179,7 +179,7 @@ export interface FixtureOptions {
 export const FIXTURE_NOW = Date.UTC(2026, 9, 1, 12)
 
 export function createOpencodeDb(options: FixtureOptions = {}): OpencodeDbFixture {
-  const dir = mkdtempSync(join(tmpdir(), "opencode-history-fixture-"))
+  const dir = tempDir("opencode-history-fixture-")
   const path = join(dir, "opencode.db")
   const db = openDb(path)
   if (options.wal ?? true) db.exec("pragma journal_mode = wal")

@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, test } from "vitest"
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
-import { tmpdir } from "node:os"
+import { mkdir, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import type * as z from "zod"
@@ -9,6 +8,7 @@ import { PinInputSchema } from "../../../src/host/actions.js"
 import * as S from "../../../src/host/schemas.js"
 import { empty } from "../../../src/domain/common.js"
 import { ACTIONS, TOOL_NAMES, type ToolName } from "../../../src/host/tools.js"
+import { tempDir } from "../../temp.js"
 
 const packageRoot = fileURLToPath(new URL("../../../", import.meta.url))
 const temps: string[] = []
@@ -58,7 +58,7 @@ describe("skills", () => {
   })
 
   test("a missing or malformed skill is skipped with a warning, and setup goes on", async () => {
-    const root = await mkdtemp(join(tmpdir(), "history-skills-")); temps.push(root)
+    const root = tempDir("history-skills-"); temps.push(root)
     const warnings: string[] = []
     expect(await loadSkills(root, m => { warnings.push(m) })).toEqual([])
     await mkdir(join(root, "skills/history-recall"), { recursive: true })
