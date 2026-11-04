@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- A `history_sql` statement no longer keeps running after OpenCode stops. Before, a statement that never ended went on using a CPU core after OpenCode crashed or was killed. Now its process stops by itself at the 10-second limit, and as soon as OpenCode exits, crashes or reloads the plugin.
+
 ## [0.0.0] - 2026-11-03
 
 ### Added
