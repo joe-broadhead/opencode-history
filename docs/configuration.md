@@ -311,7 +311,7 @@ Every tool asserts its action on each call, so an `ask` rule prompts; OpenCode i
 
 `history_*` matches every tool. Every rule needs `"resource"`. Without it, OpenCode skips the rule. For a Markdown agent, the same array goes in the `permissions` front matter.
 
-Agents defined only in your config are created after plugins run, so they miss the block. Status names every agent that misses it and would run an unknown `history_*` tool without asking, under **Agents without default rules**, with the block. Put the block first in that agent's own `permissions`, followed by your top-level rules for `history_*` actions. Do not put it in the top-level `permissions`: top-level rules come after every agent's own, so they would loosen Explore.
+Agents defined only in your config are created after plugins run, so they miss the block. Status names every agent that misses it and would run an unknown `history_*` tool without asking, under **Agents without default rules**, with the block. The next step reads: "Put the default rules shown by /history-status first in each listed agent's own permissions, in opencode.json or the agent's Markdown file, followed by your top-level rules for History tools." Do not put it in the top-level `permissions`: top-level rules come after every agent's own, so they would loosen Explore.
 
 ## Commands and RPC
 

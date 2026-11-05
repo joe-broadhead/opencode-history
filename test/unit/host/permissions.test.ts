@@ -87,7 +87,7 @@ describe("unguarded agents", () => {
     expect(view).toMatchObject({ unguardedAgents: ["reviewer"], permissionsBlock: DEFAULT_RULES, nextStep: AGENT_FIX })
     const text = formatStatus(view)
     expect(text).toContain("\nAgents without default rules: reviewer\n  [\n    {\"action\":\"history_*\",\"resource\":\"*\",\"effect\":\"ask\"},\n")
-    expect(text.split("\n").at(-1)).toBe(`Next step: ${AGENT_FIX}`)
+    expect(text.split("\n").at(-1)).toBe("Next step: Put the default rules shown by /history-status first in each listed agent's own permissions, in opencode.json or the agent's Markdown file, followed by your top-level rules for History tools.")
     expect(compactStatus(view)).toMatchObject({ unguardedAgents: 1, permissions: expect.stringMatching(/^1 agent missed the default rules.*\/history-status/) })
     expect(compactStatus(view)).not.toHaveProperty("permissionsBlock")
     expect(formatStatus(view, { compact: true })).toContain("\nAgents without default rules: 1; /history-status names them and gives the block\n")

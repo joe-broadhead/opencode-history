@@ -29,7 +29,7 @@ export const DEFAULT_RULES: readonly Rule[] = [
  * `permissions` are no fix: they come after Explore's `* * deny` too, so they would loosen Explore.
  */
 export const AGENT_FIX =
-  "Put the block first in each listed agent's own permissions, in opencode.json or the agent's Markdown file, followed by your top-level permissions rules for history_* actions."
+  "Put the default rules shown by /history-status first in each listed agent's own permissions, in opencode.json or the agent's Markdown file, followed by your top-level rules for History tools."
 
 const BASE_ALLOW: Rule = { action: "*", resource: "*", effect: "allow" }
 const same = (a: Rule, b: Rule) => a.action === b.action && a.resource === b.resource && a.effect === b.effect
