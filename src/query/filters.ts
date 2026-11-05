@@ -38,8 +38,8 @@ export function hidingColumns(hiding: readonly Hiding[]): Where {
 
 /**
  * How many distinct keys each hiding clause leaves out, from rows selected with `hidingColumns`: a key counts for every
- * clause one of its rows fails, so turning on the inputs of all the clauses a row fails would show it. A subagent
- * session of the caller's own session, for one, counts under both `subagents` and `current`.
+ * clause one of its rows fails, so turning on the inputs of all the clauses a row fails would show it. A caller that
+ * is itself a subagent session, for one, counts under both `subagents` and `current`.
  */
 export function hiddenCounts(rows: Iterable<{ readonly key: string; readonly row: Record<string, unknown> }>, hiding: readonly Hiding[]): Hidden {
   const keys = new Map<HiddenReason, Set<string>>()
@@ -79,11 +79,6 @@ function pathMatch(path: string, directory: string): Where {
   return { sql: "('/' || f.path || '/') like ? escape '\\'", params: [`%/${escapeLike(clean.replace(/\/+$/, ""))}/%`] }
 }
 
-/** The ID of the tree the caller belongs to, so the caller's own conversation can be left out. */
-function callerRoot(db: Db, sessionID: string): string {
-  return db.get<{ root_id: string }>("select root_id from sessions where id = ?", sessionID)?.root_id ?? sessionID
-}
-
 /**
  * Filters as one SQL condition for `target`.
  *
@@ -91,6 +86,8 @@ function callerRoot(db: Db, sessionID: string): string {
  *   leave-out-the-caller rule.
  * - includeSubagents: false by default, so only top-level sessions count. True adds subagent sessions; search folds
  *   their docs into the root session's result.
+ * - includeCurrent: false by default, which leaves out the caller's own session only. Its parent, its subagents and
+ *   any other running session are history like the rest.
  * - since/until: doc or file time; for sessions, `updated >= since` and `created <= until` (active in the window).
  * - kinds/tool: for sessions, sessions with such a doc; for files, `tool` is the touching tool and kinds are ignored.
  * - path: docs and sessions keep trees that touched a matching file; files keeps matching touches.
@@ -120,7 +117,7 @@ export function filterSql(db: Db, caller: Caller, filters: Filters, now: number,
       hide("scope", "(s.directory = ? or s.directory like ? escape '\\')", directory, `${escapeLike(directory === "/" ? "" : directory)}/%`)
     }
     if (!filters.includeSubagents) hide("subagents", "s.parent_id is null")
-    if (!filters.includeCurrent) hide("current", "s.id <> ? and s.root_id <> ?", caller.sessionID, callerRoot(db, caller.sessionID))
+    if (!filters.includeCurrent) hide("current", "s.id <> ?", caller.sessionID)
   }
 
   if (!filters.includeArchived) hide("archived", "s.archived is null and r.archived is null")

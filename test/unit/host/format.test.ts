@@ -44,11 +44,11 @@ describe("result text", () => {
     const search = formatSearch({ ...SAMPLES.search, results: [], total: 0, next: null, hidden }, { query: "quokka" })
     expect(search.split("\n")).toEqual([
       "No sessions matched \"quokka\".",
-      "Left out by default: 3 sessions archived (includeArchived: true), 1 session in other projects or folders (scope: \"all\"), 1 session in the current session or its subagents (includeCurrent: true).",
+      "Left out by default: 3 sessions archived (includeArchived: true), 1 session in other projects or folders (scope: \"all\"), 1 session in the current session (includeCurrent: true).",
       "Next: repeat the call with includeArchived: true to include them, or search again with different phrasings.",
     ])
     expect(formatSessions({ ...SAMPLES.sessions, sessions: [], hidden: { ...hidden, archived: 0, subagents: 4 } })).toContain(
-      "Left out by default: 4 sessions in subagent sessions (includeSubagents: true), 1 session in other projects or folders (scope: \"all\"), 1 session in the current session or its subagents (includeCurrent: true).\nNext: repeat the call with includeSubagents: true to include them.",
+      "Left out by default: 4 sessions in subagent sessions (includeSubagents: true), 1 session in other projects or folders (scope: \"all\"), 1 session in the current session (includeCurrent: true).\nNext: repeat the call with includeSubagents: true to include them.",
     )
     // The caller's own subagents count under both reasons, and need both inputs.
     expect(formatFiles({ ...SAMPLES.files, files: [], hidden: { scope: 0, archived: 0, subagents: 2, current: 2 } }, { path: "src/x" })).toMatch(

@@ -358,15 +358,17 @@ describe("what the filters left out", () => {
     expect((await find({ query: "quokka", includeArchived: true })).hidden).toEqual({ ...none, scope: 1 })
   })
 
-  it("counts matches in the caller's own subagents under both current and subagents, in every mode", async () => {
+  it("counts matches in a subagent caller's own session under both current and subagents, and a caller's subagent only as a subagent, in every mode", async () => {
     session(db, { id: "ses_mine", parentID: "ses_current", agent: "explore", title: "Explore", updated: NOW })
     doc(db, { sessionID: "ses_mine", text: "the quokka lives in burrow.ts" })
-    const caller = { ...CALLER, sessionID: "ses_current" }
+    const parent = { ...CALLER, sessionID: "ses_current" }, child = { ...CALLER, sessionID: "ses_mine" }
     for (const match of ["words", "substring", "regex"] as const) {
-      expect((await find({ query: "quokka", match }, caller)).hidden, match).toEqual({ ...none, subagents: 1, current: 1 })
+      expect((await find({ query: "quokka", match }, parent)).hidden, match).toEqual({ ...none, subagents: 1 })
+      expect((await find({ query: "quokka", match }, child)).hidden, match).toEqual({ ...none, subagents: 1, current: 1 })
     }
-    expect((await find({ query: "quokka", includeSubagents: true }, caller)).hidden).toEqual({ ...none, current: 1 })
-    expect((await ids({ query: "quokka", includeSubagents: true, includeCurrent: true }, caller))).toEqual(["ses_current"])
+    expect((await ids({ query: "quokka", includeSubagents: true }, parent))).toEqual(["ses_current"])
+    expect((await find({ query: "quokka", includeSubagents: true }, child)).hidden).toEqual({ ...none, current: 1 })
+    expect((await ids({ query: "quokka", includeSubagents: true, includeCurrent: true }, child))).toEqual(["ses_current"])
   })
 
   it("counts subagent matches of a named session", async () => {
@@ -504,10 +506,11 @@ describe("filters", () => {
     expect((await ids({ query: "login", sessionID: "ses_web" }))).toEqual(["ses_web"])
   })
 
-  it("leaves out the caller's whole session tree unless includeCurrent", async () => {
+  it("leaves out only the caller's own session unless includeCurrent: a subagent caller still finds its live parent", async () => {
     expect((await ids({ query: "login" }, { ...CALLER, sessionID: "ses_current" }))).not.toContain("ses_current")
     expect((await ids({ query: "login", includeCurrent: true }, { ...CALLER, sessionID: "ses_current" }))).toContain("ses_current")
-    expect((await ids({ query: "validation" }, { ...CALLER, sessionID: "ses_explore" }))).toEqual([])
+    expect((await ids({ query: "validation" }, { ...CALLER, sessionID: "ses_explore" }))).toEqual(["ses_login"])
+    expect((await ids({ query: "validation", includeSubagents: true }, { ...CALLER, sessionID: "ses_explore" }))).toEqual(["ses_login"])
     expect((await ids({ query: "validation" }, { ...CALLER, sessionID: "ses_login" }))).toEqual([])
   })
 
