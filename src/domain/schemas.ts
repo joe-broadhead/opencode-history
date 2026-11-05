@@ -194,6 +194,8 @@ export const StatusSchema = z.strictObject({
   indexBytes: z.number().int().min(0).nullable(),
   masksChanged: z.boolean(),
   defaultScope: z.enum(SCOPES),
+  /** Skills with one of the plugin's skill ids that OpenCode loads instead of the plugin's own. */
+  shadowedSkills: z.array(z.strictObject({ id: z.string().max(128), path: z.string().max(4096) })).max(10),
   unguardedAgents: z.array(z.string().max(256)).max(1000),
   permissionsBlock: z.array(z.strictObject({ action: z.string(), resource: z.string(), effect: z.enum(["allow", "deny", "ask"]) })).optional(),
   mismatch: z.strictObject({ file: z.string().max(64).nullable(), build: z.string().max(64) }).optional(),

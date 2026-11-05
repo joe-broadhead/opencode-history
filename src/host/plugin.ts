@@ -56,9 +56,13 @@ export function createPlugin({ createRuntime, packageRoot }: PluginSources): Plu
         const location = { projectID: ctx.location.project.id, directory: ctx.location.directory }
         const defaults = { scope: config.defaultScope }
         const agents = async () => (await ctx.agent.list({ location: { directory: ctx.location.directory } })).data as readonly { id: string; permissions: Rule[] }[]
-        const status = () => buildStatus({ version, host, config, runtime, agents, tools: () => ctx.tool.list() })
-        const assert = (request: Parameters<typeof ctx.permission.assert>[0]) => ctx.permission.assert(request)
         const skills = await loadSkills(packageRoot)
+        const listedSkills = async () => (await ctx.skill.list({ location: { directory: ctx.location.directory } })).data.map(skill => ({ id: String(skill.id), path: String(skill.path) }))
+        const status = () => buildStatus({
+          version, host, config, runtime, agents, tools: () => ctx.tool.list(),
+          skills: { listed: listedSkills, own: skills.map(skill => ({ id: skill.id, path: skill.info.path })) },
+        })
+        const assert = (request: Parameters<typeof ctx.permission.assert>[0]) => ctx.permission.assert(request)
         await registerDefaultRules(ctx.agent)
         await ctx.tool.transform(toolTransform({ runtime, session: ctx.session, location, defaults, assert: request => assert(request as never) }))
         await ctx.rpc.register(History, rpcHandlers({ status }))

@@ -270,8 +270,21 @@ describe("status", () => {
     const runtime = fakeRuntime()
     expect(await buildStatus({ version: "1.2.3", host, config: CONFIG, runtime, agents: async () => [] })).toEqual({
       version: "1.2.3", host, state: "ready", index: INDEX, tools: { visible: 8, unknown: [] }, database: CONFIG.database, indexPath: CONFIG.indexPath, indexBytes: 1_536_000, masksChanged: false,
-      defaultScope: "project", unguardedAgents: [], nextStep: "Nothing to do.",
+      defaultScope: "project", shadowedSkills: [], unguardedAgents: [], nextStep: "Nothing to do.",
     })
+  })
+  test("a skill with the plugin's skill id that OpenCode loads instead is named, with the fix as the next step", async () => {
+    const runtime = fakeRuntime()
+    const own = { id: "history-recall", path: "/pkg/skills/history-recall/SKILL.md" }
+    const view = (listed: () => Promise<{ id: string; path: string }[]>) => buildStatus({ version: "1.2.3", host, config: CONFIG, runtime, agents: async () => [], skills: { listed, own: [own] } })
+    const shadow = { id: "history-recall", path: "/work/user-skills/history-recall/SKILL.md" }
+    const hidden = await view(async () => [shadow, { id: "other", path: "/x/SKILL.md" }])
+    expect(hidden).toMatchObject({ shadowedSkills: [shadow], nextStep: "Rename or move the skill at /work/user-skills/history-recall/SKILL.md, since its id, history-recall, hides the plugin's own skill." })
+    expect(formatStatus(hidden)).toContain("\nSkill: history-recall is hidden by /work/user-skills/history-recall/SKILL.md\n")
+    expect(StatusSchema.safeParse(hidden).success).toBe(true)
+    expect(await view(async () => [own])).toMatchObject({ shadowedSkills: [], nextStep: "Nothing to do." })
+    // A listing that fails shows no shadowing rather than failing the status.
+    expect(await view(async () => { throw new Error("no skills") })).toMatchObject({ shadowedSkills: [], nextStep: "Nothing to do." })
   })
   test("the state is ready, connecting or failed; an untested host inside the range leaves the state and the next step alone", async () => {
     const runtime = fakeRuntime()

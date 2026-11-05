@@ -27,10 +27,12 @@ export function fallbackFailure(code: SourceFallback): HistoryFailure {
 }
 
 /** The first item that needs the user, from blocking problems down to ones that pass by themselves; `Nothing to do.` otherwise. */
-export function nextStep(host: HostCheck, view: Pick<StatusView, "index" | "mismatch" | "unguardedAgents" | "masksChanged">, fallback?: SourceFallback): string {
+export function nextStep(host: HostCheck, view: Pick<StatusView, "index" | "mismatch" | "unguardedAgents" | "masksChanged"> & Partial<Pick<StatusView, "shadowedSkills">>, fallback?: SourceFallback): string {
   if (host.next) return host.next
   if (view.mismatch) return FAILURES.INDEX_MISMATCH[1]!
   if (view.index.source === "context") return FAILURES[fallback ?? "SOURCE_UNAVAILABLE"][1]!
+  const shadow = view.shadowedSkills?.[0]
+  if (shadow) return shadowed(shadow)
   if (view.masksChanged) return MASKS_CHANGED
   if (view.unguardedAgents.length > 0) return AGENT_FIX
   if (!view.index.ready) return BUILDING
@@ -39,6 +41,10 @@ export function nextStep(host: HostCheck, view: Pick<StatusView, "index" | "mism
 
 export const MASKS_CHANGED =
   "Run /history-reindex rebuild, since the mask options changed after text was indexed: results are masked with the new patterns, but the index file still holds that text masked the old way."
+
+/** The fix for a skill with the plugin's skill id that OpenCode loads instead of the plugin's own. */
+export const shadowed = ({ id, path }: { readonly id: string; readonly path: string }) =>
+  `Rename or move the skill at ${path}, since its id, ${id}, hides the plugin's own skill.`
 
 export const BUILDING = "Wait for the index to finish building, since until then results cover only the sessions indexed so far."
 
@@ -56,17 +62,22 @@ interface StatusSources {
   readonly agents: () => Promise<readonly { readonly id: string; readonly permissions: readonly Rule[] }[]>
   /** The tools OpenCode lists; omitted, the plugin's own are counted. */
   readonly tools?: () => Promise<readonly { readonly id: string }[]>
+  /** The skills OpenCode lists, and the plugin's own that loaded, by id and path; omitted, none is shadowed. */
+  readonly skills?: { readonly listed: () => Promise<readonly { readonly id: string; readonly path: string }[]>; readonly own: readonly { readonly id: string; readonly path: string }[] }
 }
 
 /** Tool names are listed only when they look like tool names. */
 const SAFE_NAME = /^history_[a-z][a-z0-9_]{0,63}$/
 
-export async function buildStatus({ version, host, config, runtime, agents, tools }: StatusSources): Promise<StatusView> {
+export async function buildStatus({ version, host, config, runtime, agents, tools, skills }: StatusSources): Promise<StatusView> {
   const known = new Set(TOOL_NAMES.map(name => `history_${name}`))
   const [index, schema, file, listed, ids] = await Promise.all([
     runtime.status(), runtime.schema(), runtime.indexFile(), agents(), tools ? tools().then(list => list.map(tool => tool.id)) : Promise.resolve([...known]),
   ])
   const unguarded = unguardedAgents(listed)
+  // A listing that fails says nothing about shadowing, so it shows none rather than failing the status.
+  const loaded = skills ? await skills.listed().catch(() => []) : []
+  const shadowedSkills = (skills?.own ?? []).flatMap(own => loaded.filter(skill => skill.id === own.id && skill.path !== own.path).map(skill => ({ id: skill.id, path: skill.path }))).slice(0, 10)
   const ours = ids.filter(id => id.startsWith("history_"))
   const base = { index, ...schema.file !== schema.build ? { mismatch: schema } : {} }
   const view = {
@@ -78,6 +89,7 @@ export async function buildStatus({ version, host, config, runtime, agents, tool
     indexBytes: file.bytes,
     masksChanged: file.masksChanged,
     defaultScope: config.defaultScope,
+    shadowedSkills,
     unguardedAgents: unguarded,
     ...unguarded.length ? { permissionsBlock: DEFAULT_RULES.map(rule => ({ ...rule })) } : {},
     ...schema.file !== schema.build ? { mismatch: schema } : {},

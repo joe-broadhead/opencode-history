@@ -7,7 +7,7 @@ import { buildStatus, type StatusView } from "../../../src/host/status.js"
 import { failure, fakeRuntime } from "../../host/runtime.js"
 import { INDEX } from "../../host/samples.js"
 
-const VIEW: StatusView = { version: "1.0.0", host: { version: "2.2.3", range: HOST_RANGE, tested: true }, state: "ready", tools: { visible: 9, unknown: [] }, index: INDEX, database: "/d", indexPath: "/i", indexBytes: 1_536_000, masksChanged: false, defaultScope: "project", unguardedAgents: [], nextStep: "Nothing to do." }
+const VIEW: StatusView = { version: "1.0.0", host: { version: "2.2.3", range: HOST_RANGE, tested: true }, state: "ready", tools: { visible: 9, unknown: [] }, index: INDEX, database: "/d", indexPath: "/i", indexBytes: 1_536_000, masksChanged: false, defaultScope: "project", shadowedSkills: [], unguardedAgents: [], nextStep: "Nothing to do." }
 
 function setup(overrides: Partial<CommandSources> = {}) {
   const runtime = fakeRuntime(), posts: Record<string, unknown>[] = []

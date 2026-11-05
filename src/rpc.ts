@@ -23,11 +23,12 @@ export const STATUS_OUTPUT = object({
   fallback: choice(["SOURCE_UNAVAILABLE", "SOURCE_SCHEMA_UNKNOWN"]),
   tools: object({ visible: integer, unknown: list(string) }, ["visible", "unknown"]),
   database: string, indexPath: string, indexBytes: nullable(integer), masksChanged: boolean, defaultScope: choice(["project", "directory", "all"]),
+  shadowedSkills: list(object({ id: string, path: string }, ["id", "path"])),
   unguardedAgents: list(string),
   permissionsBlock: list(object({ action: string, resource: string, effect: choice(["allow", "deny", "ask"]) }, ["action", "resource", "effect"])),
   mismatch: object({ file: nullable(string), build: string }, ["file", "build"]),
   nextStep: string,
-}, ["version", "host", "state", "index", "tools", "database", "indexPath", "indexBytes", "masksChanged", "defaultScope", "unguardedAgents", "nextStep"])
+}, ["version", "host", "state", "index", "tools", "database", "indexPath", "indexBytes", "masksChanged", "defaultScope", "shadowedSkills", "unguardedAgents", "nextStep"])
 
 /** A failure: the code, the full `CODE: ... Next step: ...` text as the message, and the next step. */
 const errors = { failed: object({ code: string, next: string }, ["code", "next"]) }

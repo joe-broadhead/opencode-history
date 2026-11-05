@@ -29,6 +29,7 @@ const view = (version: string, overrides: Partial<StatusView> = {}): StatusView 
   indexBytes: 2_621_440,
   masksChanged: false,
   defaultScope: "project",
+  shadowedSkills: [],
   unguardedAgents: [],
   nextStep: BUILDING,
   ...overrides,

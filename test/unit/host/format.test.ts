@@ -127,7 +127,7 @@ describe("result text", () => {
   })
 
   test("status rows end with exactly one next step", () => {
-    const view = { version: "0.1.0", host: { version: "2.3.0", range: HOST_RANGE, tested: false }, state: "ready" as const, tools: { visible: 9, unknown: [] as string[] }, index: { ...INDEX, lagSeconds: 3.4 }, database: "/d/opencode.db", indexPath: "/d/index.db", indexBytes: 535_822_336, masksChanged: false, defaultScope: "project" as const, unguardedAgents: [] as string[], nextStep: "Use 2.2.x." }
+    const view = { version: "0.1.0", host: { version: "2.3.0", range: HOST_RANGE, tested: false }, state: "ready" as const, tools: { visible: 9, unknown: [] as string[] }, index: { ...INDEX, lagSeconds: 3.4 }, database: "/d/opencode.db", indexPath: "/d/index.db", indexBytes: 535_822_336, masksChanged: false, defaultScope: "project" as const, shadowedSkills: [], unguardedAgents: [] as string[], nextStep: "Use 2.2.x." }
     expect(formatStatus(view).split("\n")).toEqual([
       "History status",
       "Connection: connected",
@@ -138,6 +138,7 @@ describe("result text", () => {
       "Database: /d/opencode.db",
       "Index file: /d/index.db (511 MB)",
       "Default scope: project",
+      "Skill: history-recall",
       "Tools: 9 available",
       "Agents without default rules: none",
       "OpenCode: 2.3.0 (untested; supported range >=2.2.3 <2.3.0). History 0.1.0",

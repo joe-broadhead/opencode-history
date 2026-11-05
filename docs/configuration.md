@@ -336,11 +336,12 @@ The status RPC has the plugin ID, `history.sessions`, and no events. Its contrac
 | `tools` | `visible`, the `history_*` tools OpenCode lists, and `unknown`, the names of any this version does not know. |
 | `database`, `indexPath`, `defaultScope` | The options in effect. |
 | `indexBytes` | The size of the index file with its write-ahead log, in bytes, or `null` when it cannot be read. |
+| `shadowedSkills` | Skills with the id `history-recall` that OpenCode loads instead of the plugin's own, such as one in your user skills folder, each as `{ id, path }`; empty when none. The `Skill:` row names them, and the next step says to rename or move them. |
 | `masksChanged` | `true` when the mask options changed after text was indexed: results are masked with the current patterns, but the index file holds that text masked the old way until `/history-reindex rebuild`. |
 | `unguardedAgents` | The agents that miss the default rules (see [Permissions](#permissions)), by name; empty when none. |
 | `permissionsBlock` | Present when `unguardedAgents` is not empty: the block to put first in their own `permissions`. |
 | `mismatch` | Present only when the index file's schema is not this build's, after another OpenCode process running another version of the plugin rebuilt it: `file`, its version, or `null` when it has none, and `build`, this build's. Every query then fails with `INDEX_MISMATCH`. |
-| `nextStep` | One next step, exactly the Next step row: the first of a host outside the range that runs because of `allowUntestedHost`, an index file at another schema (`INDEX_MISMATCH`), the fallback source (`SOURCE_UNAVAILABLE` or `SOURCE_SCHEMA_UNKNOWN`), changed masks, unguarded agents, or an index still building; `Nothing to do.` when nothing is needed. |
+| `nextStep` | One next step, exactly the Next step row: the first of a host outside the range that runs because of `allowUntestedHost`, an index file at another schema (`INDEX_MISMATCH`), the fallback source (`SOURCE_UNAVAILABLE` or `SOURCE_SCHEMA_UNKNOWN`), a shadowed skill, changed masks, unguarded agents, or an index still building; `Nothing to do.` when nothing is needed. |
 
 `version`, `host`, `state`, `unguardedAgents` and `nextStep` are the fields every plugin's status RPC shares, with these names.
 
@@ -356,6 +357,7 @@ Source: OpenCode database
 Database: <database>
 Index file: <indexPath> (511 MB)
 Default scope: project
+Skill: history-recall
 Tools: 8 available
 Agents without default rules: none
 OpenCode: 2.2.3 (tested). History <version>
