@@ -17,11 +17,7 @@ export const QUERY_HINTS = {
   time: "Use an ISO date such as 2026-10-01 or an age such as 7d.",
   words: 'Search with plain words, or with match: "substring" for exact text.',
   excluded: "Add a word to search for besides the excluded terms.",
-  empty: "Pass at least one search term in query.",
-  match: 'Use match: "words", "substring" or "regex".',
   path: "Pass a file or folder path, such as src/auth.ts.",
-  scope: 'Use scope "session", "directory", "project" or "all".',
-  question: "Pass the question to answer.",
 } as const
 
 /** A request the query layer cannot serve. Messages say what to change and never repeat input values or history text. */

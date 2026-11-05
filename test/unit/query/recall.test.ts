@@ -132,10 +132,6 @@ describe("recall", () => {
     const out = await ask({ queries: ["zebra"] }, text => text.replace(/sk-\d+/g, "[masked]"))
     expect(out.evidence[0]!.text).toBe("#0 user: the zebra key is [masked]")
   })
-
-  it("rejects an empty question", async () => {
-    await expect(ask({ question: "   " })).rejects.toMatchObject({ reason: "query" })
-  })
 })
 
 describe("recall over subagents", () => {

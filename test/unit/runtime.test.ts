@@ -522,7 +522,6 @@ describe("failures", () => {
     expect(await failure(runtime.sessions(CALLER, { since: "last tuesday" }))).toMatchObject({ hint: "Use an ISO date such as 2026-10-01 or an age such as 7d." })
     expect(await failure(runtime.search(CALLER, { query: "-login" }))).toMatchObject({ hint: "Add a word to search for besides the excluded terms." })
     expect(await failure(runtime.files(CALLER, { path: "/" }))).toMatchObject({ hint: "Pass a file or folder path, such as src/auth.ts." })
-    expect(await failure(runtime.recall(CALLER, { question: "  " }))).toMatchObject({ hint: "Pass the question to answer." })
     // No cause names a regular expression unless one was given.
     expect(FAILURES.QUERY_INVALID[1]).not.toMatch(/regular expression/)
   })

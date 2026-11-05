@@ -160,9 +160,7 @@ export async function registerScripting(ctx: ScriptingContext, sources: Omit<Too
   const invoke = async (tool: ToolDefinition, raw: unknown, context: Context): Promise<unknown> => {
     try {
       if (context.signal.aborted) throw new HistoryError("CANCELLED")
-      // OpenCode checks the envelope first; this repeats it for a caller that does not.
-      const problems = envelopeIssues(raw)
-      if (problems.length) throw new HistoryError("INPUT_INVALID", { message: `The envelope is invalid: ${problems.join("; ")}.` })
+      // OpenCode has checked the envelope with its validator, ENVELOPE's ~standard.
       const { sessionID, input } = raw as { sessionID: string; input: unknown }
       const call = await session(sessionID)
       const result = bounded(await runTool(tool, { ...sources, assert }, call, parse(tool.input, input ?? {}, "INPUT_INVALID"), context.signal))

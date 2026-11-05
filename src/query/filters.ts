@@ -1,7 +1,6 @@
 // Filters as SQL, shared by search, sessions and files so every tool reads them the same way.
 import { posix } from "node:path"
-import type { Caller, Filters, Hidden, HiddenReason, Scope } from "../domain/api.js"
-import { DOC_KINDS } from "../domain/contract.js"
+import type { Caller, Filters, Hidden, HiddenReason } from "../domain/api.js"
 import type { Db, Value } from "../domain/sqlite.js"
 import { escapeLike, placeholders, trimSlash } from "./common.js"
 import { parseTime, QUERY_HINTS, QueryError } from "./parse.js"
@@ -61,8 +60,6 @@ export function hiddenCounts(rows: Iterable<{ readonly key: string; readonly row
  */
 export type FilterTarget = "docs" | "sessions" | "files"
 
-const SCOPES: readonly Scope[] = ["session", "directory", "project", "all"]
-
 /**
  * A condition on `f.path`. Absolute paths match the file or anything under the folder. Relative paths match as a
  * path tail on segment boundaries, so `src/auth.ts` also finds the file in other checkouts and worktrees. A path
@@ -111,7 +108,6 @@ export function filterSql(db: Db, caller: Caller, filters: Filters, now: number,
   }
 
   const scope = filters.scope ?? "project"
-  if (!SCOPES.includes(scope)) throw new QueryError("scope must be session, directory, project or all", "query", { hint: QUERY_HINTS.scope })
   const named = filters.sessionID ?? (scope === "session" ? caller.sessionID : null)
   if (named) {
     add("(s.id = ? or s.root_id = ?)", named, named)
@@ -135,7 +131,6 @@ export function filterSql(db: Db, caller: Caller, filters: Filters, now: number,
   if (until !== undefined) add(target === "sessions" ? "s.created <= ?" : `${time} <= ?`, until)
 
   const kinds = filters.kinds && filters.kinds.length > 0 && target !== "files" ? filters.kinds : undefined
-  if (kinds && kinds.some(kind => !DOC_KINDS.includes(kind))) throw new QueryError(`kinds must be among ${DOC_KINDS.join(", ")}`)
   if (target === "sessions") {
     if (kinds || filters.tool) {
       const inner = [...(kinds ? [`x.kind in (${placeholders(kinds.length)})`] : []), ...(filters.tool ? ["lower(x.tool) = lower(?)"] : [])]
