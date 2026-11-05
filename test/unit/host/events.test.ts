@@ -59,6 +59,27 @@ describe("session events", () => {
     await following
   })
 
+  test("waits 1 s before subscribing again, doubling to at most 30 s, and back to 1 s once an event arrives", async () => {
+    vi.useFakeTimers()
+    try {
+      const controller = new AbortController(), warnings: string[] = []
+      const fail = { events: [], end: "fail" as const }
+      const s = streams(fail, fail, fail, fail, fail, fail, fail, { events: [event("session.idle")], end: "fail" }, fail, { events: [], end: "hang" })
+      const at: number[] = []
+      const subscribe = (options: Options) => { at.push(Date.now()); return (s.subscribe as (o: Options) => AsyncIterable<HostEvent>)(options) }
+      const start = Date.now()
+      const following = followEvents(subscribe as never, () => {}, controller.signal, { warn: m => { warnings.push(m) } })
+      await vi.advanceTimersByTimeAsync(200_000)
+      expect(at.map((time, i) => i === 0 ? time - start : time - at[i - 1]!)).toEqual([0, 1000, 2000, 4000, 8000, 16000, 30000, 30000, 1000, 2000])
+      // One outage until the event, then a second one.
+      expect(warnings).toHaveLength(2)
+      controller.abort()
+      await following
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   test("unloading ends the loop, even while it waits to subscribe again", async () => {
     const controller = new AbortController(), s = streams({ events: [], end: "fail" })
     const following = followEvents(s.subscribe, () => {}, controller.signal, { warn: () => {}, retryMs: 60_000 })

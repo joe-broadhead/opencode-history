@@ -162,3 +162,22 @@ describe("sql limits", () => {
     expect(JSON.stringify(out.rows).length).toBeLessThanOrEqual(SQL_OUTPUT_BYTES + SQL_CELL_CHARS * 4)
   })
 })
+
+describe("sql child failures", () => {
+  /** Runs `work` with the SQL child's command, this runtime's executable, replaced by `file`. */
+  async function withRunner<T>(file: string, work: () => Promise<T>): Promise<T> {
+    const real = process.execPath
+    Object.defineProperty(process, "execPath", { value: file, configurable: true, writable: true })
+    try { return await work() } finally { Object.defineProperty(process, "execPath", { value: real, configurable: true, writable: true }) }
+  }
+
+  it("is SQL_FAILED, with the table's text, when the child cannot start", async () => {
+    const error = await withRunner("/nonexistent/history-sql-runner", () => run("select 1").catch((caught: unknown) => caught))
+    expect(error).toMatchObject({ code: "SQL_FAILED", message: FAILURES.SQL_FAILED[0] })
+  })
+
+  it("is SQL_FAILED when the child exits without an answer", async () => {
+    const error = await withRunner("/usr/bin/true", () => run("select 1").catch((caught: unknown) => caught))
+    expect(error).toMatchObject({ code: "SQL_FAILED", message: FAILURES.SQL_FAILED[0] })
+  })
+})

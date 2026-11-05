@@ -194,6 +194,17 @@ describe("inputs", () => {
     expect(kinds.items.enum).not.toContain("title")
     expect(kinds.description).toContain("Default: all but reasoning, which full: true shows.")
   })
+  test("a stated boolean default is the schema's default, or false for a flag left unset", () => {
+    for (const name of TOOL_NAMES) {
+      const properties = (z.toJSONSchema(input(name), { io: "input" }) as { properties: Record<string, { type?: string; default?: unknown; description?: string }> }).properties
+      for (const [field, property] of Object.entries(properties)) {
+        const stated = /Default (true|false)\b/.exec(property.description ?? "")?.[1]
+        if (property.type !== "boolean") continue
+        expect(stated, `${name}.${field} states its default`).toBeDefined()
+        expect(property.default ?? false, `${name}.${field}`).toBe(stated === "true")
+      }
+    }
+  })
   test("files takes no kinds, which it would ignore", () => {
     expect(input("files").safeParse({ path: "src", kinds: ["user"] }).success).toBe(false)
     expect((z.toJSONSchema(input("files"), { io: "input" }) as { properties: object }).properties).not.toHaveProperty("kinds")
