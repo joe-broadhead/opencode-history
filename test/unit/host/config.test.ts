@@ -33,14 +33,13 @@ describe("host check", () => {
 
 describe("plugin options", () => {
   const env = { XDG_DATA_HOME: "/xdg/data" }
-  test("defaults: OpenCode's database and the index under XDG data, project scope, extraction defaults, the built-in masks, no recall model", () => {
+  test("defaults: OpenCode's database and the index under XDG data, project scope, extraction defaults, the built-in masks", () => {
     expect(loadConfig(undefined, env)).toEqual({
       database: "/xdg/data/opencode/opencode.db",
       indexPath: "/xdg/data/opencode-history/index.db",
       defaultScope: "project",
       index: { reasoning: false, toolResults: true, maxDocChars: 8000 },
       mask: DEFAULT_MASK,
-      recall: { synthesize: false },
       allowUntestedHost: false,
     })
     expect(loadConfig({}, { XDG_DATA_HOME: "relative/data" })).toMatchObject({
@@ -55,14 +54,12 @@ describe("plugin options", () => {
       index: { reasoning: true, toolResults: false, maxDocChars: 2000 },
       mask: ["sk-[A-Za-z0-9]{20,}", "password=\\S+"],
       maskDefaults: false,
-      recall: { synthesize: true, model: "openrouter/anthropic/claude-sonnet" },
       allowUntestedHost: true,
     }, env)
     expect(config).toEqual({
       database: "/db/opencode.db", indexPath: "/idx/history.db", defaultScope: "all",
       index: { reasoning: true, toolResults: false, maxDocChars: 2000 },
       mask: [/sk-[A-Za-z0-9]{20,}/g, /password=\S+/g],
-      recall: { synthesize: true, model: { providerID: "openrouter", id: "anthropic/claude-sonnet" } },
       allowUntestedHost: true,
     })
     expect("key sk-abcdefghijklmnopqrstuvwx end".replace(config.mask[0]!, "[masked]")).toBe("key [masked] end")
@@ -81,13 +78,13 @@ describe("plugin options", () => {
     try {
       loadConfig({
         database: "relative/secret.db", indexPath: 7, defaultScope: "session", index: { maxDocChars: 10, extra: true },
-        mask: ["(secret-unclosed"], recall: { model: "secret-no-provider" }, policy: { x: "allow" },
+        mask: ["(secret-unclosed"], recall: { synthesize: true }, policy: { x: "allow" },
       }, env)
     } catch (error) { message = (error as Error).message }
     expect(message).toMatch(/^OPTIONS_INVALID: The plugin options are invalid: .*\. Next step: Fix /)
     for (const key of [
       "options.database must be an absolute path", "options.indexPath", "options.defaultScope", "options.index.maxDocChars",
-      "options.index.extra is not a History option", "options.mask.0 must be a valid regular expression", "options.recall.model must be provider/model",
+      "options.index.extra is not a History option", "options.mask.0 must be a valid regular expression", "options.recall is not a History option",
       "options.policy is not a History option",
     ]) expect(message).toContain(key)
     expect(message).not.toContain("secret")

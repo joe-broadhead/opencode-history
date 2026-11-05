@@ -2,9 +2,7 @@
 // host APIs, the removed permission policy layer, install scripts, host peers, absolute local paths, or
 // host-provided or build-time code bundled into dist/. Run it after the build; `npm run check` does.
 //
-// Three rules have one documented exception each, the only file allowed to do what the rule forbids:
-//   - ctx.experimental.generate.text, only in src/host/plugin.ts. Setup hands the runtime a plain generate function,
-//     so recall never sees the plugin context, and the experimental API is used in one place.
+// Two rules have one documented exception each, the only file allowed to do what the rule forbids:
 //   - the permission evaluate hook, only in src/host/scripting.ts. It turns an ask on this plugin's own script call
 //     (the tools RPC, marked in its metadata) into a deny, because no one is there to answer the prompt. It only
 //     tightens: a further rule allows that file to set an effect to "deny" and nothing else.
@@ -48,8 +46,7 @@ const RULES = [
   { pattern: /(?<!\bexperimental\s*\??\.\s*)\bgenerate\.text\b/, message: "ctx.generate.text is deprecated" },
   {
     pattern: /\bexperimental\s*\??\.\s*generate\b|\bexperimental["'`]?\s*\]?\s*\??\.?\s*\[\s*["'`]generate["'`]\s*\]|\{[^}]*\bgenerate\b[^}]*\}\s*=\s*[\w$.?]*\bexperimental\b/,
-    except: ["src/host/plugin.ts"],
-    message: "ctx.experimental.generate is used only in src/host/plugin.ts, which passes the runtime a plain generate function",
+    message: "ctx.experimental.generate: the plugin makes no model calls of its own",
   },
   {
     pattern: /["'`](?:[^"'`\s]*[\\/])?opencode\.db["'`]|\b(?:session_v2|session_message|session_part|session_inbox)\b/,

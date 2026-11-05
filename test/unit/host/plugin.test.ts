@@ -19,11 +19,9 @@ afterEach(() => { vi.restoreAllMocks() })
 type Event = { type: string; data: unknown }
 /** A fake plugin context that records what setup registers, in order, and lets a test push host events. */
 function host({ options = {}, version = "2.2.3", fail, agents = [] }: { options?: unknown; version?: string; fail?: "tool" | "skill"; agents?: { id: string; permissions: { action: string; resource: string; effect: string }[] }[] } = {}) {
-  const order: string[] = [], transforms: Record<string, (editor: never) => void> = {}, generated: unknown[] = [], subscriptions: { types: readonly string[]; signal: AbortSignal }[] = []
+  const order: string[] = [], transforms: Record<string, (editor: never) => void> = {}, subscriptions: { types: readonly string[]; signal: AbortSignal }[] = []
   const rpc: { definition?: unknown; handlers?: Record<string, (input: unknown, context: unknown) => Promise<unknown>> } = {}
   const queue: Event[] = []
-  /** Set `fail` to make the host's text generation reject with it. */
-  const generation: { fail?: unknown } = {}
   let wake = () => {}
   const registration = { dispose: async () => {} }
   const transform = (name: string) => async (callback: (editor: never) => void) => {
@@ -61,10 +59,9 @@ function host({ options = {}, version = "2.2.3", fail, agents = [] }: { options?
         })()
       },
     },
-    experimental: { generate: { text: async (input: unknown) => { generated.push(input); if (generation.fail !== undefined) throw generation.fail; return { text: "the answer" } } } },
   }
   const push = (event: Event) => { queue.push(event); wake() }
-  return { ctx: ctx as never, raw: ctx, order, transforms, rpc, generated, generation, subscriptions, push, asserts }
+  return { ctx: ctx as never, raw: ctx, order, transforms, rpc, subscriptions, push, asserts }
 }
 function runtimes() {
   const created: { options: RuntimeOptions; runtime: FakeRuntime }[] = []
@@ -106,39 +103,10 @@ describe("setup", () => {
   })
 
   test("the status RPC carries the package version and the options", async () => {
-    const h = host({ options: { recall: { synthesize: true, model: "anthropic/claude-sonnet" } } }), { cleanup } = await setup(h)
+    const h = host({ options: { defaultScope: "all" } }), { cleanup } = await setup(h)
     expect(await h.rpc.handlers!.status!({}, { error: () => { throw new Error("unexpected") } })).toMatchObject({
-      version: VERSION, host: { version: "2.2.3", range: ">=2.2.3 <2.3.0", tested: true }, state: expect.stringMatching(/^(ready|connecting)$/), recall: { synthesize: true, model: "anthropic/claude-sonnet" }, defaultScope: "project",
+      version: VERSION, host: { version: "2.2.3", range: ">=2.2.3 <2.3.0", tested: true }, state: expect.stringMatching(/^(ready|connecting)$/), defaultScope: "all",
     })
-    await cleanup()
-  })
-
-  test("recall answers go through the host's generate, with recall.model when set", async () => {
-    const plain = host(), a = await setup(plain)
-    expect(await a.options.generate("Q?")).toBe("the answer")
-    const pinned = host({ options: { recall: { model: "openrouter/anthropic/claude" } } }), b = await setup(pinned)
-    await b.options.generate("Q2?")
-    expect([...plain.generated, ...pinned.generated]).toEqual([{ prompt: "Q?" }, { prompt: "Q2?", model: { providerID: "openrouter", id: "anthropic/claude" } }])
-    await a.cleanup(); await b.cleanup()
-  })
-
-  test("a host answer that there is no model becomes RECALL_MODEL_UNAVAILABLE; other model failures pass through", async () => {
-    const h = host(), { cleanup, options } = await setup(h)
-    const failWith = (error: unknown) => { h.generation.fail = error }
-    const noModel = [
-      { _tag: "Generate.UnavailableError" }, { _tag: "Generate.ModelNotFoundError" }, { _tag: "Generate.UnsupportedModelError" },
-      { _tag: "Generate.InvalidRequestError", field: "model" }, { _tag: "InvalidRequestError", field: "model.variant" },
-      { _tag: "ServiceUnavailableError" }, { _tag: "ModelNotFoundError" }, { _tag: "ProviderNotFoundError" }, { _tag: "UnsupportedModelError" },
-    ]
-    for (const fields of noModel) {
-      failWith(Object.assign(new Error("no model for the secret prompt"), fields))
-      await expect(options.generate("Q?"), JSON.stringify(fields)).rejects.toMatchObject({ code: "RECALL_MODEL_UNAVAILABLE", message: FAILURES.RECALL_MODEL_UNAVAILABLE[0] })
-    }
-    for (const other of [{ _tag: "Generate.ProviderRequestError", reason: "rate_limit" }, { _tag: "Generate.InvalidRequestError", field: "prompt" }, { _tag: "Generate.InvalidRequestError" }]) {
-      const error = Object.assign(new Error("rate limited"), other)
-      failWith(error)
-      await expect(options.generate("Q?"), JSON.stringify(other)).rejects.toBe(error)
-    }
     await cleanup()
   })
 

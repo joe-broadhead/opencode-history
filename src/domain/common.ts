@@ -12,7 +12,6 @@ export type FailureCode =
   | "INDEX_UNAVAILABLE" | "INDEX_PATH_REFUSED" | "INDEX_BUSY" | "INDEX_FAILED" | "INDEX_MISMATCH"
   | "SESSION_NOT_FOUND" | "MESSAGE_NOT_FOUND" | "CURSOR_INVALID" | "QUERY_INVALID"
   | "SQL_REJECTED" | "SQL_FAILED" | "SQL_TIMEOUT"
-  | "RECALL_MODEL_UNAVAILABLE" | "RECALL_FAILED"
   | "PIN_TOO_LARGE" | "EVENTS_UNAVAILABLE"
   | "PERMISSION_DENIED" | "SESSION_UNKNOWN" | "SESSION_AGENT_REQUIRED"
   | "OPERATION_FAILED"
@@ -44,8 +43,6 @@ export const FAILURES: { readonly [C in FailureCode]: readonly [message: string,
   SQL_REJECTED: ["Only one read-only SELECT or WITH statement over the history index is allowed.", "Rewrite it as a single SELECT over the v_sessions, v_docs, v_files and v_links views."],
   SQL_FAILED: ["The SQL query failed.", "Check the view and column names in the history_sql description, then retry."],
   SQL_TIMEOUT: [`The SQL query ran longer than 10 seconds and was stopped.`, "Narrow it: filter by time or session, and bound a recursive WITH with a LIMIT or a WHERE on its counter."],
-  RECALL_MODEL_UNAVAILABLE: ["No model is available to write the recall answer.", "Set recall.model in the plugin options to a model OpenCode can use, or call history_recall with synthesize: false for the evidence only."],
-  RECALL_FAILED: ["The model call that writes the recall answer failed.", "Call history_recall with synthesize: false for the evidence only."],
   PIN_TOO_LARGE: ["The text to pin is larger than OpenCode allows for one instruction entry.", "Pin a shorter range, or set a lower maxChars."],
   EVENTS_UNAVAILABLE: ["OpenCode's session events stopped, so the index may lag behind new sessions.", "Wait, since the plugin subscribes again by itself, and restart OpenCode if it persists."],
   PERMISSION_DENIED: ["The session's agent may not use this tool.", "Add an allow rule for the tool's action to that agent, or call as a session whose agent allows it."],

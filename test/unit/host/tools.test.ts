@@ -23,14 +23,14 @@ function register(overrides: Partial<ToolSources> = {}) {
   const runtime = fakeRuntime(), session = fakeSession(), added: Added[] = [], namespaces: { name: string; description: string }[] = []
   const asserts: PermissionRequest[] = []
   const assert = vi.fn(async (request: PermissionRequest) => { asserts.push(request) })
-  const sources: ToolSources = { runtime, session: session.session, location: { projectID: "prj_app", directory: "/work/app" }, defaults: { scope: "project", synthesize: false }, assert, ...overrides }
+  const sources: ToolSources = { runtime, session: session.session, location: { projectID: "prj_app", directory: "/work/app" }, defaults: { scope: "project" }, assert, ...overrides }
   toolTransform(sources)({ namespace: (n: { name: string; description: string }) => { namespaces.push(n) }, add: (tool: Added) => { added.push(tool) } } as never)
   const tool = (name: ToolName) => added.find(t => t.name === name)!
   /** Decodes the input with the tool's schema, as the host does, then runs it. */
   const run = (name: ToolName, input: unknown, ctx: object = context()) => tool(name).execute(tool(name).input.parse(input), ctx)
   return { runtime, session, added, namespaces, tool, run, asserts, assert }
 }
-const CONFIG = { database: "/data/opencode/opencode.db", indexPath: "/data/opencode-history/index.db", defaultScope: "project", recall: { synthesize: false } } as const
+const CONFIG = { database: "/data/opencode/opencode.db", indexPath: "/data/opencode-history/index.db", defaultScope: "project" } as const
 const context = (signal = new AbortController().signal) => ({ sessionID: "ses_now", agent: "build", messageID: "msg_1", id: "call_1", signal, progress: async () => {} })
 const CALLER = { sessionID: "ses_now", projectID: "prj_app", directory: "/work/app" }
 
@@ -137,19 +137,19 @@ describe("calls", () => {
       ["sessions", { since: "7d", sort: "updated", limit: 20, scope: "project" }],
       ["files", { path: "src/auth", limit: 20, scope: "project" }],
       ["sql", { sql: "select 1", limit: 100 }],
-      ["recall", { question: "How did we fix the login loop?", sessions: 5, maxChars: 16000, scope: "project", synthesize: false }],
+      ["recall", { question: "How did we fix the login loop?", sessions: 5, maxChars: 16000, scope: "project" }],
     ])
     expect(t.runtime.calls.every(c => JSON.stringify(c.caller) === JSON.stringify(CALLER))).toBe(true)
   })
 
-  test("the default scope and recall answer come from the options; the call's own values win", async () => {
-    const t = register({ defaults: { scope: "all", synthesize: true } })
+  test("the default scope comes from the options; the call's own scope wins", async () => {
+    const t = register({ defaults: { scope: "all" } })
     await t.run("search", { query: "x" })
     await t.run("search", { query: "x", scope: "session" })
-    await t.run("recall", { question: "q" })
-    await t.run("recall", { question: "q", synthesize: false, scope: "directory" })
-    expect(t.runtime.calls.map(c => c.input)).toMatchObject([{ scope: "all" }, { scope: "session" }, { scope: "all", synthesize: true }, { scope: "directory", synthesize: false }])
+    await t.run("recall", { question: "q", scope: "directory" })
+    expect(t.runtime.calls.map(c => c.input)).toMatchObject([{ scope: "all" }, { scope: "session" }, { scope: "directory" }])
   })
+
 })
 
 describe("inputs", () => {
@@ -211,6 +211,7 @@ describe("inputs", () => {
     expect(input("sql").safeParse({ sql: "select ?", params: ["a", 1, null] }).success).toBe(true)
     expect(input("sql").safeParse({ sql: "select ?", params: [{}] }).success).toBe(false)
     expect(input("recall").safeParse({ question: "q", sessions: 11 }).success).toBe(false)
+    expect(input("recall").safeParse({ question: "q", synthesize: true }).success).toBe(false)
   })
 })
 
@@ -253,11 +254,11 @@ describe("failures", () => {
 
 describe("status", () => {
   const host = { version: "2.2.3", range: HOST_RANGE, tested: true } as const
-  test("the view shows the options in effect, with the recall model as provider/model", async () => {
+  test("the view shows the options in effect", async () => {
     const runtime = fakeRuntime()
-    expect(await buildStatus({ version: "1.2.3", host, config: { ...CONFIG, recall: { synthesize: true, model: { providerID: "openrouter", id: "anthropic/claude" } } }, runtime, agents: async () => [] })).toEqual({
+    expect(await buildStatus({ version: "1.2.3", host, config: CONFIG, runtime, agents: async () => [] })).toEqual({
       version: "1.2.3", host, state: "ready", index: INDEX, tools: { visible: 8, unknown: [] }, database: CONFIG.database, indexPath: CONFIG.indexPath, indexBytes: 1_536_000, masksChanged: false,
-      defaultScope: "project", recall: { synthesize: true, model: "openrouter/anthropic/claude" }, unguardedAgents: [], nextStep: "Nothing to do.",
+      defaultScope: "project", unguardedAgents: [], nextStep: "Nothing to do.",
     })
   })
   test("the state is ready, connecting or failed; an untested host inside the range leaves the state and the next step alone", async () => {

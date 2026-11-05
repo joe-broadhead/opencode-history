@@ -1,7 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import type { RecallInput } from "../../../src/domain/api.js"
 import type { Db } from "../../../src/domain/sqlite.js"
-import { keyTerms, phrasingsFor, recall, recallPrompt, type Synthesize } from "../../../src/query/recall.js"
+import { keyTerms, phrasingsFor, recall } from "../../../src/query/recall.js"
 import { CALLER, DAY, NOW, NO_MASK, STATE, assistantData, doc, fakeSource, noise, project, session, sidecar, textPart, userData, type FakeSource, type Sidecar } from "./fixture.js"
 
 let index: Sidecar
@@ -16,8 +16,8 @@ function say(sessionID: string, type: "user" | "assistant", text: string) {
   doc(db, { sessionID, seq: message.seq, messageID: message.id, kind: type, text, time: message.created })
 }
 
-const ask = (input: Partial<RecallInput>, synthesize?: Synthesize, mask = NO_MASK) =>
-  recall(db, source, CALLER, { question: "How did we fix the flaky upload test?", ...input }, STATE, synthesize, mask, { now: NOW })
+const ask = (input: Partial<RecallInput>, mask = NO_MASK) =>
+  recall(db, source, CALLER, { question: "How did we fix the flaky upload test?", ...input }, STATE, mask, { now: NOW })
 
 beforeEach(() => {
   index = sidecar()
@@ -71,7 +71,6 @@ describe("recall", () => {
   it("returns windows of messages around the best snippets, best session first", async () => {
     const out = await ask({})
     expect(out.queries).toEqual(["fix OR flaky OR upload OR test", "fix flaky", "flaky upload", "upload test"])
-    expect(out.answer).toBeNull()
     expect(out.index).toBe(STATE)
     const first = out.evidence[0]!
     expect(first).toMatchObject({ sessionID: "ses_upload", title: "Flaky upload test", seq: 0 })
@@ -130,29 +129,8 @@ describe("recall", () => {
   it("masks text read from the source", async () => {
     session(db, { id: "ses_key", title: "Keys", updated: NOW })
     say("ses_key", "user", "the zebra key is sk-424242")
-    const out = await ask({ queries: ["zebra"] }, undefined, text => text.replace(/sk-\d+/g, "[masked]"))
+    const out = await ask({ queries: ["zebra"] }, text => text.replace(/sk-\d+/g, "[masked]"))
     expect(out.evidence[0]!.text).toBe("#0 user: the zebra key is [masked]")
-  })
-
-  it("asks the model for a cited answer when synthesize is given and allowed", async () => {
-    const synthesize = vi.fn(async (prompt: string) => `  Awaiting cleanup fixed it [ses_upload#3].\n`)
-    const out = await ask({ synthesize: true }, synthesize)
-    expect(out.answer).toBe("Awaiting cleanup fixed it [ses_upload#3].")
-    const prompt = synthesize.mock.calls[0]![0]
-    expect(prompt).toContain("Question: How did we fix the flaky upload test?")
-    expect(prompt).toContain('[ses_upload#3] "Flaky upload test"')
-    expect(prompt).toContain("#3 assistant: Fixed the flaky upload test")
-    expect(prompt).toContain("[sessionID#seq]")
-    expect(prompt).toBe(recallPrompt("How did we fix the flaky upload test?", out.evidence))
-
-    synthesize.mockClear()
-    expect((await ask({ synthesize: false }, synthesize)).answer).toBeNull()
-    expect((await ask({ queries: ["nothing matches this"] }, synthesize)).answer).toBeNull()
-    expect(synthesize).not.toHaveBeenCalled()
-  })
-
-  it("reports a failed model call as a recall failure", async () => {
-    await expect(ask({}, async () => Promise.reject(new Error("rate limited")))).rejects.toMatchObject({ reason: "recall" })
   })
 
   it("rejects an empty question", async () => {

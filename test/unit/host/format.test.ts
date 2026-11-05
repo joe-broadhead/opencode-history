@@ -116,15 +116,14 @@ describe("result text", () => {
     expect(formatSql(SAMPLES.sql).split("\n")).toEqual(["3 rows; more rows exist, so raise limit or narrow the query.", "week | cost", "2026-41 | 1.5", "2026-42 | null", "multi\\nline | x"])
     expect(formatSql({ ...SAMPLES.sql, index: { ...INDEX, ready: false, sessionsIndexed: 3, sessionsTotal: 9 } }).split("\n")[1]).toBe("The index is still being built (3 of 9 sessions), so results may be incomplete.")
     const recall = formatRecall(SAMPLES.recall, {})
-    expect(recall).toMatch(/^Answer, written from the evidence below \(check it before relying on it\):\nThe state cookie/)
+    expect(recall).toMatch(/^Evidence from 1 session:/)
     expect(recall).toContain("Evidence from 1 session:\n[ses_login1 #40 · 2026-10-12 10:50 · \"Fix login redirect loop\"]\nSet SameSite=Lax")
     expect(recall).toContain("Searched for \"login redirect loop\" | \"state cookie samesite\".")
-    expect(formatRecall({ ...SAMPLES.recall, answer: null }, {})).toMatch(/^Evidence from/)
     expect(formatRecall({ ...SAMPLES.recall, evidence: [] }, { scope: "all" })).toMatch(/^No evidence found in scope all\./)
   })
 
   test("status rows end with exactly one next step", () => {
-    const view = { version: "0.1.0", host: { version: "2.3.0", range: HOST_RANGE, tested: false }, state: "ready" as const, tools: { visible: 9, unknown: [] as string[] }, index: { ...INDEX, lagSeconds: 3.4 }, database: "/d/opencode.db", indexPath: "/d/index.db", indexBytes: 535_822_336, masksChanged: false, defaultScope: "project" as const, recall: { synthesize: false, model: null }, unguardedAgents: [] as string[], nextStep: "Use 2.2.x." }
+    const view = { version: "0.1.0", host: { version: "2.3.0", range: HOST_RANGE, tested: false }, state: "ready" as const, tools: { visible: 9, unknown: [] as string[] }, index: { ...INDEX, lagSeconds: 3.4 }, database: "/d/opencode.db", indexPath: "/d/index.db", indexBytes: 535_822_336, masksChanged: false, defaultScope: "project" as const, unguardedAgents: [] as string[], nextStep: "Use 2.2.x." }
     expect(formatStatus(view).split("\n")).toEqual([
       "History status",
       "Connection: connected",
@@ -135,7 +134,6 @@ describe("result text", () => {
       "Database: /d/opencode.db",
       "Index file: /d/index.db (511 MB)",
       "Default scope: project",
-      "Recall answers: off (default model)",
       "Tools: 9 available",
       "Agents without default rules: none",
       "OpenCode: 2.3.0 (untested; supported range >=2.2.3 <2.3.0). History 0.1.0",

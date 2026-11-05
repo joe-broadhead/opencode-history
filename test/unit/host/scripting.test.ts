@@ -56,7 +56,7 @@ async function setup(options: SetupOptions = {}) {
       },
     },
   }
-  const stop = await registerScripting(ctx as never, { runtime, session: session.session, location: { projectID: "prj_app", directory: "/work/app" }, defaults: { scope: "project", synthesize: false } })
+  const stop = await registerScripting(ctx as never, { runtime, session: session.session, location: { projectID: "prj_app", directory: "/work/app" }, defaults: { scope: "project" } })
   return { runtime, session, contract: contract!, handlers, asserts, hook: hook!, disposed, stop }
 }
 

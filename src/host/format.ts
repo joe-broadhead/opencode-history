@@ -207,7 +207,6 @@ export function formatRecall(result: RecallOutput, input: Pick<RecallInput, "sco
   )
   const sessions = new Set(result.evidence.map(e => e.sessionID)).size, first = result.evidence[0]!
   return lines(
-    result.answer !== null ? ["Answer, written from the evidence below (check it before relying on it):", result.answer, ""] : undefined,
     indexNotes(result.index),
     `Evidence from ${plural(sessions, "session")}:`,
     result.evidence.flatMap(e => [`[${e.sessionID} #${e.seq} · ${when(e.time)} · ${JSON.stringify(e.title)}]`, e.text, ""]),
@@ -269,7 +268,6 @@ export function formatStatus(view: StatusView) {
     view.masksChanged ? `${MASKS_ROW} changed since text was indexed, so the index file holds that text masked the old way until /history-reindex rebuild` : undefined,
     mismatch ? `${MISMATCH_ROW} ${mismatch.file === null ? "none" : `version ${mismatch.file}`} in the file, but this build uses version ${mismatch.build}, so every query fails (INDEX_MISMATCH)` : undefined,
     `Default scope: ${view.defaultScope}`,
-    `Recall answers: ${view.recall.synthesize ? "on" : "off"}${view.recall.model ? ` (${view.recall.model})` : " (default model)"}`,
     `Tools: ${toolsText(view)}`,
     agentsRow(view),
     `OpenCode: ${hostText(view)}`,

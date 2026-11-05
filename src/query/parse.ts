@@ -3,9 +3,9 @@
 /**
  * What went wrong, for the host to pick its failure code: query (QUERY_INVALID), cursor (CURSOR_INVALID),
  * session (SESSION_NOT_FOUND), message (MESSAGE_NOT_FOUND), sql_rejected (SQL_REJECTED), sql_failed (SQL_FAILED)
- * and recall (RECALL_FAILED).
+ * and sql_timeout (SQL_TIMEOUT).
  */
-export type QueryFailure = "query" | "cursor" | "session" | "message" | "sql_rejected" | "sql_failed" | "sql_timeout" | "recall"
+export type QueryFailure = "query" | "cursor" | "session" | "message" | "sql_rejected" | "sql_failed" | "sql_timeout"
 
 /**
  * The next step for each cause of QUERY_INVALID, so the advice fits the mistake. A cause without one gets the code's

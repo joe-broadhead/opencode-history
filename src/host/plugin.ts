@@ -7,7 +7,6 @@ import { History } from "../rpc.js"
 import { VERSION } from "../version.js"
 import { commandTransform } from "./commands.js"
 import { checkHost, inRange, TESTED_HOSTS } from "./compat.js"
-import { noModel } from "./errors.js"
 import { registerDefaultRules, type Rule } from "./permissions.js"
 import { followEvents } from "./events.js"
 import { rpcHandlers } from "./rpc-handlers.js"
@@ -22,8 +21,6 @@ export interface PluginSources {
   /** The installed package root, which holds skills/. */
   readonly packageRoot: string
 }
-
-type GenerateInput = Parameters<Plugin.Context["experimental"]["generate"]["text"]>[0]
 
 /** A failure that stops setup, with its code in the text, since the host logs only the message. Other errors pass. */
 function setupFailure(error: unknown) {
@@ -49,21 +46,14 @@ export function createPlugin({ createRuntime, packageRoot }: PluginSources): Plu
       })
       if (problem) throw setupFailure(new HistoryError("INDEX_PATH_REFUSED", { message: INDEX_PATH_MESSAGES[problem] }))
       const version = VERSION
-      const model = config.recall.model as GenerateInput["model"]
-      const runtime = await createRuntime({
-        config,
-        session: ctx.session,
-        generate: async prompt => {
-          try { return (await ctx.experimental.generate.text({ prompt, ...model ? { model } : {} })).text } catch (error) { throw noModel(error) ? new HistoryError("RECALL_MODEL_UNAVAILABLE") : error }
-        },
-      }).catch((error: unknown) => { throw setupFailure(error) })
+      const runtime = await createRuntime({ config, session: ctx.session }).catch((error: unknown) => { throw setupFailure(error) })
       if (runtime.fallback) console.warn(formatFailure(fallbackFailure(runtime.fallback)))
       const shutdown = new AbortController()
       let stopScripting = async () => {}
       const close = async () => { shutdown.abort(); await stopScripting(); await runtime.close() }
       try {
         const location = { projectID: ctx.location.project.id, directory: ctx.location.directory }
-        const defaults = { scope: config.defaultScope, synthesize: config.recall.synthesize }
+        const defaults = { scope: config.defaultScope }
         const agents = async () => (await ctx.agent.list({ location: { directory: ctx.location.directory } })).data as readonly { id: string; permissions: Rule[] }[]
         const status = () => buildStatus({ version, host, config, runtime, agents, tools: () => ctx.tool.list() })
         const assert = (request: Parameters<typeof ctx.permission.assert>[0]) => ctx.permission.assert(request)

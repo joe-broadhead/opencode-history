@@ -81,7 +81,7 @@ describe("unguarded agents", () => {
   test("are named in status with the block and the fix", async () => {
     const view = await buildStatus({
       version: "0.0.0", host: { version: "2.2.3", range: HOST_RANGE, tested: true },
-      config: { database: "/d", indexPath: "/i", defaultScope: "project", recall: { synthesize: false } }, runtime: fakeRuntime(),
+      config: { database: "/d", indexPath: "/i", defaultScope: "project" }, runtime: fakeRuntime(),
       agents: async () => [{ id: "build", permissions: [BASE, ...DEFAULT_RULES] }, { id: "reviewer", permissions: [BASE] }],
     })
     expect(view).toMatchObject({ unguardedAgents: ["reviewer"], permissionsBlock: DEFAULT_RULES, nextStep: AGENT_FIX })
@@ -107,7 +107,7 @@ describe("permission requests", () => {
     const runtime = fakeRuntime(), session = fakeSession()
     const assert = vi.fn(async (request: { action: string }) => { if (request.action === "history_pin") throw Object.assign(new Error("Permission denied: history_pin"), { _tag: "Tool.Error" }) })
     const added: { name: string; input: { parse(v: unknown): unknown }; execute(input: unknown, context: object): Promise<unknown> }[] = []
-    toolTransform({ runtime, session: session.session, location: { projectID: "prj", directory: "/w" }, defaults: { scope: "project", synthesize: false }, assert })(
+    toolTransform({ runtime, session: session.session, location: { projectID: "prj", directory: "/w" }, defaults: { scope: "project" }, assert })(
       { namespace: () => {}, add: (tool: never) => { added.push(tool) } } as never)
     const context = { sessionID: "ses_now", agent: "build", messageID: "msg_1", id: "call_1", signal: new AbortController().signal, progress: async () => {} }
     const pin = added.find(tool => tool.name === "pin")!
