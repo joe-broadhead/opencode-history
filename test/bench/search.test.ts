@@ -14,7 +14,7 @@ const DOCS = Number(process.env.BENCH_DOCS ?? 200_000)
 /** The target for one search on this index. */
 const TARGET_MS = 500
 const STATE: IndexState = { ready: true, sessionsIndexed: 0, sessionsTotal: 0, lagSeconds: 0, source: "opencode-db", complete: true }
-const CALLER: Caller = { sessionID: null, projectID: "prj_0", directory: "/work/p0" }
+const CALLER: Caller = { sessionID: "ses_caller", projectID: "prj_0", directory: "/work/p0" }
 
 let db: Db
 let path: string

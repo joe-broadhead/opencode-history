@@ -113,7 +113,6 @@ export function filterSql(db: Db, caller: Caller, filters: Filters, now: number,
   const scope = filters.scope ?? "project"
   if (!SCOPES.includes(scope)) throw new QueryError("scope must be session, directory, project or all", "query", { hint: QUERY_HINTS.scope })
   const named = filters.sessionID ?? (scope === "session" ? caller.sessionID : null)
-  if (scope === "session" && !named) throw new QueryError('scope "session" needs a sessionID when there is no calling session', "query", { hint: QUERY_HINTS.sessionScope })
   if (named) {
     add("(s.id = ? or s.root_id = ?)", named, named)
     if (!filters.includeSubagents) hide("subagents", "s.id = ?", named)
@@ -124,7 +123,7 @@ export function filterSql(db: Db, caller: Caller, filters: Filters, now: number,
       hide("scope", "(s.directory = ? or s.directory like ? escape '\\')", directory, `${escapeLike(directory === "/" ? "" : directory)}/%`)
     }
     if (!filters.includeSubagents) hide("subagents", "s.parent_id is null")
-    if (caller.sessionID && !filters.includeCurrent) hide("current", "s.id <> ? and s.root_id <> ?", caller.sessionID, callerRoot(db, caller.sessionID))
+    if (!filters.includeCurrent) hide("current", "s.id <> ? and s.root_id <> ?", caller.sessionID, callerRoot(db, caller.sessionID))
   }
 
   if (!filters.includeArchived) hide("archived", "s.archived is null and r.archived is null")

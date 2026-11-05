@@ -21,7 +21,6 @@ export const QUERY_HINTS = {
   match: 'Use match: "words", "substring" or "regex".',
   path: "Pass a file or folder path, such as src/auth.ts.",
   scope: 'Use scope "session", "directory", "project" or "all".',
-  sessionScope: 'Pass sessionID with scope "session", or use another scope.',
   question: "Pass the question to answer.",
 } as const
 
