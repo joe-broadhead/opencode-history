@@ -1,11 +1,12 @@
-import type { IndexState } from "../domain/api.js"
+import type * as z from "zod"
+import type { StatusSchema } from "../domain/schemas.js"
 import { FAILURES, type HistoryFailure } from "../domain/common.js"
-import type { DefaultScope, ResolvedConfig } from "../domain/config.js"
+import type { ResolvedConfig } from "../domain/config.js"
 import type { HostCheck } from "./compat.js"
 import { NOTHING_TO_DO } from "./format.js"
 import { AGENT_FIX, DEFAULT_RULES, unguardedAgents, type Rule } from "./permissions.js"
 import { TOOL_NAMES } from "./tools.js"
-import type { HistoryRuntime, IndexSchema, SourceFallback } from "./runtime.js"
+import type { HistoryRuntime, SourceFallback } from "./runtime.js"
 
 /**
  * The state, in the shared machine words (S13): `failed` when every query fails (an index at another schema) or the
@@ -14,36 +15,10 @@ import type { HistoryRuntime, IndexSchema, SourceFallback } from "./runtime.js"
  * status-only mode, which is what `host_untested` means: outside the range it does not start at all, unless
  * `allowUntestedHost` is set, and then it works normally. An untested host shows in `host.tested` and the OpenCode row.
  */
-export type State = "ready" | "connecting" | "failed"
+export type State = StatusView["state"]
 
-/** One status model for the command, the RPC and the TUI. */
-export interface StatusView {
-  /** The plugin's version. */
-  readonly version: string
-  /** The OpenCode version, the supported range, and whether the version is a tested one. */
-  readonly host: { readonly version: string | null; readonly range: string; readonly tested: boolean }
-  readonly state: State
-  readonly index: IndexState
-  /** Why the history comes from the plugin session API; present only then. */
-  readonly fallback?: SourceFallback
-  /** The `history_*` tools OpenCode lists, and the names of any this version does not know. */
-  readonly tools: { readonly visible: number; readonly unknown: readonly string[] }
-  readonly database: string
-  readonly indexPath: string
-  /** The index file's size with its write-ahead log, in bytes; null when it cannot be read. */
-  readonly indexBytes: number | null
-  /** True when the mask options changed after text was stored, so the index file holds it masked the old way until a rebuild. */
-  readonly masksChanged: boolean
-  readonly defaultScope: DefaultScope
-  /** Agents that miss the default permission block and would run every History tool without asking. */
-  readonly unguardedAgents: readonly string[]
-  /** The block to put first in each of those agents' own permissions; present when any is listed. */
-  readonly permissionsBlock?: readonly Rule[]
-  /** The index file's schema and this build's, present only when they differ, so every query fails with INDEX_MISMATCH. */
-  readonly mismatch?: IndexSchema
-  /** The single next step, exactly the Next step row: `Nothing to do.` when nothing is needed. */
-  readonly nextStep: string
-}
+/** One status model for the command, the RPC and the TUI: the status RPC's output (`StatusSchema`). */
+export type StatusView = z.output<typeof StatusSchema>
 
 /** Why history comes from the plugin session API, and the fix: the setup warning, and the status's next step. */
 export function fallbackFailure(code: SourceFallback): HistoryFailure {
