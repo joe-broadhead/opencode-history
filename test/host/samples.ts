@@ -31,6 +31,7 @@ export const SAMPLES = {
   sessions: { sessions: [{ ...SESSION, cost: 0.42, outcome: "Fixed: the state cookie was dropped." }], next: null, hidden: null, index: INDEX },
   files: {
     files: [{ path: "/work/app/src/auth/callback.ts", sessions: [{ sessionID: "ses_login1", title: SESSION.title, ops: { read: 2, edit: 3 }, last: "2026-10-12T10:40:00.000Z", firstSeq: 14 }] }],
+    truncated: false,
     hidden: null,
     index: INDEX,
   },

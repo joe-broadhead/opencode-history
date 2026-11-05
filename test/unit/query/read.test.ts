@@ -234,7 +234,7 @@ describe("renderMessage", () => {
     expect(prose).toBe("Running the tests.")
     expect(call).toBe("▸ bash: npm test --force")
     expect(rest.join("\n")).toMatch(/^ {2}line 0\n/)
-    expect(text).toMatch(/…\[\d+ chars cut\]…/)
+    expect(text).toMatch(/…\[\d+ chars cut; full: true shows them\]…/)
     // The cut keeps about head + tail characters; indenting each kept line adds two more per line.
     expect(text.length).toBeLessThan(1.5 * (OUTPUT_HEAD + OUTPUT_TAIL))
     const whole = render("assistant", assistantData([toolPart("bash", { command: "npm test" }, { output })]), { full: true })
@@ -281,7 +281,7 @@ describe("renderMessage", () => {
     const text = render("shell", shell())
     expect(text.split("\n")[0]).toBe("▸ shell: npm test")
     expect(text).toMatch(/^ {2}line 0$/m)
-    expect(text).toMatch(/…\[\d+ chars cut\]…/)
+    expect(text).toMatch(/…\[\d+ chars cut; full: true shows them\]…/)
     expect(render("shell", shell(), { full: true })).toContain("line 199")
     expect(render("shell", shell({ exit: 2, output: undefined }))).toBe("▸ shell: npm test (exit 2)")
     expect(render("shell", shell({ status: "timeout", exit: undefined, output: undefined }))).toBe("▸ shell: npm test (timeout)")

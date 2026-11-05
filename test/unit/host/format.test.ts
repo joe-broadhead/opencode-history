@@ -16,7 +16,7 @@ describe("result text", () => {
       "",
       "Similar sessions are in the same directory as the one shown, with a near-identical title or the same first prompt; list those with its title with history_sessions {\"title\":\"Fix login redirect loop\"}.",
       "More: repeat the call with cursor: \"cur_2\".",
-      "Next: history_brief {\"sessionID\":\"ses_login1\"} to see what that session did, then history_read {\"sessionID\":\"ses_login1\",\"at\":12} for the exact exchange.",
+      "Next: history_brief {\"sessionID\":\"ses_login1\"} to see what that session did, then history_read {\"sessionID\":\"ses_login1\",\"at\":12} for the exact exchange. Cite what you use as (ses_login1 #12).",
     ])
   })
 
@@ -113,6 +113,10 @@ describe("result text", () => {
     expect(formatFiles(SAMPLES.files, { path: "src/auth" })).toContain("/work/app/src/auth/callback.ts\n  ses_login1 \"Fix login redirect loop\" · last 2026-10-12 10:40 · edit 3, read 2 · first at #14")
     expect(formatFiles(SAMPLES.files, { path: "src/auth" })).toContain("Next: history_read {\"sessionID\":\"ses_login1\",\"at\":14}")
     expect(formatFiles({ ...SAMPLES.files, files: [] }, { path: "src/x", scope: "project" })).toMatch(/^No session touched "src\/x" in scope project\./)
+    expect(formatFiles(SAMPLES.files, { path: "src/auth" })).toMatch(/\. Cite as \(ses_login1 #14\)\.$/)
+    expect(formatFiles({ ...SAMPLES.files, truncated: true }, { path: "README.md" }).split("\n")[0]).toBe(
+      "More than 1 path matched; these are the most recently touched. Name the folder that makes the path unique, such as <repo>/README.md, or raise limit.",
+    )
     expect(formatSql(SAMPLES.sql).split("\n")).toEqual(["3 rows; more rows exist, so raise limit or narrow the query.", "week | cost", "2026-41 | 1.5", "2026-42 | null", "multi\\nline | x"])
     expect(formatSql({ ...SAMPLES.sql, index: { ...INDEX, ready: false, sessionsIndexed: 3, sessionsTotal: 9 } }).split("\n")[1]).toBe("The index is still being built (3 of 9 sessions), so results may be incomplete.")
     const recall = formatRecall(SAMPLES.recall, {})

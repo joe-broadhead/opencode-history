@@ -148,7 +148,7 @@ OpenCode checks tool input against each tool's schema before the call, and a res
 | Filter | Default | Meaning |
 | --- | --- | --- |
 | `scope` | the `defaultScope` option | `project`: sessions of the caller's project. `directory`: sessions started in the caller's directory or below it. `all`: every project. `session`: only the current session, for example to recover what was said before a compaction. |
-| `since`, `until` | unset | An ISO date or date-time, or an age: `h`, `d`, `w`, `m` (30 days) or `y` (365 days), such as `36h` or `2m`. A bare date is UTC, and as `until` it covers the whole day. Search and recall compare the time of each text, files the time of each touch, and sessions keep a session that was active in the window. |
+| `since`, `until` | unset | An ISO date or date-time, or an age: `h`, `d`, `w`, `m` (30 days) or `y` (365 days), such as `36h` or `2m`. A bare date is a UTC day, and as `until` it covers the whole day; for a local day, pass a date-time with its offset, such as `2026-11-03T00:00+01:00`. Search and recall compare the time of each text, files the time of each touch, and sessions keep a session that was active in the window. |
 | `kinds` | all indexed kinds | `title`, `user`, `assistant`, `summary` (compaction summaries), `reasoning`, `synthetic`, `tool_call`, `tool_result`. Sessions keeps sessions with such a text. Files takes no `kinds`. |
 | `tool` | unset | Only calls and output of this tool, such as `bash`. `shell` also covers the commands you ran yourself. Files reads it as the tool that touched the file. Case-insensitive. |
 | `agent` | unset | Only sessions run by this agent. Case-insensitive. |
@@ -219,9 +219,9 @@ With `kinds`, when no message in the window has those kinds, the window widens t
 
 ### Sessions and files
 
-`history_sessions` takes `title` (text the title contains, at most 256 characters), `sort` (`updated` by default, `created`, `cost` or `messages`, largest first), `limit` (1–100, default 20) and `cursor`. When it lists nothing, `hidden` counts the sessions one more input would list, as in [Search](#search).
+`history_sessions` takes `title` (text the title contains, at most 256 characters), `sort` (`updated` by default, `created`, `cost` or `messages`, largest first; `cost` is the session's own spend in USD, and a subagent session is its own row), `limit` (1–100, default 20) and `cursor`. When it lists nothing, `hidden` counts the sessions one more input would list, as in [Search](#search).
 
-`history_files` takes `path` (required), `ops` (`read`, `edit`, `write`, `patch`, `search`; default all) and `limit` (paths, 1–100, default 20). Paths are listed most recently touched first, each with up to 20 sessions, their counts per operation, the last touch and the `seq` of the first. Touches are recorded from completed `read`, `edit`, `write`, `apply_patch`, `grep` and `glob` calls (`grep` and `glob` as `search` on their folder). When no file matches, `hidden` counts the sessions whose touches one more input would show.
+`history_files` takes `path` (required), `ops` (`read`, `edit`, `write`, `patch`, `search`; default all) and `limit` (paths, 1–100, default 20). Paths are listed most recently touched first, each with up to 20 sessions, their counts per operation, the last touch and the `seq` of the first. `truncated` is `true` when more paths matched than `limit`; the text then asks for the folder that makes the path unique, since a bare name such as `README.md` matches that file in every repository. Touches are recorded from completed `read`, `edit`, `write`, `apply_patch`, `grep` and `glob` calls (`grep` and `glob` as `search` on their folder). When no file matches, `hidden` counts the sessions whose touches one more input would show.
 
 ### Recall
 

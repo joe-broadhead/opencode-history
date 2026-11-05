@@ -32,12 +32,12 @@ const KIND_TEXT = "title, user, assistant, summary (compaction summaries), reaso
 const filters = {
   scope: z.enum(SCOPE_INPUTS).optional()
     .describe("Where to look: project (this project), directory (sessions started in this directory), all (every project), or session (only the current session, for example to recover what was said before a compaction). Default: the defaultScope plugin option, normally project."),
-  since: when.optional().describe("Only sessions active since then: an ISO date such as 2026-10-01, or an age such as 7d, 3w, 2m."),
-  until: when.optional().describe("Only sessions active until then, in the same forms as since."),
+  since: when.optional().describe("Only sessions active since then: an ISO date or date-time, or an age such as 36h, 7d, 3w, 2m. A bare date such as 2026-11-03 is a UTC day; for the user's local day, pass a date-time with their offset, such as 2026-11-03T00:00+01:00."),
+  until: when.optional().describe("Only sessions active until then, in the same forms as since. A bare date covers that whole UTC day."),
   kinds: z.array(kind).min(1).max(DOC_KINDS.length).optional().describe(`Only match these kinds of text: ${KIND_TEXT}. Default: all indexed kinds.`),
   tool: text(128).min(1).optional().describe("Only tool calls and results of this tool, for example bash or edit."),
   agent: text(128).min(1).optional().describe("Only sessions run by this agent, for example build or plan."),
-  path: text(4096).min(1).optional().describe("Only sessions that read or changed this file or folder. A relative path matches the end of a recorded path, so src/auth.ts finds that file in any checkout; an absolute path matches only that file or folder."),
+  path: text(4096).min(1).optional().describe("Only sessions that read or changed this file or folder. A relative path matches the end of a recorded path, so src/auth.ts finds that file in any checkout; an absolute path matches that file, or anything under that folder. Globs such as src/*.ts work too."),
   sessionID: id.optional().describe("Only this session."),
   includeSubagents: z.boolean().optional().describe("Also include subagent sessions (work the agent delegated). Default false."),
   includeCurrent: z.boolean().optional().describe("Also include the current session. Default false, because you can already see it, apart from what a compaction removed."),
@@ -59,7 +59,7 @@ export const SearchInputSchema = z.strictObject({
 
 export const SessionsInputSchema = z.strictObject({
   title: text(256).min(1).optional().describe("Only sessions whose title contains this text."),
-  sort: z.enum(["updated", "created", "cost", "messages"]).default("updated").describe("Order, newest or largest first: updated (default), created, cost or messages."),
+  sort: z.enum(["updated", "created", "cost", "messages"]).default("updated").describe("Order, newest or largest first: updated (default), created, cost or messages. cost is the session's own spend in USD; its subagents are separate sessions."),
   limit: ranged(BOUNDS.sessions.limit, "Sessions to return"),
   cursor: text(1024).min(1).optional().describe("The next value of a previous result, to get the next page."),
   ...filters,
@@ -69,7 +69,7 @@ export const SessionsInputSchema = z.strictObject({
 const { kinds: _kinds, ...fileFilters } = filters
 export const FilesInputSchema = z.strictObject({
   ...fileFilters,
-  path: text(4096).min(1).describe("A file or folder, for example src/auth or src/auth/login.ts. A relative path matches the end of a recorded path, in any checkout; an absolute path matches only that file or folder. Globs such as src/*.ts also work."),
+  path: text(4096).min(1).describe("A file or folder, for example src/auth or src/auth/login.ts. A relative path matches the end of a recorded path, in any checkout, so include the folder that makes it unique, such as opencode-gws/README.md: a bare README.md matches that file in every repo. An absolute path matches that file, or anything under that folder. Globs such as src/*.ts also work."),
   ops: z.array(op).min(1).max(FILE_OPS.length).optional().describe("Only these operations: read, edit, write, patch, search. Default: all."),
   limit: ranged(BOUNDS.files.limit, "Files to return"),
 })
@@ -148,6 +148,8 @@ export const FilesOutputSchema = z.strictObject({
       last: time, firstSeq: count,
     })),
   })),
+  /** More paths matched than `limit`; the newest are shown. */
+  truncated: z.boolean(),
   hidden: HiddenSchema.nullable(),
   index: IndexStateSchema,
 })

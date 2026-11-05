@@ -78,6 +78,7 @@ export function files(db: Db, caller: Caller, input: FilesInput, state: IndexSta
       path: file.path,
       sessions: file.sessions.slice(0, MAX_FILE_SESSIONS).map(s => ({ sessionID: s.sessionID, title: s.title, ops: s.ops, last: iso(s.last), firstSeq: s.firstSeq })),
     })),
+    truncated: grouped.length > limit,
     hidden,
     index: state,
   }

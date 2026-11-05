@@ -97,7 +97,7 @@ export function formatSearch(result: SearchOutput, input: Pick<SearchInput, "que
     "",
     folded ? `Similar sessions are in the same directory as the one shown, with a near-identical title or the same first prompt; list those with its title with ${call("sessions", { title: folded.title })}.` : undefined,
     result.next ? `More: repeat the call with cursor: ${JSON.stringify(result.next)}.` : undefined,
-    `Next: ${call("brief", { sessionID: first.sessionID })} to see what that session did, then ${call("read", at ? { sessionID: at.sessionID, at: at.seq } : { sessionID: first.sessionID })} for the exact exchange.`,
+    `Next: ${call("brief", { sessionID: first.sessionID })} to see what that session did, then ${call("read", at ? { sessionID: at.sessionID, at: at.seq } : { sessionID: first.sessionID })} for the exact exchange. Cite what you use as (${at ? `${at.sessionID} #${at.seq}` : `${first.sessionID} #<seq>`}).`,
   )
 }
 
@@ -119,12 +119,12 @@ export function formatSessions(result: SessionsOutput) {
     ]),
     "",
     result.next ? `More: repeat the call with cursor: ${JSON.stringify(result.next)}.` : undefined,
-    `Next: ${call("brief", { sessionID: first.sessionID })} for a summary of a session.`,
+    `Next: ${call("brief", { sessionID: first.sessionID })} for a summary of a session. Cite sessions by ID.`,
   )
 }
 
 const OPS = ["edit", "write", "patch", "read", "search"] as const
-export function formatFiles(result: FilesOutput, input: Pick<FilesInput, "path" | "scope">) {
+export function formatFiles(result: FilesOutput, input: Pick<FilesInput, "path" | "scope" | "limit">) {
   if (result.files.length === 0) {
     const hidden = hiddenNotes(result.hidden)
     return lines(
@@ -136,13 +136,14 @@ export function formatFiles(result: FilesOutput, input: Pick<FilesInput, "path" 
   }
   const first = result.files[0]!.sessions[0]
   return lines(
+    result.truncated ? `More than ${plural(result.files.length, "path")} matched; these are the most recently touched. Name the folder that makes the path unique, such as <repo>/${input.path.split("/").at(-1)}, or raise limit.` : undefined,
     indexNotes(result.index),
     result.files.flatMap(file => [
       file.path,
       ...file.sessions.map(s => `  ${title(s)} · last ${when(s.last)} · ${OPS.filter(op => s.ops[op]).map(op => `${op} ${s.ops[op]}`).join(", ") || "no counts"} · first at #${s.firstSeq}`),
     ]),
     "",
-    first ? `Next: ${call("read", { sessionID: first.sessionID, at: first.firstSeq })} to see why it changed.` : undefined,
+    first ? `Next: ${call("read", { sessionID: first.sessionID, at: first.firstSeq })} to see why it changed. Cite as (${first.sessionID} #${first.firstSeq}).` : undefined,
   )
 }
 
@@ -161,6 +162,7 @@ export function formatRead(result: ReadOutput, input: Pick<ReadInput, "sessionID
     "",
     result.messages.flatMap(m => [`#${m.seq} ${m.type} · ${when(m.time)}`, m.text, ""]),
     result.truncated && calls ? "Text was trimmed to maxChars. Read a shorter range, raise maxChars, or set full: true." : undefined,
+    calls && result.messages.length ? `Cite a message as (${session.sessionID} #<seq>).` : undefined,
     calls && result.previous !== null ? `Earlier: ${call("read", { sessionID: input.sessionID, at: result.previous, before: 10, after: 0 })}` : undefined,
     calls && result.next !== null ? `Later: ${call("read", { sessionID: input.sessionID, at: result.next, before: 0 })}` : undefined,
     calls && none ? `Next: ${call("read", { sessionID: input.sessionID, at: widened.from })} to read without kinds, or repeat the call with other kinds.` : undefined,
@@ -204,7 +206,7 @@ export function formatRecall(result: RecallOutput, input: Pick<RecallInput, "sco
   if (result.evidence.length === 0) return lines(
     `No evidence found${input.scope ? ` in scope ${input.scope}` : ""}. Searched for ${quoted(result.queries)}.`,
     indexNotes(result.index),
-    "Next: retry with other queries phrasings, scope: \"all\", or explore with history_search.",
+    "Next: retry with other phrasings in queries, scope: \"all\", or explore with history_search.",
   )
   const sessions = new Set(result.evidence.map(e => e.sessionID)).size, first = result.evidence[0]!
   return lines(
@@ -212,7 +214,7 @@ export function formatRecall(result: RecallOutput, input: Pick<RecallInput, "sco
     `Evidence from ${plural(sessions, "session")}:`,
     result.evidence.flatMap(e => [`[${e.sessionID} #${e.seq} · ${when(e.time)} · ${JSON.stringify(e.title)}]`, e.text, ""]),
     `Searched for ${quoted(result.queries)}.`,
-    `Next: ${call("read", { sessionID: first.sessionID, at: first.seq })} for more context. Cite session IDs when you answer.`,
+    `Next: answer from this evidence, citing each claim as (${first.sessionID} #${first.seq}), or ${call("read", { sessionID: first.sessionID, at: first.seq })} for more context.`,
   )
 }
 

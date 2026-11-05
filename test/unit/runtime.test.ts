@@ -530,7 +530,7 @@ describe("failures", () => {
     expect(await failure(runtime.brief(CALLER, { sessionID: "ses_secret" }))).toMatchObject({ code: "SESSION_NOT_FOUND" })
     expect(await failure(runtime.sql(CALLER, { sql: "delete from sessions" }))).toEqual({
       code: "SQL_REJECTED",
-      message: "Only one read-only SELECT or WITH statement over the history index is allowed: only a SELECT or WITH statement is allowed.",
+      message: "The SQL was refused: only a SELECT or WITH statement is allowed.",
     })
     const sqlFailures = await Promise.all(
       [
