@@ -112,7 +112,7 @@ describe("descriptions teach the lookup", () => {
         expect(text).toContain("read-only SELECT or WITH statement")
         for (const name of [...VIEW_NAMES, ...fts]) expect(text, name).toContain(name)
       }
-      expect(FAILURES.SQL_REJECTED[0]).toBe("Only one read-only SELECT or WITH statement over the history index is allowed.")
+      expect(FAILURES.SQL_REJECTED).toEqual(["The SQL was refused.", "Rewrite it as one read-only SELECT or WITH statement over the v_* views and the docs_words and docs_sub tables."])
     } finally { db.close() }
   })
 })

@@ -37,7 +37,7 @@ export function headTail(text: string, head: number, tail: number): string {
   if (start > 0 && isHighSurrogate(text.charCodeAt(start - 1))) start--
   let end = text.length - tail
   if (end < text.length && isLowSurrogate(text.charCodeAt(end))) end++
-  return `${text.slice(0, start)}\n…[${end - start} chars cut]…\n${text.slice(end)}`
+  return `${text.slice(0, start)}\n…[${end - start} chars cut; full: true shows them]…\n${text.slice(end)}`
 }
 
 const isHighSurrogate = (code: number) => code >= 0xd800 && code <= 0xdbff
