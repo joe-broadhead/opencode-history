@@ -3,7 +3,6 @@ import type { Caller, Evidence, Filters, IndexState, RecallInput, RecallOutput, 
 import { BOUNDS } from "../domain/bounds.js"
 import type { Db } from "../domain/sqlite.js"
 import { bounded, clip, summaries, type Mask } from "./common.js"
-import { QUERY_HINTS, QueryError } from "./parse.js"
 import { messageWindow, type MessageSource } from "./read.js"
 import { renderMessage } from "./render.js"
 import { MARK, search } from "./search.js"
@@ -105,7 +104,6 @@ export async function recall(
   options: RecallOptions = {},
 ): Promise<RecallOutput> {
   const question = input.question.trim()
-  if (!question) throw new QueryError("question is empty", "query", { hint: QUERY_HINTS.question })
   const given = (input.queries ?? []).map(query => query.trim()).filter(Boolean)
   const queries = given.length > 0 ? given : phrasingsFor(question)
   const sessionCount = bounded(input.sessions, BOUNDS.recall.sessions)

@@ -150,8 +150,6 @@ describe("words mode", () => {
   })
 
   it("rejects queries with nothing to include", async () => {
-    await expect(find({ query: "  " })).rejects.toThrow(QueryError)
-    await expect(find({ query: [] })).rejects.toThrow("query is empty")
     await expect(find({ query: "-login" })).rejects.toThrow(/nothing to include/)
   })
 })
@@ -527,7 +525,6 @@ describe("filters", () => {
     expect((await find({ query: "password", tool: "EDIT" })).results[0]!.snippets).toMatchObject([{ kind: "tool_call", tool: "edit" }])
     expect((await ids({ query: "password", tool: "bash" }))).toEqual([])
     expect((await find({ query: "validation", agent: "explore", includeSubagents: true })).results[0]!.snippets.map(snippet => snippet.sessionID)).toEqual(["ses_explore"])
-    await expect(find({ query: "login", kinds: ["nope" as never] })).rejects.toThrow(/kinds must be among title, user/)
   })
 
   it("filters by files the session tree touched", async () => {

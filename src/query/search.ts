@@ -1,5 +1,5 @@
 // Rank past sessions for a query: full-text, substring or regex matches over docs, grouped by session tree, with snippets.
-import type { Caller, Hidden, IndexState, MatchMode, SearchHit, SearchInput, SearchOutput, Snippet } from "../domain/api.js"
+import type { Caller, Hidden, IndexState, SearchHit, SearchInput, SearchOutput, Snippet } from "../domain/api.js"
 import { BOUNDS, MAX_PHRASINGS } from "../domain/bounds.js"
 import { DOC_KINDS, KIND_WEIGHT, type DocKind } from "../domain/contract.js"
 import type { Db } from "../domain/sqlite.js"
@@ -759,17 +759,13 @@ async function hiddenTrees(db: Db, where: Filtered, probes: readonly Probe[]): P
   return hiddenCounts(rows, where.hiding)
 }
 
-const MODES: readonly MatchMode[] = ["words", "substring", "regex"]
-
 export async function search(db: Db, caller: Caller, input: SearchInput, state: IndexState, options: SearchOptions = {}): Promise<SearchOutput> {
   const now = options.now ?? Date.now()
   const mode = input.match ?? "words"
-  if (!MODES.includes(mode)) throw new QueryError("match must be words, substring or regex", "query", { hint: QUERY_HINTS.match })
   const limit = bounded(input.limit, BOUNDS.search.limit)
   const snippetCount = bounded(input.snippets, BOUNDS.search.snippets)
   const offset = decodeCursor(input.cursor)
   const texts = phrasingsOf(input.query, mode === "regex")
-  if (texts.length === 0) throw new QueryError("query is empty", "query", { hint: QUERY_HINTS.empty })
   const where = filterSql(db, caller, input, now, "docs")
   const deadline = performance.now() + SCAN_BUDGET_MS
 
