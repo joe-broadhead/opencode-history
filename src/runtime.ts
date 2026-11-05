@@ -2,7 +2,8 @@
 import { createHash } from "node:crypto"
 import { realpathSync, statSync } from "node:fs"
 import { basename, dirname, join, resolve } from "node:path"
-import { fail, FAILURES, HistoryError, logUnexpected, type FailureCode } from "./domain/common.js"
+import { fail, HistoryError, logUnexpected, type FailureCode } from "./domain/common.js"
+import { locked } from "./domain/sqlite.js"
 import { DEFAULT_EXTRACT, INDEX_SCHEMA_VERSION, type ExtractOptions, type Source } from "./domain/contract.js"
 import { extractMessage, maskText, titleDoc } from "./extract/index.js"
 import { INDEX_PATH_MESSAGES } from "./domain/paths.js"
@@ -13,7 +14,6 @@ import { ForeignIndexError, IndexStore } from "./index/store.js"
 import { Indexer } from "./index/sync.js"
 import { brief } from "./query/brief.js"
 import { files } from "./query/files.js"
-import { QueryError, type QueryFailure } from "./query/parse.js"
 import { read } from "./query/read.js"
 import { recall } from "./query/recall.js"
 import { search } from "./query/search.js"
@@ -61,54 +61,15 @@ function indexBytes(path: string): number | null {
 /** How long search, sessions and recall wait for the catch-up they start before they answer from the index as it is. */
 export const REFRESH_MS = 200
 
-/** The failure code for each reason the query layer gives. */
-export const QUERY_FAILURES: Record<QueryFailure, FailureCode> = {
-  query: "QUERY_INVALID",
-  cursor: "CURSOR_INVALID",
-  session: "SESSION_NOT_FOUND",
-  message: "MESSAGE_NOT_FOUND",
-  sql_rejected: "SQL_REJECTED",
-  sql_failed: "SQL_FAILED",
-  sql_timeout: "SQL_TIMEOUT",
-}
-
-/** The kind of mistake SQLite found, in words that cannot repeat the statement as SQLite's own message does. */
-function sqliteMistake(cause: unknown): string | undefined {
-  const text = cause instanceof Error ? cause.message : ""
-  if (/no such column/i.test(text)) return "it names a column the views do not have"
-  if (/no such table/i.test(text)) return "it names a table or view the index does not have"
-  if (/no such function/i.test(text)) return "it calls a function SQLite does not have"
-  if (/ambiguous column/i.test(text)) return "a column name is ambiguous, so prefix it with its view"
-  if (/syntax error|unrecognized token|incomplete input/i.test(text)) return "it has a syntax error"
-  if (/index out of range/i.test(text)) return "params has more values than the statement has ? placeholders"
-  return undefined
-}
-
-/** SQLite's busy or locked result, by its primary code, or by its text where a driver gives no code. */
-function locked(cause: unknown): boolean {
-  const code = typeof cause === "object" && cause !== null ? (cause as { errcode?: unknown }).errcode : undefined
-  if (typeof code === "number") return (code & 0xff) === 5 || (code & 0xff) === 6
-  return cause instanceof Error && /\bdatabase (?:table )?is locked\b/i.test(cause.message)
-}
-
 /**
- * A HistoryError for whatever a query threw. A HistoryError, also as a QueryError's cause, keeps its code; a locked
- * index is INDEX_BUSY. Query and SQL rejections keep the query layer's reason, which never repeats the input.
- * Anything else becomes `fallback`, without its message, and leaves one line in the server log for `operation`.
+ * A HistoryError for whatever a query threw. A HistoryError keeps its code, and a locked index is INDEX_BUSY. Anything
+ * else becomes `fallback`, without its message, and leaves one line in the server log for `operation`.
  */
 export function toFailure(error: unknown, fallback: FailureCode = "OPERATION_FAILED", operation = "runtime"): HistoryError {
   if (error instanceof HistoryError) return error
-  const cause = error instanceof QueryError ? error.cause : error
-  if (cause instanceof HistoryError) return cause
-  if (locked(cause)) return new HistoryError("INDEX_BUSY")
-  if (!(error instanceof QueryError)) {
-    logUnexpected(error, fallback, operation)
-    return new HistoryError(fallback)
-  }
-  const code = QUERY_FAILURES[error.reason]
-  const detail =
-    error.reason === "query" || error.reason === "sql_rejected" ? error.message : error.reason === "sql_failed" ? sqliteMistake(error.cause) : undefined
-  return new HistoryError(code, { ...detail ? { message: `${FAILURES[code][0].replace(/\.$/, "")}: ${detail}.` } : {}, ...error.hint ? { hint: error.hint } : {} })
+  if (locked(error)) return new HistoryError("INDEX_BUSY")
+  logUnexpected(error, fallback, operation)
+  return new HistoryError(fallback)
 }
 
 /** One index file and the work that keeps it fresh, shared by every plugin instance that opens that file. */

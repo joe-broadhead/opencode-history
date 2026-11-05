@@ -67,6 +67,14 @@ export class HistoryError extends Error implements HistoryFailure {
 }
 export function fail(code: FailureCode, detail?: { message?: string; hint?: string }): never { throw new HistoryError(code, detail) }
 
+/**
+ * `code` with what was wrong added to its own message, as in `The SQL was refused: only one SQL statement is allowed.`,
+ * and a next step when one fits the cause better than the code's. `detail` never repeats input or history text.
+ */
+export function refused(code: FailureCode, detail: string, hint?: string): HistoryError {
+  return new HistoryError(code, { message: `${FAILURES[code][0].replace(/\.$/, "")}: ${detail}.`, ...hint ? { hint } : {} })
+}
+
 /** The named functions an error was thrown from, innermost first, read from the stack after its message. */
 function thrownIn(error: Error, count = 3): string[] {
   const stack = typeof error.stack === "string" ? error.stack : ""

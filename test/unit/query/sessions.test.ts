@@ -46,7 +46,6 @@ describe("sessions", () => {
     expect(ids({ sort: "created" })).toEqual(["ses_c", "ses_a", "ses_b"])
     expect(ids({ sort: "cost" })).toEqual(["ses_b", "ses_c", "ses_a"])
     expect(ids({ sort: "messages" })).toEqual(["ses_c", "ses_a", "ses_b"])
-    expect(() => list({ sort: "size" as never })).toThrow(/sort must be/)
   })
 
   it("filters titles by contained text, treating % and _ literally", () => {

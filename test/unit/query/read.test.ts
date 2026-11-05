@@ -66,9 +66,9 @@ describe("read windows", () => {
   })
 
   it("reports missing sessions and messages by reason", async () => {
-    await expect(read(db, source, { sessionID: "ses_nope" }, NO_MASK)).rejects.toMatchObject({ name: "QueryError", reason: "session" })
-    await expect(open({ at: "msg_missing" })).rejects.toMatchObject({ reason: "message" })
-    await expect(open({ at: 99 })).rejects.toMatchObject({ reason: "message" })
+    await expect(read(db, source, { sessionID: "ses_nope" }, NO_MASK)).rejects.toMatchObject({ name: "HistoryError", code: "SESSION_NOT_FOUND" })
+    await expect(open({ at: "msg_missing" })).rejects.toMatchObject({ code: "MESSAGE_NOT_FOUND" })
+    await expect(open({ at: 99 })).rejects.toMatchObject({ code: "MESSAGE_NOT_FOUND" })
   })
 
   it("returns an empty window for a session without messages", async () => {

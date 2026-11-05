@@ -5,12 +5,11 @@ import type { FileOp } from "../domain/contract.js"
 import type { Db } from "../domain/sqlite.js"
 import { bounded, iso, placeholders } from "./common.js"
 import { filterSql, hiddenCounts, hidingColumns } from "./filters.js"
-import { QUERY_HINTS, QueryError } from "./parse.js"
+import { refused } from "../domain/common.js"
+import { QUERY_HINTS } from "./parse.js"
 
 /** Sessions listed per path, most recent first. */
 export const MAX_FILE_SESSIONS = 20
-
-const FILE_OPS: readonly FileOp[] = ["read", "edit", "write", "patch", "search"]
 
 export interface FilesOptions {
   /** Epoch milliseconds that durations count back from. */
@@ -37,9 +36,8 @@ interface SessionTouches {
 
 /** Paths most recently touched first; each with the sessions that touched it, most recent first. */
 export function files(db: Db, caller: Caller, input: FilesInput, state: IndexState, options: FilesOptions = {}): FilesOutput {
-  if (!input.path?.trim()) throw new QueryError("path must name a file or folder", "query", { hint: QUERY_HINTS.path })
+  if (!input.path?.trim()) throw refused("QUERY_INVALID", "path must name a file or folder", QUERY_HINTS.path)
   const ops = input.ops && input.ops.length > 0 ? input.ops : undefined
-  if (ops?.some(op => !FILE_OPS.includes(op))) throw new QueryError(`ops must be among ${FILE_OPS.join(", ")}`)
   const limit = bounded(input.limit, BOUNDS.files.limit)
   const where = filterSql(db, caller, input, options.now ?? Date.now(), "files")
   const from = "from files f join sessions s on s.id = f.session_id left join sessions r on r.id = s.root_id"

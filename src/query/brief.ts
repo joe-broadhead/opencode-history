@@ -3,7 +3,7 @@ import type { BriefInput, BriefOutput } from "../domain/api.js"
 import type { Source } from "../domain/contract.js"
 import type { Db } from "../domain/sqlite.js"
 import { placeholders, SUMMARY_COLUMNS, toSummary, type Mask, type SummaryRow } from "./common.js"
-import { QueryError } from "./parse.js"
+import { HistoryError } from "../domain/common.js"
 
 /** The latest compaction summaries kept, oldest first. */
 export const MAX_SUMMARIES = 10
@@ -45,7 +45,7 @@ export async function brief(db: Db, source: TodoSource, input: BriefInput, mask:
       from sessions s left join projects p on p.id = s.project_id where s.id = ?`,
     input.sessionID,
   )
-  if (!row) throw new QueryError("no indexed session has that ID", "session")
+  if (!row) throw new HistoryError("SESSION_NOT_FOUND")
   const ids = tree(db, input.sessionID, input.children ?? false)
   const inTree = `(${placeholders(ids.length)})`
 

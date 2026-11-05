@@ -4,7 +4,7 @@ import { BOUNDS } from "../domain/bounds.js"
 import type { Db } from "../domain/sqlite.js"
 import { bounded, escapeLike, SUMMARY_COLUMNS, toSummary, type SummaryRow } from "./common.js"
 import { filterSql, hiddenCounts, hidingColumns } from "./filters.js"
-import { decodeCursor, encodeCursor, QueryError } from "./parse.js"
+import { decodeCursor, encodeCursor } from "./parse.js"
 
 /** Largest first; ties go to the most recently updated. */
 const SORTS = { updated: "s.updated", created: "s.created", cost: "s.cost", messages: "s.messages" } as const
@@ -16,7 +16,6 @@ export interface SessionsOptions {
 
 export function sessions(db: Db, caller: Caller, input: SessionsInput, state: IndexState, options: SessionsOptions = {}): SessionsOutput {
   const sort = input.sort ?? "updated"
-  if (!(sort in SORTS)) throw new QueryError("sort must be updated, created, cost or messages")
   const limit = bounded(input.limit, BOUNDS.sessions.limit)
   const offset = decodeCursor(input.cursor)
   const where = filterSql(db, caller, input, options.now ?? Date.now(), "sessions")

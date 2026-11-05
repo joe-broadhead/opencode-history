@@ -25,7 +25,7 @@ if (mode === "orphan") {
   const timer = setInterval(() => ticks++, 20)
   const started = performance.now()
   const endless = await sql(path, { sql: ENDLESS }, { timeoutMs: 1500 })
-    .then(() => "finished", (error: { reason?: string; code?: string }) => error.reason ?? error.code ?? "unknown")
+    .then(() => "finished", (error: { code?: string }) => error.code ?? "unknown")
   const took = Math.round(performance.now() - started)
   clearInterval(timer)
   const quick = await sql(path, { sql: "select sum(x) as total from t" })

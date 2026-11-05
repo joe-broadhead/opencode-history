@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { BOUNDS } from "../../../src/domain/bounds.js"
 import type { Db } from "../../../src/domain/sqlite.js"
-import { QueryError } from "../../../src/query/parse.js"
+import { HistoryError } from "../../../src/domain/common.js"
 import { SQL_CELL_CHARS, SQL_OUTPUT_BYTES, SQL_PARALLEL, SQL_TIMEOUT_MS, checkSql, sql } from "../../../src/query/sql.js"
 import { FAILURES } from "../../../src/domain/common.js"
 import { toFailure } from "../../../src/runtime.js"
@@ -92,20 +92,20 @@ describe("sql", async () => {
       "select 'unclosed",
       "-- only a comment",
     ]) {
-      await expect(run(bad), bad).rejects.toThrow(expect.objectContaining({ reason: "sql_rejected" }))
+      await expect(run(bad), bad).rejects.toThrow(expect.objectContaining({ code: "SQL_REJECTED" }))
     }
     expect(checkSql("select 1 -- trailing comment")).toBe("select 1")
   })
 
   it("cannot write, even through WITH", async () => {
-    await expect(run("with x as (select 1) delete from docs")).rejects.toThrow(expect.objectContaining({ reason: "sql_failed" }))
+    await expect(run("with x as (select 1) delete from docs")).rejects.toThrow(expect.objectContaining({ code: "SQL_FAILED" }))
     expect(db.get<{ n: number }>("select count(*) as n from docs")!.n).toBe(1)
   })
 
   it("reports SQL errors as failures", async () => {
     const error = await run("select nope from v_sessions").catch((e: unknown) => e)
-    expect(error).toBeInstanceOf(QueryError)
-    expect(error).toMatchObject({ reason: "sql_failed", cause: { message: expect.stringMatching(/no such column/) } })
+    expect(error).toBeInstanceOf(HistoryError)
+    expect(error).toMatchObject({ code: "SQL_FAILED", message: "The SQL query failed: it names a column the views do not have." })
   })
 })
 
@@ -120,7 +120,7 @@ describe("sql limits", () => {
     const error = await sql(index.path, { sql: ENDLESS }, { timeoutMs: 1500 }).catch((e: unknown) => e)
     clearInterval(timer)
     const took = performance.now() - started
-    expect(error).toMatchObject({ reason: "sql_timeout" })
+    expect(error).toMatchObject({ code: "SQL_TIMEOUT" })
     expect(took).toBeGreaterThanOrEqual(1400)
     expect(took).toBeLessThan(5000)
     // The statement ran in its own process: this one kept answering timers the whole time.
@@ -129,7 +129,7 @@ describe("sql limits", () => {
 
   it("stops an expensive cross join the same way", async () => {
     const error = await sql(index.path, { sql: "select count(*) from v_sessions a, v_sessions b, v_sessions c, v_sessions d" }, { timeoutMs: 1000 }).catch((e: unknown) => e)
-    expect(error).toMatchObject({ reason: "sql_timeout" })
+    expect(error).toMatchObject({ code: "SQL_TIMEOUT" })
   })
 
   it("reports a timeout as SQL_TIMEOUT, whose text names the default limit", async () => {
@@ -151,7 +151,7 @@ describe("sql limits", () => {
     const endless = Array.from({ length: SQL_PARALLEL }, () => sql(index.path, { sql: ENDLESS }, { timeoutMs: 800 }).catch((e: unknown) => e))
     const quick = run("select 1 as one")
     expect(await quick).toEqual({ columns: ["one"], rows: [[1]], truncated: false })
-    for (const error of await Promise.all(endless)) expect(error).toMatchObject({ reason: "sql_timeout" })
+    for (const error of await Promise.all(endless)) expect(error).toMatchObject({ code: "SQL_TIMEOUT" })
   })
 
   it("cuts rows at SQL_OUTPUT_BYTES of data and says truncated", async () => {

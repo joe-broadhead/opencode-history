@@ -179,7 +179,7 @@ for (const version of VERSIONS) describe(`stock OpenCode ${version}`, () => {
     const folder = mkdtempSync(join(temp, `sql-${version}-`))
     const env = { PATH: "/usr/bin:/bin", HOME: host.home, TMPDIR: folder, BUN_BE_BUN: "1" }
     const out = JSON.parse(execFileSync(binary, [join(repo, "test/pack/sql-probe.ts"), folder], { cwd: repo, env, encoding: "utf8" }).trim())
-    expect(out).toMatchObject({ bun: true, endless: "sql_timeout", quick: { columns: ["total"], rows: [[6]], truncated: false } })
+    expect(out).toMatchObject({ bun: true, endless: "SQL_TIMEOUT", quick: { columns: ["total"], rows: [[6]], truncated: false } })
     expect(out.took).toBeGreaterThanOrEqual(1400)
     expect(out.took).toBeLessThan(6000)
     expect(out.ticks).toBeGreaterThan(30)
