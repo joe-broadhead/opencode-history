@@ -47,7 +47,7 @@ await tools.history.sql({ sql: "select date(created) as day, round(sum(cost), 2)
 
 - **Search, brief, read.** The usual lookup. `history_search` ranks sessions for two to four phrasings of one topic and returns excerpts, each with a `seq`. `history_brief` summarises one session: first prompt, compaction summaries, last reply, outcome, files edited, commands, subagents and todos. `history_read` reads the messages around a `seq`, with paging; with `kinds`, a window with none of those kinds widens to the nearest messages that have them. These three tools are pinned.
 - **Sessions and files.** `history_sessions` lists sessions without a query, by last update, creation, cost or size. `history_files` lists the sessions that read or changed a file or folder, with counts per operation and the `seq` of the first touch.
-- **Recall.** `history_recall` searches, takes the best sessions and returns quoted evidence with session IDs and `seq`s. With `synthesize: true` it also asks a model to write an answer from that evidence.
+- **Recall.** `history_recall` searches, takes the best sessions and returns quoted evidence with session IDs and `seq`s, for the agent to answer from.
 - **SQL.** `history_sql` runs one read-only `SELECT` or `WITH` statement over the index, for counts and reports. Its stable interface is four views, `v_sessions`, `v_docs`, `v_files` and `v_links`, and two full-text tables, `docs_words` (`MATCH`) and `docs_sub` (`text LIKE '%substring%'`). The other tables can change between versions.
 - **Pin.** `history_pin` keeps a past session's brief, or a range of its messages, in the current session's instructions, so it stays in view through compactions. It is not in Code Mode, because it changes the current session.
 
@@ -121,14 +121,13 @@ Options go on the plugin entry in `opencode.json`:
     "package": "@joe-broadhead/opencode-history",
     "options": {
       "defaultScope": "project",
-      "mask": ["internal-token-[0-9a-f]{32}"],
-      "recall": { "synthesize": false }
+      "mask": ["internal-token-[0-9a-f]{32}"]
     }
   }]
 }
 ```
 
-`database` points at OpenCode's database and `indexPath` moves the index. `indexPath` must be a new file or an existing History index, outside OpenCode's data folder and outside the project; anything else fails setup with `INDEX_PATH_REFUSED` and is left untouched, whichever config sets it. `defaultScope` is the scope when a call names none. `index.reasoning`, `index.toolResults` and `index.maxDocChars` choose what is indexed. Built-in patterns mask common credentials before text is stored or shown: private keys, API keys and tokens with well-known prefixes (such as `sk-`, `ghp_`, `xai-`, `AKIA`), JSON Web Tokens, `Bearer` and `Authorization` header credentials, and `password=`, `secret=`, `token=` and `api_key=` values. `mask` adds your own patterns, and `maskDefaults: false` turns the built-in ones off. `recall.synthesize` and `recall.model` control recall answers. `allowUntestedHost` loads on an untested OpenCode version, with a warning in status. An invalid option fails setup and names the key, never the value. The full reference, with every limit and error code, is [docs/configuration.md](https://github.com/joe-broadhead/opencode-history/blob/HEAD/docs/configuration.md).
+`database` points at OpenCode's database and `indexPath` moves the index. `indexPath` must be a new file or an existing History index, outside OpenCode's data folder and outside the project; anything else fails setup with `INDEX_PATH_REFUSED` and is left untouched, whichever config sets it. `defaultScope` is the scope when a call names none. `index.reasoning`, `index.toolResults` and `index.maxDocChars` choose what is indexed. Built-in patterns mask common credentials before text is stored or shown: private keys, API keys and tokens with well-known prefixes (such as `sk-`, `ghp_`, `xai-`, `AKIA`), JSON Web Tokens, `Bearer` and `Authorization` header credentials, and `password=`, `secret=`, `token=` and `api_key=` values. `mask` adds your own patterns, and `maskDefaults: false` turns the built-in ones off. `allowUntestedHost` loads on an untested OpenCode version, with a warning in status. An invalid option fails setup and names the key, never the value. The full reference, with every limit and error code, is [docs/configuration.md](https://github.com/joe-broadhead/opencode-history/blob/HEAD/docs/configuration.md).
 
 The `index` options, `mask` and `maskDefaults` apply to text indexed from then on. After you change them, run `/history-reindex rebuild` so the text already in the index follows them too.
 
@@ -174,8 +173,6 @@ Start with `/history-status`. It ends with one next step. Errors read `CODE: wha
 | `SQL_REJECTED`, `SQL_FAILED` | Write one read-only `SELECT` or `WITH` statement, best over the `v_*` views. The message says what was wrong. |
 | `SQL_TIMEOUT` | The statement ran longer than 10 seconds and was stopped. Filter by time or session, and bound a recursive `WITH`. |
 | `PERMISSION_DENIED`, `SESSION_UNKNOWN`, `SESSION_AGENT_REQUIRED` | Scripts only: the session's agent may not use the tool, the session does not exist, or it names no agent. See [Scripting](https://github.com/joe-broadhead/opencode-history/blob/HEAD/docs/scripting.md). |
-| `RECALL_MODEL_UNAVAILABLE` | OpenCode has no model to write the answer. Set `recall.model` to a model OpenCode can use, or call `history_recall` with `synthesize: false`. |
-| `RECALL_FAILED` | The model call failed. Call `history_recall` with `synthesize: false` for the evidence only. |
 | `PIN_TOO_LARGE` | Pin a shorter range, or a lower `maxChars`. |
 | `OPERATION_FAILED` | Something unexpected failed. Retry, and if it persists, the OpenCode server log has one `opencode-history:` line with the error's class, its SQLite code and where it was thrown, to report. |
 

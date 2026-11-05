@@ -63,8 +63,6 @@ export interface RuntimeOptions {
   readonly config: ResolvedConfig
   /** The plugin context's session API: the partial fallback source when OpenCode's database cannot be read. */
   readonly session: Pick<Plugin.Context["session"], "list" | "context">
-  /** Writes a recall answer from a prompt, with recall.model or else the host's default model. */
-  readonly generate: (prompt: string) => Promise<string>
 }
 /**
  * Opens the index and starts a catch-up in the background. It must not wait for indexing to finish. Search, sessions

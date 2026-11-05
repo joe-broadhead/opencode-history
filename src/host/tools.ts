@@ -40,7 +40,7 @@ export const DESCRIPTIONS: { readonly [K in ToolName]: string } = {
   read: "Read the messages of one past session in order, to quote exact wording, code, commands or tool output. Set `at` to the seq of an excerpt from history_search or history_files (or a message ID) to read around that point, with `before` and `after` messages of context; omit `at` to start at the first message. The result gives the previous and next seq for paging. Call history_brief first unless you already know the session is right. Text is trimmed to maxChars; set full: true for whole messages.",
   sessions: "List past sessions without a search query, newest first or by cost or size: for example what was worked on this week, in a directory, by an agent, or with a word in the title. Takes the same filters as history_search. To find a topic, use history_search instead.",
   files: "Find the past sessions that read or changed a file or folder, with counts per operation, the last time and the seq of the first touch. Use it for \"when did we change X\" or \"why is X like this\", or before editing a file that has history. Then call history_read at that seq, or history_brief.",
-  recall: "Answer a question from past sessions in one call: it searches with several phrasings, takes the best sessions and returns quoted evidence with session ID and seq. With synthesize: true it also writes an answer from that evidence with a model. Pass 2-4 `queries` phrasings for better recall. Check the evidence before relying on an answer, and cite session IDs. For open-ended exploring, history_search, history_brief and history_read give more control.",
+  recall: "Gather evidence for a question from past sessions in one call: it searches with several phrasings, takes the best sessions and returns quoted message windows with session ID and seq. Answer from that evidence yourself. Pass 2-4 `queries` phrasings for better recall. For open-ended exploring, history_search, history_brief and history_read give more control.",
   sql: `Run one read-only SELECT or WITH statement over the history index of every project, for counts and reports the other tools cannot express, such as cost per week, sessions per directory or the most edited files. Views: ${VIEWS.join("; ")}. Full-text tables: ${FTS_TABLES.join(" and ")}, whose rowid is v_docs.doc_id. Query only these: the other tables can change between versions. Times are UTC text such as 2026-10-12 09:30:00. Pass values as ? placeholders with params. For text, use history_search: it ranks far better than LIKE.`,
   pin: "Pin a past session's brief, or a range of its messages, into this session's instructions, so it stays in context through compactions; also remove or list pins. Use it when earlier work should stay in view while you work, such as a design decision or the steps of a fix. Find the session and seqs first with history_search, history_brief or history_read. Pinned text is sent with every request, so pin briefs or short ranges, and remove pins once they are no longer needed.",
 }
@@ -51,8 +51,8 @@ export interface ToolSources {
   readonly session: ActionSources["session"]
   /** Where the plugin runs. Each call adds its own session. */
   readonly location: { readonly projectID: string; readonly directory: string }
-  /** From the plugin options: the scope when a call names none, and whether recall writes an answer by default. */
-  readonly defaults: { readonly scope: DefaultScope; readonly synthesize: boolean }
+  /** From the plugin options: the scope when a call names none. */
+  readonly defaults: { readonly scope: DefaultScope }
   /** The host's permission check, `ctx.permission.assert`: every call asserts its tool's action first. */
   readonly assert: Assert
 }
@@ -101,7 +101,7 @@ export const TOOL_DEFINITIONS: readonly ToolDefinition[] = [
     return { output, content: formatFiles(output, request) }
   }),
   define("recall", RecallInputSchema, RecallOutputSchema, async (sources, caller, input) => {
-    const request = { ...scoped(sources, input), synthesize: input.synthesize ?? sources.defaults.synthesize }
+    const request = scoped(sources, input)
     const output = await sources.runtime.recall(caller, request)
     return { output, content: formatRecall(output, request) }
   }),

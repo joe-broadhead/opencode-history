@@ -72,11 +72,10 @@ function contextApi(sessions: SessionInfo[] = [], threads: Record<string, Sessio
   }
 }
 
-async function open(options: Config, more: { session?: ContextSessionApi; generate?: RuntimeOptions["generate"] } = {}): Promise<HistoryRuntime> {
+async function open(options: Config, more: { session?: ContextSessionApi } = {}): Promise<HistoryRuntime> {
   const runtime = await createRuntime({
     config: loadConfig(options),
     session: (more.session ?? contextApi()) as unknown as RuntimeOptions["session"],
-    generate: more.generate ?? (async () => "the answer"),
   })
   cleanups.push(() => runtime.close())
   return runtime
@@ -150,7 +149,7 @@ describe("createRuntime", () => {
     const { runtime } = await indexed({ mask: ["sk-live-[0-9a-f]+"] })
     const read = await runtime.read(CALLER, { sessionID: "ses_login" })
     const brief = await runtime.brief(CALLER, { sessionID: "ses_login" })
-    const recall = await runtime.recall(CALLER, { question: "What did we change on the cookie?", queries: ["SameSite cookie"], synthesize: false })
+    const recall = await runtime.recall(CALLER, { question: "What did we change on the cookie?", queries: ["SameSite cookie"] })
     const search = await runtime.search(CALLER, { query: "Token", snippets: 5 })
     const docs = await runtime.sql(CALLER, { sql: "select text from v_docs" })
     for (const [name, out] of Object.entries({ read, brief, recall, search, docs })) expect(JSON.stringify(out), name).not.toContain(SECRET)
@@ -192,7 +191,7 @@ describe("createRuntime", () => {
     fixture.insertSession({ id: "ses_heron", title: "Heron dashboard" })
     expect((await runtime.sessions(CALLER, { title: "Heron" })).sessions.map(s => s.sessionID)).toEqual(["ses_heron"])
     fixture.insertMessage({ sessionID: "ses_heron", type: "user", data: userData("Why is the heron dashboard slow?") })
-    expect((await runtime.recall(CALLER, { question: "heron dashboard", synthesize: false })).evidence.map(e => e.text)).toEqual([expect.stringContaining("heron dashboard slow")])
+    expect((await runtime.recall(CALLER, { question: "heron dashboard" })).evidence.map(e => e.text)).toEqual([expect.stringContaining("heron dashboard slow")])
 
     // Files does not catch up first: it answers from the index as it is.
     fixture.insertMessage({ sessionID: "ses_db", type: "assistant", data: assistantData([toolPart("write", { filePath: "/work/app/db/egret.sql", content: "-- x" })]) })
@@ -319,7 +318,7 @@ describe("createRuntime", () => {
       sessions: await later.sessions(CALLER, {}),
       brief: await later.brief(CALLER, { sessionID: "ses_key" }),
       read: await later.read(CALLER, { sessionID: "ses_key" }),
-      recall: await later.recall(CALLER, { question: "Which key did we rotate?", queries: ["Rotate", "Token"], synthesize: false }),
+      recall: await later.recall(CALLER, { question: "Which key did we rotate?", queries: ["Rotate", "Token"] }),
       sql: await later.sql(CALLER, { sql: "select text from v_docs" }),
       sqlTitle: await later.sql(CALLER, { sql: "select title from v_sessions" }),
     }
@@ -369,7 +368,7 @@ describe("createRuntime", () => {
       ["read", () => runtime.read(CALLER, { sessionID: "ses_login" })],
       ["brief", () => runtime.brief(CALLER, { sessionID: "ses_login" })],
       ["sql", () => runtime.sql(CALLER, { sql: "select count(*) from v_docs" })],
-      ["recall", () => runtime.recall(CALLER, { question: "What changed on the cookie?", synthesize: false })],
+      ["recall", () => runtime.recall(CALLER, { question: "What changed on the cookie?" })],
     ]
     for (const [name, call] of calls) {
       await expect(call(), name).rejects.toMatchObject({ code: "INDEX_MISMATCH", message: FAILURES.INDEX_MISMATCH[0], hint: FAILURES.INDEX_MISMATCH[1] })
@@ -458,35 +457,11 @@ describe("createRuntime", () => {
 })
 
 describe("recall", () => {
-  const asked = { question: "What did we change on the cookie?", queries: ["SameSite cookie"] }
-
-  it("writes an answer with the host's model when asked; by default as recall.synthesize says", async () => {
-    const prompts: string[] = []
-    const generate = async (prompt: string) => {
-      prompts.push(prompt)
-      return "Use SameSite=Lax."
-    }
-    const on = await indexed({ recall: { synthesize: true } }, { generate })
-    expect((await on.runtime.recall(CALLER, asked)).answer).toBe("Use SameSite=Lax.")
-    expect((await on.runtime.recall(CALLER, { ...asked, synthesize: false })).answer).toBeNull()
-    const off = await indexed({}, { generate })
-    expect((await off.runtime.recall(CALLER, asked)).answer).toBeNull()
-    expect((await off.runtime.recall(CALLER, { ...asked, synthesize: true })).answer).toBe("Use SameSite=Lax.")
-    expect(prompts).toHaveLength(2)
-    expect(prompts[0]).toContain("[ses_login#1]")
-  })
-
-  it("fails with RECALL_FAILED when the model call fails", async () => {
-    const { runtime } = await indexed({}, { generate: async () => Promise.reject(new Error("provider said no to secret")) })
-    const error = await runtime.recall(CALLER, { ...asked, synthesize: true }).catch((caught: unknown) => caught)
-    expect(error).toMatchObject({ code: "RECALL_FAILED", message: FAILURES.RECALL_FAILED[0] })
-    expect(String((error as Error).message)).not.toContain("secret")
-  })
-
-  it("fails with RECALL_MODEL_UNAVAILABLE when generate says there is no model", async () => {
-    const { runtime } = await indexed({}, { generate: async () => Promise.reject(new HistoryError("RECALL_MODEL_UNAVAILABLE")) })
-    await expect(runtime.recall(CALLER, { ...asked, synthesize: true })).rejects.toMatchObject({ code: "RECALL_MODEL_UNAVAILABLE", message: FAILURES.RECALL_MODEL_UNAVAILABLE[0] })
-    expect((await runtime.recall(CALLER, { ...asked, synthesize: false })).evidence).not.toEqual([])
+  it("returns evidence only, and makes no model call", async () => {
+    const { runtime } = await indexed({})
+    const result = await runtime.recall(CALLER, { question: "What did we change on the cookie?", queries: ["SameSite cookie"] })
+    expect(Object.keys(result).sort()).toEqual(["evidence", "index", "queries"])
+    expect(result.evidence[0]).toMatchObject({ sessionID: "ses_login" })
   })
 })
 
@@ -501,7 +476,6 @@ describe("failures", () => {
       "SQL_REJECTED",
       "SQL_FAILED",
       "SQL_TIMEOUT",
-      "RECALL_FAILED",
     ])
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
     cleanups.push(() => warn.mockRestore())
@@ -548,7 +522,7 @@ describe("failures", () => {
     expect(await failure(runtime.sessions(CALLER, { since: "last tuesday" }))).toMatchObject({ hint: "Use an ISO date such as 2026-10-01 or an age such as 7d." })
     expect(await failure(runtime.search(CALLER, { query: "-login" }))).toMatchObject({ hint: "Add a word to search for besides the excluded terms." })
     expect(await failure(runtime.files(CALLER, { path: "/" }))).toMatchObject({ hint: "Pass a file or folder path, such as src/auth.ts." })
-    expect(await failure(runtime.recall(CALLER, { question: "  ", synthesize: false }))).toMatchObject({ hint: "Pass the question to answer." })
+    expect(await failure(runtime.recall(CALLER, { question: "  " }))).toMatchObject({ hint: "Pass the question to answer." })
     // No cause names a regular expression unless one was given.
     expect(FAILURES.QUERY_INVALID[1]).not.toMatch(/regular expression/)
   })
@@ -619,6 +593,6 @@ describe("failures", () => {
     expect(toFailure(new QueryError("the SQL failed", "sql_failed", { cause: locked })).code).toBe("INDEX_BUSY")
     expect(toFailure(Object.assign(new Error("x"), { errcode: 517 })).code).toBe("INDEX_BUSY")
     expect(toFailure(Object.assign(new Error("x"), { errcode: 1 })).code).toBe("OPERATION_FAILED")
-    expect(toFailure(new QueryError("x", "recall", { cause: new HistoryError("RECALL_MODEL_UNAVAILABLE") })).code).toBe("RECALL_MODEL_UNAVAILABLE")
+    expect(toFailure(new QueryError("x", "sql_failed", { cause: new HistoryError("CANCELLED") })).code).toBe("CANCELLED")
   })
 })

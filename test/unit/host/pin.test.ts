@@ -12,7 +12,7 @@ type Execute = (input: unknown, context: object) => Promise<{ output: unknown; c
 function setup() {
   const runtime = fakeRuntime(), session = fakeSession(), tools = new Map<string, { input: { parse(v: unknown): unknown }; execute: Execute }>()
   const sources: ToolSources = {
-    runtime, session: session.session, location: { projectID: "prj_app", directory: "/work/app" }, defaults: { scope: "project", synthesize: false }, assert: async () => {},
+    runtime, session: session.session, location: { projectID: "prj_app", directory: "/work/app" }, defaults: { scope: "project" }, assert: async () => {},
   }
   toolTransform(sources)({ namespace: () => {}, add: (t: { name: string; input: { parse(v: unknown): unknown }; execute: Execute }) => { tools.set(t.name, t) } } as never)
   const pin = (input: unknown, signal = new AbortController().signal) => {

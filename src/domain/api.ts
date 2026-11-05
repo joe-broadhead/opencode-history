@@ -210,7 +210,6 @@ export interface RecallInput extends Filters {
   readonly queries?: readonly string[]
   readonly sessions?: number
   readonly maxChars?: number
-  readonly synthesize?: boolean
 }
 
 export interface Evidence {
@@ -222,7 +221,6 @@ export interface Evidence {
 }
 
 export interface RecallOutput {
-  readonly answer: string | null
   readonly evidence: readonly Evidence[]
   readonly queries: readonly string[]
   readonly index: IndexState

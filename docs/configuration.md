@@ -14,7 +14,6 @@ Plugin ID: `history.sessions`. Options live on the `plugins` entry in `opencode.
       "index": { "reasoning": false, "toolResults": true, "maxDocChars": 8000 },
       "mask": ["<regular expression>"],
       "maskDefaults": true,
-      "recall": { "synthesize": false, "model": "<provider>/<model>" },
       "allowUntestedHost": false
     }
   }]
@@ -35,8 +34,6 @@ Every key is optional. There is no permission option. Permissions are OpenCode r
 | `index.maxDocChars` | integer, 500–100,000 | `8000` | Longest single text the index keeps. Longer text is cut. |
 | `mask` | array of at most 64 regular expressions, each 1–1,024 characters | `[]` | Every match is replaced with `[masked]`, in addition to the built-in patterns. See [Masking](#masking). |
 | `maskDefaults` | boolean | `true` | Mask common credential formats with the [built-in patterns](#built-in-patterns). `false` leaves only your `mask` patterns. |
-| `recall.synthesize` | boolean | `false` | Whether `history_recall` writes an answer when a call does not say. |
-| `recall.model` | `provider/model`, at most 256 characters | unset | The model that writes recall answers. Unset means OpenCode's default model. The model part may contain slashes, as in `openrouter/anthropic/claude-sonnet`. |
 | `allowUntestedHost` | boolean | `false` | When `true`, an untested OpenCode version loads, with a warning. See [Host check](#host-check). |
 
 Unknown keys are rejected. A relative path is rejected. `XDG_DATA_HOME` is used only when it is an absolute path.
@@ -136,7 +133,7 @@ Effective name `history_<name>`. `options.permission` is that name, so a deny wi
 | `history_read` | Reads a window of one session's messages. | Reads the source. |
 | `history_sessions` | Lists sessions without a query. | Reads the index. |
 | `history_files` | Lists the sessions that touched a file or folder. | Reads the index. |
-| `history_recall` | Searches, then quotes message windows around the best excerpts. Optionally writes an answer. | Reads the index and the source. With `synthesize`, one model call through OpenCode. |
+| `history_recall` | Searches, then quotes message windows around the best excerpts. | Reads the index and the source. |
 | `history_sql` | Runs one read-only `SELECT` over the index views. | Reads the index, on its own read-only connection in a child process, for at most 10 seconds. |
 | `history_pin` | Puts, removes or lists pins in the current session's instructions. | Writes the current session's instruction entries. Not in Code Mode. |
 
@@ -234,9 +231,8 @@ With `kinds`, when no message in the window has those kinds, the window widens t
 | `queries` | from the question | One to six search phrasings. Without them, up to four from the question's key terms (its quoted phrases and its other words, without common words such as "how" and "we"): all of them, at most eight, joined with `OR`, then up to three pairs of neighbouring key terms, the longest first. |
 | `sessions` | `5` | Sessions to draw evidence from, 1–10. |
 | `maxChars` | `16000` | Characters of evidence, 1,000–100,000. |
-| `synthesize` | the `recall.synthesize` option | Also write an answer with a model. |
 
-Recall searches with the filters, takes up to three excerpts per session, best first across sessions, and quotes the message before and the two after each one from the source. When the source cannot give them, the excerpt itself is the evidence. With `synthesize`, the question and the evidence go to `recall.model`, or OpenCode's default model, with an instruction to answer only from the evidence and cite `[sessionID#seq]`. A call's `synthesize` overrides the option either way.
+Recall searches with the filters, takes up to three excerpts per session, best first across sessions, and quotes the message before and the two after each one from the source. When the source cannot give them, the excerpt itself is the evidence. The plugin makes no model call: the calling agent answers from the evidence.
 
 ### SQL
 
@@ -341,7 +337,6 @@ The status RPC has the plugin ID, `history.sessions`, and no events. Its contrac
 | `database`, `indexPath`, `defaultScope` | The options in effect. |
 | `indexBytes` | The size of the index file with its write-ahead log, in bytes, or `null` when it cannot be read. |
 | `masksChanged` | `true` when the mask options changed after text was indexed: results are masked with the current patterns, but the index file holds that text masked the old way until `/history-reindex rebuild`. |
-| `recall` | `synthesize`, and `model` as `provider/model`, or `null` for OpenCode's default. |
 | `unguardedAgents` | The agents that miss the default rules (see [Permissions](#permissions)), by name; empty when none. |
 | `permissionsBlock` | Present when `unguardedAgents` is not empty: the block to put first in their own `permissions`. |
 | `mismatch` | Present only when the index file's schema is not this build's, after another OpenCode process running another version of the plugin rebuilt it: `file`, its version, or `null` when it has none, and `build`, this build's. Every query then fails with `INDEX_MISMATCH`. |
@@ -361,7 +356,6 @@ Source: OpenCode database
 Database: <database>
 Index file: <indexPath> (511 MB)
 Default scope: project
-Recall answers: off (default model)
 Tools: 8 available
 Agents without default rules: none
 OpenCode: 2.2.3 (tested). History <version>
@@ -429,8 +423,6 @@ When an unexpected error is reported only by a code, `OPERATION_FAILED` or a com
 | `SQL_REJECTED` | The SQL was not one read-only `SELECT` or `WITH` statement over the index. Rewrite it as one, best over the `v_*` views. |
 | `SQL_TIMEOUT` | The statement ran longer than 10 seconds and was stopped. Narrow it: filter by time or session, and bound a recursive `WITH` with a `LIMIT` or a `WHERE` on its counter. |
 | `SQL_FAILED` | Check the view and column names. The message names the kind of mistake: an unknown column, table or function, an ambiguous column, a syntax error, or too many params. |
-| `RECALL_MODEL_UNAVAILABLE` | OpenCode has no model to write the answer: none is configured or available, or `recall.model` names one that is missing or cannot write text. Set `recall.model` to a model OpenCode can use, or call with `synthesize: false` for the evidence only. |
-| `RECALL_FAILED` | The model call failed. Call `history_recall` with `synthesize: false` for the evidence only. |
 | `PIN_TOO_LARGE` | Pin a shorter range, or set a lower `maxChars`. |
 | `OUTPUT_LIMIT` | Narrow the request: a lower `limit`, a smaller `maxChars` or a shorter range. |
 | `CANCELLED` | Call again if you still need the result. |

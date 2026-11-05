@@ -35,8 +35,6 @@ export interface StatusView {
   /** True when the mask options changed after text was stored, so the index file holds it masked the old way until a rebuild. */
   readonly masksChanged: boolean
   readonly defaultScope: DefaultScope
-  /** `model` is `provider/model`, or null for the host's default model. */
-  readonly recall: { readonly synthesize: boolean; readonly model: string | null }
   /** Agents that miss the default permission block and would run every History tool without asking. */
   readonly unguardedAgents: readonly string[]
   /** The block to put first in each of those agents' own permissions; present when any is listed. */
@@ -77,7 +75,7 @@ export function stateOf(view: Pick<StatusView, "index" | "mismatch">): State {
 export interface StatusSources {
   readonly version: string
   readonly host: HostCheck
-  readonly config: Pick<ResolvedConfig, "database" | "indexPath" | "defaultScope" | "recall">
+  readonly config: Pick<ResolvedConfig, "database" | "indexPath" | "defaultScope">
   readonly runtime: Pick<HistoryRuntime, "status" | "schema" | "indexFile" | "fallback">
   /** The agents of the plugin's location, with their rules. */
   readonly agents: () => Promise<readonly { readonly id: string; readonly permissions: readonly Rule[] }[]>
@@ -95,7 +93,6 @@ export async function buildStatus({ version, host, config, runtime, agents, tool
   ])
   const unguarded = unguardedAgents(listed)
   const ours = ids.filter(id => id.startsWith("history_"))
-  const { model } = config.recall
   const base = { index, ...schema.file !== schema.build ? { mismatch: schema } : {} }
   const view = {
     version, host: { version: host.version, range: host.range, tested: host.tested }, state: stateOf(base), index,
@@ -106,7 +103,6 @@ export async function buildStatus({ version, host, config, runtime, agents, tool
     indexBytes: file.bytes,
     masksChanged: file.masksChanged,
     defaultScope: config.defaultScope,
-    recall: { synthesize: config.recall.synthesize, model: model ? `${model.providerID}/${model.id}` : null },
     unguardedAgents: unguarded,
     ...unguarded.length ? { permissionsBlock: DEFAULT_RULES.map(rule => ({ ...rule })) } : {},
     ...schema.file !== schema.build ? { mismatch: schema } : {},

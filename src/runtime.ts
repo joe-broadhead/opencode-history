@@ -31,7 +31,7 @@ export function maskFingerprint(patterns: readonly RegExp[]): string {
 }
 
 /** The output fields that carry text from the index or the source; IDs, cursors, times and counts are never masked. */
-const TEXT_FIELDS = new Set(["title", "firstPrompt", "lastReply", "summaries", "commands", "text", "description", "content", "path", "answer"])
+const TEXT_FIELDS = new Set(["title", "firstPrompt", "lastReply", "summaries", "commands", "text", "description", "content", "path"])
 
 /**
  * `value` with `mask` applied to every text field, at any depth. Text in the index was masked with the patterns in force
@@ -70,7 +70,6 @@ export const QUERY_FAILURES: Record<QueryFailure, FailureCode> = {
   sql_rejected: "SQL_REJECTED",
   sql_failed: "SQL_FAILED",
   sql_timeout: "SQL_TIMEOUT",
-  recall: "RECALL_FAILED",
 }
 
 /** The kind of mistake SQLite found, in words that cannot repeat the statement as SQLite's own message does. */
@@ -300,7 +299,7 @@ function indexKey(path: string): string {
  * indexing runs in the background. The first instance's source and extraction options serve every instance. Search,
  * sessions and recall first catch up for at most REFRESH_MS, so they see sessions changed since the last pass.
  */
-export const createRuntime: CreateRuntime = async ({ config, session, generate }) => {
+export const createRuntime: CreateRuntime = async ({ config, session }) => {
   const opened = await openSource(config.database, session)
   const extract: ExtractOptions = { ...DEFAULT_EXTRACT, ...config.index, redact: config.mask }
   let lease: Lease<SharedIndex>
@@ -363,7 +362,7 @@ export const createRuntime: CreateRuntime = async ({ config, session, generate }
       })),
     recall: (caller, input) =>
       query("recall", () =>
-        fresh(async () => masked(await recall(shared.store.db, shared.source, caller, input, state(), (input.synthesize ?? config.recall.synthesize) ? generate : undefined, mask))),
+        fresh(async () => masked(await recall(shared.store.db, shared.source, caller, input, state(), mask))),
       ),
     reindex: mode =>
       run("reindex", async () => {

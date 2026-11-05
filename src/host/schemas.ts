@@ -102,7 +102,6 @@ export const RecallInputSchema = z.strictObject({
   queries: phrasings.optional().describe("Two to four search phrasings for the question. Default: phrasings taken from the question."),
   sessions: ranged(BOUNDS.recall.sessions, "Most sessions to draw evidence from"),
   maxChars: ranged(BOUNDS.recall.maxChars, "Most characters of evidence"),
-  synthesize: z.boolean().optional().describe("Also write an answer from the evidence with a model. The default is the recall.synthesize plugin option."),
   ...filters,
 }) satisfies z.ZodType<RecallInput>
 
@@ -169,7 +168,6 @@ export const SqlOutputSchema = z.strictObject({
 }) satisfies z.ZodType<SqlOutput>
 
 export const RecallOutputSchema = z.strictObject({
-  answer: nullable,
   evidence: z.array(z.strictObject({ sessionID: z.string(), title: z.string(), seq: count, time, text: z.string() })),
   queries: z.array(z.string()),
   index: IndexStateSchema,
@@ -187,7 +185,6 @@ export const StatusSchema = z.strictObject({
   indexBytes: z.number().int().min(0).nullable(),
   masksChanged: z.boolean(),
   defaultScope: z.enum(SCOPES),
-  recall: z.strictObject({ synthesize: z.boolean(), model: z.string().max(256).nullable() }),
   unguardedAgents: z.array(z.string().max(256)).max(1000),
   permissionsBlock: z.array(z.strictObject({ action: z.string(), resource: z.string(), effect: z.enum(["allow", "deny", "ask"]) })).optional(),
   mismatch: z.strictObject({ file: z.string().max(64).nullable(), build: z.string().max(64) }).optional(),
