@@ -23,7 +23,7 @@ Each method is a tool with the same name, input and output: every tool except `h
 
 Every call names a session, and the session must name an agent. The script runs as that agent: each call asserts the tool's action, `history_<name>` on `*`, against the agent's permission rules and the session's own. So a script gets exactly what the agent's model would get, and a deny that hides a tool from the model refuses the method too.
 
-Create the session once, with the agent the script should run as, and keep its ID:
+Create the session once, with the agent the script should run as, and keep its ID (`data.id`). A script, and a test of one, uses a session created for it. Never borrow an existing session found through `history_sessions` or another list: the script would run as that session's agent, under its rules.
 
 ```sh
 opencode api post /api/session -d '{"title":"weekly history report","agent":"build"}'
