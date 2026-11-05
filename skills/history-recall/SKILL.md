@@ -55,7 +55,8 @@ The result gives the previous and next seq for paging. A `…[N chars cut; full:
 - **Scope.** The default is this project. Use `scope: "all"` when the user says "all repos", "anywhere" or "ever", names another repository, or is working from their home folder. `scope: "directory"` is this folder and the folders under it; `scope: "session"` is this session only, for what was said here before a compaction.
 - **Time.** `since` and `until` take an ISO date, a date-time or an age (`36h`, `7d`, `2w`). A bare date is a UTC day. For the user's "yesterday" or "this week", pass date-times with their UTC offset, for example `{ since: "2026-11-03T00:00+01:00", until: "2026-11-03T23:59:59+01:00" }`.
 - **Subagents.** Work an agent delegated runs in subagent sessions, which are left out by default. Add `includeSubagents: true` when a file or topic comes up empty but should be there.
-- **Paging.** A result with `next` has more: pass it back as `cursor`, or tell the user more exist.
+- **Paging.** For a day or a week, keep the default `limit` and follow `next` as `cursor`; a page of 100 is large. Or tell the user more exist.
+- **Widening.** `hidden` counts what the default filters left out. Widen only when it is non-zero or the result is empty, with the input the result names.
 
 ## Files
 
@@ -74,7 +75,7 @@ await tools.history.sql({ sql: "select strftime('%Y-%W', created) as week, round
 ```
 
 - `cost` is each session's own spend in USD; a subagent session is its own row, so sum by `root_id` for a whole tree.
-- `sql` takes one read-only `SELECT` or `WITH` statement over `v_sessions`, `v_docs`, `v_files`, `v_links`, `docs_words` and `docs_sub`. Its description lists every column, so write the statement from it rather than probing with `select *`. Times are UTC text. Use `?` placeholders with `params` for values. For finding text, `search` ranks far better than `LIKE`.
+- `sql` takes one read-only `SELECT` or `WITH` statement over `v_sessions`, `v_docs`, `v_files`, `v_links`, `docs_words` and `docs_sub`. Its description lists every column, so write the statement from it rather than probing with `select *`. Times are stored as UTC text `YYYY-MM-DD HH:MM:SS`; an ISO value with a `T` sorts after it and shifts the window, so compare with `datetime(created) >= datetime(?)`, which also takes an offset. Use `?` placeholders with `params` for values. For finding text, `search` ranks far better than `LIKE`.
 - A total or a small table is one statement: run it and show its rows. Add a query only when the first one fails or the user asks for a breakdown.
 
 ## Cite
