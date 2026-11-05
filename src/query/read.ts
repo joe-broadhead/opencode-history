@@ -10,7 +10,7 @@ import { renderMessage, type RenderOptions } from "./render.js"
 /** The part of a source that reading needs. */
 export type MessageSource = Pick<Source, "messages" | "message">
 
-export function indexedSession(db: Db, sessionID: string): SessionSummary {
+function indexedSession(db: Db, sessionID: string): SessionSummary {
   const summary = summaries(db, [sessionID]).get(sessionID)
   if (!summary) throw new HistoryError("SESSION_NOT_FOUND")
   return summary
@@ -45,7 +45,7 @@ async function centre(source: MessageSource, sessionID: string, at: ReadInput["a
 }
 
 /** Messages read per page while looking for the nearest ones with the requested kinds. */
-export const SCAN_PAGE = 100
+const SCAN_PAGE = 100
 
 interface Rendered {
   readonly message: SourceMessage

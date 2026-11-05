@@ -8,14 +8,14 @@ import { renderMessage } from "./render.js"
 import { MARK, search } from "./search.js"
 
 /** Snippets per session that may each get a window. */
-export const RECALL_SNIPPETS = 3
+const RECALL_SNIPPETS = 3
 /** Messages shown before and after each snippet's message. */
-export const WINDOW_BEFORE = 1
-export const WINDOW_AFTER = 2
+const WINDOW_BEFORE = 1
+const WINDOW_AFTER = 2
 /** Below this many characters left, no more evidence is added. */
 const MIN_EVIDENCE = 300
 
-export interface RecallOptions {
+interface RecallOptions {
   /** Epoch milliseconds that durations and recency count back from. */
   readonly now?: number
 }

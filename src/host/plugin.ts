@@ -17,7 +17,7 @@ import { loadSkills, skillTransform } from "./skills.js"
 import { buildStatus, fallbackFailure } from "./status.js"
 import { toolTransform } from "./tools.js"
 
-export interface PluginSources {
+interface PluginSources {
   readonly createRuntime: CreateRuntime
   /** The installed package root, which holds skills/. */
   readonly packageRoot: string

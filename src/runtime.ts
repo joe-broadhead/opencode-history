@@ -23,10 +23,10 @@ import { contextSource } from "./source/context.js"
 import { openOpencodeSource } from "./source/opencode-db.js"
 
 /** The index meta key that records which mask patterns the stored text was masked with. */
-export const MASKED_WITH = "masked_with"
+const MASKED_WITH = "masked_with"
 
 /** A short fingerprint of mask patterns: the same patterns, in the same order, give the same one. */
-export function maskFingerprint(patterns: readonly RegExp[]): string {
+function maskFingerprint(patterns: readonly RegExp[]): string {
   return createHash("sha256").update(JSON.stringify(patterns.map(pattern => [pattern.source, pattern.flags]))).digest("hex").slice(0, 16)
 }
 
@@ -38,7 +38,7 @@ const TEXT_FIELDS = new Set(["title", "firstPrompt", "lastReply", "summaries", "
  * when it was stored, so this applies a pattern added later at once. It is best effort for an excerpt the index cut
  * through a match; `/history-reindex rebuild` stores the text with the current patterns.
  */
-export function maskOutput<T>(value: T, mask: (text: string) => string): T {
+function maskOutput<T>(value: T, mask: (text: string) => string): T {
   const walk = (node: unknown, text: boolean): unknown => {
     if (typeof node === "string") return text ? mask(node) : node
     if (Array.isArray(node)) return node.map(item => walk(item, text))

@@ -7,9 +7,9 @@ type SkillEditor = Parameters<Parameters<Plugin.Context["skill"]["transform"]>[0
 
 /** The hand-written skills. Every History tool is always registered, so every skill is too. */
 export const SKILLS = ["history-recall"] as const
-export type SkillID = typeof SKILLS[number]
+type SkillID = typeof SKILLS[number]
 
-export interface LoadedSkill { readonly id: SkillID; readonly info: Skill.Info }
+interface LoadedSkill { readonly id: SkillID; readonly info: Skill.Info }
 
 /** Reads `skills/<id>/SKILL.md`. A missing or malformed file is skipped with a SKILLS_INVALID warning; setup carries on. */
 export async function loadSkills(packageRoot: string, warn: (message: string) => void = console.warn): Promise<LoadedSkill[]> {

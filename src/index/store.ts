@@ -6,7 +6,7 @@ import { openDb, type Db } from "../domain/sqlite.js"
 import { SCHEMA_VERSION, TABLES, TRIGGERS, VIEWS } from "./schema.js"
 
 /** Messages with seq from `from` to `to`, both inclusive; empty when `to < from`. */
-export interface SeqRange {
+interface SeqRange {
   readonly from: number
   readonly to: number
 }
@@ -25,7 +25,7 @@ export interface Batch extends Omit<Extracted, "links"> {
 export const TITLE_SEQ = -1
 
 /** What sync needs to decide whether and where to re-index a session. */
-export interface SessionState {
+interface SessionState {
   readonly rootID: string
   readonly updated: number
   readonly indexedSeq: number

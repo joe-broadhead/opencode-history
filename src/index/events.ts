@@ -1,7 +1,7 @@
 // Turns host bus events into index work: deletes right away, syncs debounced per session.
 import type { Indexer } from "./sync.js"
 
-export interface RouterOptions {
+interface RouterOptions {
   /** Quiet time after a session's last event before it is synced. */
   readonly debounceMs?: number
   /** Longest a busy session waits for a sync, however often its events arrive. */

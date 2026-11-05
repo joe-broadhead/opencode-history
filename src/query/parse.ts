@@ -105,7 +105,7 @@ export function parseQuery(input: string): ParsedQuery {
   return { groups, exclude }
 }
 
-export type FtsMode = "words" | "substring"
+type FtsMode = "words" | "substring"
 
 /** Trigram search cannot match fewer than three characters. */
 export const MIN_SUBSTRING = 3
@@ -133,7 +133,7 @@ const JOINED = /[\p{L}\p{N}][^\p{L}\p{N}\s]+[\p{L}\p{N}]/u
 const EDGES = /^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu
 
 /** A joined word of a term, and whether it ends a prefix term, so more may follow it. */
-export interface JoinedWord {
+interface JoinedWord {
   readonly text: string
   readonly prefix: boolean
 }

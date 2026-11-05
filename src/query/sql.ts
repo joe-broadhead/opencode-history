@@ -8,7 +8,7 @@ import { locked } from "../domain/sqlite.js"
 import { bounded } from "./common.js"
 
 export const SQL_CELL_CHARS = 2000
-export const SQL_BUSY_MS = 2000
+const SQL_BUSY_MS = 2000
 
 /**
  * The statement with comments replaced by spaces and trailing semicolons dropped, ready to wrap in a subquery.
@@ -61,7 +61,7 @@ export function checkSql(text: string): string {
 /** How long one statement may run. The child stops itself at this deadline, and the parent kills it soon after. */
 export const SQL_TIMEOUT_MS = 10_000
 /** How long after the deadline the parent kills a child that has not stopped itself. */
-export const SQL_KILL_GRACE_MS = 2000
+const SQL_KILL_GRACE_MS = 2000
 /** Most bytes of row data one statement returns; rows past it are cut and the result says truncated. */
 export const SQL_OUTPUT_BYTES = 512 * 1024
 /** Most bytes the child may write at all; past it, the call fails with OUTPUT_LIMIT. */
@@ -69,13 +69,13 @@ export const SQL_STDOUT_BYTES = 4 * 1024 * 1024
 /** Statements that run at once; more wait their turn. */
 export const SQL_PARALLEL = 2
 /** How often the child checks that the process that started it is still its parent. */
-export const SQL_PARENT_POLL_MS = 200
+const SQL_PARENT_POLL_MS = 200
 
 /**
  * The child's own ceilings, written into its script. It enforces them whatever the job asks for, so once it has
  * started it needs nothing from its parent: not the deadline, not the row or byte caps, and not a kill.
  */
-export const SQL_CEILINGS = {
+const SQL_CEILINGS = {
   timeoutMs: SQL_TIMEOUT_MS,
   rows: BOUNDS.sql.limit.max,
   cellChars: SQL_CELL_CHARS,
@@ -303,7 +303,7 @@ function sqliteMistake(text: string): string | undefined {
   return undefined
 }
 
-export interface SqlOptions {
+interface SqlOptions {
   readonly signal?: AbortSignal
   /** The deadline, at most SQL_TIMEOUT_MS. */
   readonly timeoutMs?: number

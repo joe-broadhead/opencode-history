@@ -3,9 +3,9 @@ import { isAbsolute, normalize, resolve } from "node:path"
 import { DEFAULT_EXTRACT } from "../domain/contract.js"
 import type { Doc, DocKind, ExtractOptions, Extracted, FileOp, FileTouch, SessionFacts, SessionLink, SourceMessage, SourceSession } from "../domain/contract.js"
 
-export const MASK = "[masked]"
-export const FIRST_PROMPT_CHARS = 500
-export const LAST_REPLY_CHARS = 1000
+const MASK = "[masked]"
+const FIRST_PROMPT_CHARS = 500
+const LAST_REPLY_CHARS = 1000
 
 /**
  * Common credential formats, masked unless the `maskDefaults` option is false: private key blocks, API keys and
@@ -217,7 +217,7 @@ function callText(name: string, input: unknown): string {
  * String inputs that hold code or text, such as Code Mode's `code`, taken as they are. Inside JSON their newlines and
  * quotes would be escaped, which shows in snippets and breaks substring matches.
  */
-export const RAW_FIELDS = ["code", "command", "script", "query", "sql", "patchText", "prompt"] as const
+const RAW_FIELDS = ["code", "command", "script", "query", "sql", "patchText", "prompt"] as const
 
 /** A call's input as compact JSON, with each string in RAW_FIELDS after it on its own line as `field: value`. */
 function inputText(input: unknown): string {

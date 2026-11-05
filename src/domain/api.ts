@@ -15,7 +15,6 @@ export type Scope = typeof S.SCOPE_INPUTS[number]
 export type Filters = z.input<typeof S.FiltersSchema>
 
 export type SearchInput = z.input<typeof S.SearchInputSchema>
-export type MatchMode = NonNullable<SearchInput["match"]>
 export type SessionsInput = z.input<typeof S.SessionsInputSchema>
 export type FilesInput = z.input<typeof S.FilesInputSchema>
 export type ReadInput = z.input<typeof S.ReadInputSchema>

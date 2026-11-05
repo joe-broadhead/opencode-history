@@ -19,7 +19,7 @@ type ToolEditor = Parameters<Parameters<Plugin.Context["tool"]["transform"]>[0]>
 /** The tools, registered in NAMESPACE as `history_<name>`, in the order of a good lookup: search, brief, read. */
 export const TOOL_NAMES = ["search", "brief", "read", "sessions", "files", "recall", "sql", "pin"] as const
 export type ToolName = typeof TOOL_NAMES[number]
-export const PINNED: ReadonlySet<ToolName> = new Set(["search", "brief", "read"])
+const PINNED: ReadonlySet<ToolName> = new Set(["search", "brief", "read"])
 /** Action tools change the current session through the plugin context, so Code Mode does not get them, and they ask. */
 export const ACTIONS: ReadonlySet<ToolName> = new Set(["pin"])
 /** The tools the default rules allow; every other tool is an action. */

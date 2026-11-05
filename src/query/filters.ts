@@ -59,14 +59,14 @@ export function hiddenCounts(rows: Iterable<{ readonly key: string; readonly row
  * What the filtered rows are. Every target has `s`, the row's session, and `r`, its root session (left joined).
  * `docs` adds `d` and `files` adds `f`.
  */
-export type FilterTarget = "docs" | "sessions" | "files"
+type FilterTarget = "docs" | "sessions" | "files"
 
 /**
  * A condition on `f.path`. Absolute paths match the file or anything under the folder. Relative paths match as a
  * path tail on segment boundaries, so `src/auth.ts` also finds the file in other checkouts and worktrees. A path
  * with `..` is first resolved against `directory`. Globs (`*`, `?`, `[`) match whole stored paths.
  */
-export function pathMatch(path: string, directory: string): Where {
+function pathMatch(path: string, directory: string): Where {
   let clean = path.trim().replace(/^\.\//, "")
   if (!clean || clean === "/" || clean === ".") throw refused("QUERY_INVALID", "path must name a file or folder", QUERY_HINTS.path)
   if (/[*?[]/.test(clean)) {

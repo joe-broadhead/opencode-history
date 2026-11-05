@@ -34,7 +34,7 @@ const plainObject = (value: unknown): value is Record<string, unknown> => typeof
  * The envelope's messages: the one wording every plugin's tools RPC uses (the shared tools-rpc module's README,
  * "Envelope errors"). History checks its own envelope, but says the same.
  */
-export const ENVELOPE_MESSAGES = {
+const ENVELOPE_MESSAGES = {
   notObject: `the envelope must be an object, such as {"sessionID":"<session>","input":<the tool's input>}`,
   unknownKey: (key: string) => `"${key}" is not allowed`,
   sessionID: `"sessionID" must be a non-empty string`,
@@ -57,7 +57,7 @@ const standard = (schema: JsonSchema, issues: (value: unknown) => string[]): Jso
   })
 
 /** The envelope's problems, one message each; none when it is valid. `input` is checked by the tool's own schema. */
-export function envelopeIssues(value: unknown): string[] {
+function envelopeIssues(value: unknown): string[] {
   if (!plainObject(value)) return [ENVELOPE_MESSAGES.notObject]
   return [
     ...Object.keys(value).filter(key => key !== "sessionID" && key !== "input").map(ENVELOPE_MESSAGES.unknownKey),
@@ -108,10 +108,10 @@ function denied(request: PermissionRequest, error: unknown): HistoryError {
 }
 
 /** The tool definitions the RPC serves: all but the excluded ones. */
-export const scriptTools = (): readonly ToolDefinition[] => TOOL_DEFINITIONS.filter(tool => !EXCLUDED.has(tool.name))
+const scriptTools = (): readonly ToolDefinition[] => TOOL_DEFINITIONS.filter(tool => !EXCLUDED.has(tool.name))
 
 /** What a script author needs: each method's permission action and its input and output as JSON Schema. */
-export function describe(tools: readonly ToolDefinition[]): Description {
+function describe(tools: readonly ToolDefinition[]): Description {
   return {
     id: TOOLS_RPC_ID,
     call: `POST /api/rpc/${TOOLS_RPC_ID}/<method> with {"input":{"sessionID":"<session>","input":<the tool's input>}}`,
@@ -125,7 +125,7 @@ export function describe(tools: readonly ToolDefinition[]): Description {
   }
 }
 
-export interface ScriptingContext {
+interface ScriptingContext {
   readonly rpc: Pick<Plugin.Context["rpc"], "register">
   readonly permission: Pick<Plugin.Context["permission"], "assert" | "hook">
   readonly session: Pick<Plugin.Context["session"], "get">
