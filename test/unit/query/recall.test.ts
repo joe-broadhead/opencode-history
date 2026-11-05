@@ -73,7 +73,8 @@ describe("recall", () => {
     expect(out.queries).toEqual(["fix OR flaky OR upload OR test", "fix flaky", "flaky upload", "upload test"])
     expect(out.index).toBe(STATE)
     const first = out.evidence[0]!
-    expect(first).toMatchObject({ sessionID: "ses_upload", title: "Flaky upload test", seq: 0 })
+    expect(first).toMatchObject({ sessionID: "ses_upload", title: "Flaky upload test", seq: 0, cite: "(ses_upload #0)" })
+    expect(out.evidence.every(item => item.cite === `(${item.sessionID} #${item.seq})`)).toBe(true)
     expect(first.text).toBe(
       ["#0 user: the upload test is flaky on CI", "#1 assistant: The flaky upload test races the temp dir cleanup.", "#2 user: fix it"].join("\n"),
     )
@@ -140,7 +141,7 @@ describe("recall over subagents", () => {
     session(db, { id: "ses_kid", parentID: "ses_parent", title: "Kid", updated: NOW })
     say("ses_kid", "assistant", "the zebra lives in the subagent")
     const out = await ask({ queries: ["zebra"], includeSubagents: true })
-    expect(out.evidence).toMatchObject([{ sessionID: "ses_kid", title: "Kid", seq: 0, time: new Date(NOW).toISOString() }])
+    expect(out.evidence).toMatchObject([{ sessionID: "ses_kid", title: "Kid", seq: 0, time: new Date(NOW).toISOString(), cite: "(ses_kid #0)" }])
     expect(out.evidence[0]!.text).toBe("#0 assistant: the zebra lives in the subagent")
   })
 })

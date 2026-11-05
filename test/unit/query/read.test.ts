@@ -45,7 +45,8 @@ describe("read windows", () => {
     expect(out.messages.map(message => message.seq)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
     expect(out).toMatchObject({ firstSeq: 0, lastSeq: 10, totalMessages: 15, previous: null, next: 11, truncated: false })
     expect(out.session).toMatchObject({ sessionID: "ses_r", title: "Reading" })
-    expect(out.messages[0]).toEqual({ seq: 0, messageID: "msg_ses_r_0", type: "user", time: out.messages[0]!.time, text: "question 0" })
+    expect(out.messages[0]).toEqual({ seq: 0, messageID: "msg_ses_r_0", type: "user", time: out.messages[0]!.time, text: "question 0", cite: "(ses_r #0)" })
+    expect(out.messages.every(message => message.cite === `(ses_r #${message.seq})`)).toBe(true)
   })
 
   it("centres on a seq with before and after", async () => {

@@ -16,7 +16,7 @@ describe("result text", () => {
       "",
       "Similar sessions are in the same directory as the one shown, with a near-identical title or the same first prompt; list those with its title with history_sessions {\"title\":\"Fix login redirect loop\"}.",
       "More: repeat the call with cursor: \"cur_2\".",
-      "Next: history_brief {\"sessionID\":\"ses_login1\"} to see what that session did, then history_read {\"sessionID\":\"ses_login1\",\"at\":12} for the exact exchange. Cite what you use as (ses_login1 #12).",
+      "Next: history_brief {\"sessionID\":\"ses_login1\"} to see what that session did, then history_read {\"sessionID\":\"ses_login1\",\"at\":12} for the exact exchange. Cite what you use as (ses_login1 #12), with the session ID every time.",
     ])
   })
 
@@ -65,6 +65,7 @@ describe("result text", () => {
     const text = formatRead({ ...SAMPLES.read, truncated: true }, { sessionID: "ses_login1" })
     expect(text).toMatch(/^ses_login1 "Fix login redirect loop" · \/work\/app · messages #12-#13 of 48\n\n#12 user · 2026-10-12 09:31\nThe callback redirects forever\.\n\n#13 assistant/)
     expect(text).toContain("Text was trimmed to maxChars.")
+    expect(text).toContain("Cite a message as (ses_login1 #<seq>), with the session ID every time.")
     expect(text).toContain("Earlier: history_read {\"sessionID\":\"ses_login1\",\"at\":11,\"before\":10,\"after\":0}")
     expect(text).toContain("Later: history_read {\"sessionID\":\"ses_login1\",\"at\":14,\"before\":0}")
     const last = formatRead({ ...SAMPLES.read, messages: [], previous: null, next: null }, { sessionID: "ses_login1" })
@@ -110,10 +111,12 @@ describe("result text", () => {
   test("sessions, files, sql and recall", () => {
     expect(formatSessions(SAMPLES.sessions)).toContain("   48 messages · 1 subagent · agent build · $0.42\n   Asked: The login page")
     expect(formatSessions({ ...SAMPLES.sessions, sessions: [] })).toMatch(/^No sessions matched\./)
-    expect(formatFiles(SAMPLES.files, { path: "src/auth" })).toContain("/work/app/src/auth/callback.ts\n  ses_login1 \"Fix login redirect loop\" · last 2026-10-12 10:40 · edit 3, read 2 · first at #14")
+    expect(formatFiles(SAMPLES.files, { path: "src/auth" })).toContain("/work/app/src/auth/callback.ts\n  ses_login1 \"Fix login redirect loop\" · last 2026-10-12 10:40 · edit 3, read 2 · at #14, #15, #20")
     expect(formatFiles(SAMPLES.files, { path: "src/auth" })).toContain("Next: history_read {\"sessionID\":\"ses_login1\",\"at\":14}")
     expect(formatFiles({ ...SAMPLES.files, files: [] }, { path: "src/x", scope: "project" })).toMatch(/^No session touched "src\/x" in scope project\./)
-    expect(formatFiles(SAMPLES.files, { path: "src/auth" })).toMatch(/\. Cite as \(ses_login1 #14\)\.$/)
+    expect(formatFiles(SAMPLES.files, { path: "src/auth" })).toMatch(/\. Cite as \(ses_login1 #14\), with the session ID every time\.$/)
+    const many = { ...SAMPLES.files.files[0]!.sessions[0]!, firstSeq: 3, seqs: [40, 41], seqsCut: true }
+    expect(formatFiles({ ...SAMPLES.files, files: [{ ...SAMPLES.files.files[0]!, sessions: [many] }] }, { path: "src/auth" })).toContain("· edit 3, read 2 · at #3, … #40, #41")
     expect(formatFiles({ ...SAMPLES.files, truncated: true }, { path: "README.md" }).split("\n")[0]).toBe(
       "More than 1 path matched; these are the most recently touched. Name the folder that makes the path unique, such as <repo>/README.md, or raise limit.",
     )
@@ -123,6 +126,7 @@ describe("result text", () => {
     expect(recall).toMatch(/^Evidence from 1 session:/)
     expect(recall).toContain("Evidence from 1 session:\n[ses_login1 #40 · 2026-10-12 10:50 · \"Fix login redirect loop\"]\nSet SameSite=Lax")
     expect(recall).toContain("Searched for \"login redirect loop\" | \"state cookie samesite\".")
+    expect(recall).toContain("citing each claim as (ses_login1 #40), with the session ID every time,")
     expect(formatRecall({ ...SAMPLES.recall, evidence: [] }, { scope: "all" })).toMatch(/^No evidence found in scope all\./)
   })
 

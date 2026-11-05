@@ -142,7 +142,7 @@ export async function recall(
     covered.set(snippet.sessionID, [...ranges, { from, to }])
     // Titles come from the index; masking them again applies a pattern added after they were stored, before the model sees them.
     const title = mask(titles.get(snippet.sessionID)?.title ?? hit.title)
-    evidence.push({ sessionID: snippet.sessionID, title, seq: snippet.seq, time: snippet.time, text })
+    evidence.push({ sessionID: snippet.sessionID, title, seq: snippet.seq, time: snippet.time, text, cite: snippet.cite })
     left -= text.length
   }
   return { evidence, queries, index: state }

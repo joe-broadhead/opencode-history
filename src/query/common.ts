@@ -10,6 +10,9 @@ export const placeholders = (count: number) => Array.from({ length: count }, () 
 
 export const iso = (ms: number) => new Date(ms).toISOString()
 
+/** The citation a result carries for the model to copy: the session ID written out with the seq, `(ses_… #42)`. */
+export const cite = (sessionID: string, seq: number) => `(${sessionID} #${seq})`
+
 export const escapeLike = (text: string) => text.replace(/[\\%_]/g, char => `\\${char}`)
 
 export const trimSlash = (path: string) => (path.length > 1 ? path.replace(/\/+$/, "") : path)

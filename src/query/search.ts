@@ -4,7 +4,7 @@ import { BOUNDS, MAX_PHRASINGS } from "../domain/bounds.js"
 import { DOC_KINDS, KIND_WEIGHT, type DocKind } from "../domain/contract.js"
 import type { Db } from "../domain/sqlite.js"
 import { refused } from "../domain/common.js"
-import { bounded, iso, placeholders, summaries, trimSlash } from "./common.js"
+import { bounded, cite, iso, placeholders, summaries, trimSlash } from "./common.js"
 import { filterSql, hiddenCounts, hidingColumns, type Filtered, type Where } from "./filters.js"
 import {
   decodeCursor, encodeCursor, hasJoined, highlightTerms, joinedPattern, joinedWords, MIN_SUBSTRING, nearMatch, parseQuery, parseRegex, QUERY_HINTS,
@@ -825,6 +825,7 @@ export async function search(db: Db, caller: Caller, input: SearchInput, state: 
       time: iso(doc.time),
       text: snippetTexts.get(doc.id) ?? "",
       sessionID: doc.sessionID,
+      cite: cite(doc.sessionID, doc.seq),
     }))
     // Significant digits, not decimals: bm25 of a very common term is tiny but still orders results.
     results.push({
