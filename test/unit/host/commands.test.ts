@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from "vitest"
 import { FAILURES, HistoryError } from "../../../src/domain/common.js"
 import { commandTransform, COMMANDS, reindexMode, type CommandSources } from "../../../src/host/commands.js"
-import { HOST_RANGE } from "../../../src/host/compat.js"
+import { HOST_RANGE } from "../../../src/domain/hosts.js"
 import { formatStatus } from "../../../src/host/format.js"
 import { buildStatus, type StatusView } from "../../../src/host/status.js"
 import { failure, fakeRuntime } from "../../host/runtime.js"

@@ -2,6 +2,9 @@ import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { describe, expect, test } from "vitest"
 import { FAILURES } from "../../src/domain/common.js"
+import { loadConfig } from "../../src/domain/config.js"
+import { checkHost } from "../../src/host/compat.js"
+import { loadSkills } from "../../src/host/skills.js"
 
 const root = join(import.meta.dirname, "../..")
 const sources = (dir: string): string[] =>
@@ -24,5 +27,17 @@ describe("the error table", () => {
   test("every code is raised somewhere outside the table", () => {
     const text = sources(join(root, "src")).filter(file => !file.endsWith(join("domain", "common.ts"))).map(file => readFileSync(file, "utf8")).join("\n")
     for (const code of Object.keys(FAILURES)) expect(text, code).toContain(`"${code}"`)
+  })
+})
+
+describe("setup failures and warnings", () => {
+  test("show the next step from the table, the one source", async () => {
+    const hint = (code: keyof typeof FAILURES) => `Next step: ${FAILURES[code][1]}`
+    expect(() => loadConfig({ unknown: true })).toThrow(hint("OPTIONS_INVALID"))
+    expect(() => checkHost("2.3.0", false)).toThrow(hint("HOST_UNTESTED"))
+    const warnings: string[] = []
+    await loadSkills("/nonexistent-history-package", message => { warnings.push(message) })
+    expect(warnings[0]).toMatch(/^SKILLS_INVALID: /)
+    expect(warnings[0]!.endsWith(hint("SKILLS_INVALID"))).toBe(true)
   })
 })

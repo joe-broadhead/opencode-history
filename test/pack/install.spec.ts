@@ -14,7 +14,7 @@ import { arch, platform } from "node:os"
 import { join, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
 import { PLUGIN_ID, TUI_ID } from "../../src/domain/contract.js"
-import { HOST_RANGE, TESTED_HOSTS } from "../../src/host/compat.js"
+import { HOST_RANGE, TESTED_HOSTS } from "../../src/domain/hosts.js"
 import { tempDir } from "../temp.js"
 
 setDefaultTimeout(300_000)

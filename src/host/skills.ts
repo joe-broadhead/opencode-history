@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
 import type { Plugin, Skill } from "@opencode/plugin"
-import { formatFailure } from "../domain/common.js"
+import { formatFailure, HistoryError } from "../domain/common.js"
 
 type SkillEditor = Parameters<Parameters<Plugin.Context["skill"]["transform"]>[0]>[0]
 
@@ -23,7 +23,7 @@ export async function loadSkills(packageRoot: string, warn: (message: string) =>
       return { id, info }
     } catch {
       // A bad skill must not fail setup: the plugin warns with the shared code and carries on without it.
-      warn(formatFailure({ code: "SKILLS_INVALID", message: `The skill ${id} is missing or malformed, so it was skipped.`, hint: "Reinstall the plugin." }))
+      warn(formatFailure(new HistoryError("SKILLS_INVALID", { message: `The skill ${id} is missing or malformed, so it was skipped.` })))
       return undefined
     }
   }))

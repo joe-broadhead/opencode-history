@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest"
-import { HOST_RANGE } from "../../../src/host/compat.js"
+import { HOST_RANGE } from "../../../src/domain/hosts.js"
 import { formatStatus } from "../../../src/host/format.js"
 import {
   AGENT_FIX, DEFAULT_RULES, evaluate, hasDefaultRules, insertDefaultRules, KNOWN_READS, permissionRequest, registerDefaultRules, SCRIPT_MARK, unguardedAgents, type Rule,

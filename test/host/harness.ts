@@ -5,7 +5,7 @@ import { mkdirSync, rmSync } from "node:fs"
 import { join, sep } from "node:path"
 import type { Plugin } from "@opencode/plugin"
 import type { OpenCode } from "@opencode/sdk"
-import { TESTED_HOSTS } from "../../src/host/compat.js"
+import { TESTED_HOSTS } from "../../src/domain/hosts.js"
 import { tempDir } from "../temp.js"
 
 /** The host version reported to plugins, the first tested release unless set. Read before the environment is replaced. */

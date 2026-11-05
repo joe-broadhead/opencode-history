@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest"
-import { HOST_RANGE } from "../../../src/host/compat.js"
+import { HOST_RANGE } from "../../../src/domain/hosts.js"
 import { formatBrief, formatFiles, formatRead, formatRecall, formatSearch, formatSessions, formatSql, formatStatus, indexNotes, oneLine, size, when } from "../../../src/host/format.js"
 import { INDEX, SAMPLES } from "../../host/samples.js"
 
