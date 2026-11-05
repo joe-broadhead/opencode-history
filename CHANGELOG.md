@@ -2,6 +2,46 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Status names any skill with the id `history-recall` that OpenCode loads instead of the plugin's own, such as one in your own skills folder: a `Skill:` row, `shadowedSkills` in the status RPC, and the next step "Rename or move the skill at <path>, …".
+- `history_sql` results carry the same `index` object as search, sessions, files and recall, and their text warns when the index is still building or the source is partial.
+- `history_files` results have `truncated`, true when more paths matched than `limit`. The text then asks for the folder that makes the path unique, since a bare `README.md` matches that file in every repository.
+- The tool descriptions and results say how to cite a past session, `(ses_… #seq)`, and the `history` namespace line names the sessions, files and SQL tools and the `history-recall` skill.
+
+### Changed
+
+- The `history-recall` skill is rewritten. It now loads for requests such as "how did we fix…", "what did I work on yesterday" and "which sessions changed <file>". It picks the tool by the question (search, sessions, files, recall or SQL), shows a local day with its UTC offset, and asks for every citation in full. It is not meant for meetings, chat or saved memory notes.
+- The tool text now says more:
+  - `since` and `until` say that a bare date is a UTC day, and how to ask for the user's local day.
+  - The `path` filter says it matches anything under a folder, and that globs work.
+  - `history_files` asks for a path with its repository folder.
+  - `sort: "cost"` and `v_sessions.cost` say that cost is the session's own spend in USD, and that subagents are separate sessions.
+- The next step for agents without the default rules now reads: "Put the default rules shown by /history-status first in each listed agent's own permissions, in opencode.json or the agent's Markdown file, followed by your top-level rules for History tools."
+- The next steps of `STATUS_UNAVAILABLE`, `INDEX_FAILED`, `CONTRACT_MISMATCH` and `OPERATION_FAILED`, and the index warnings in results, point at `/history-status` instead of a tool.
+- `SQL_REJECTED` reads "The SQL was refused: <why>." Its next step allows a `WITH` statement and names the `docs_words` and `docs_sub` tables.
+- `history_read`'s cut marker reads `…[N chars cut; full: true shows them]…`.
+- The README's Update steps are now part of Install, and Troubleshooting lists only the status rows and the setup codes. The full error table stays in `docs/configuration.md`.
+
+### Removed
+
+- The `history_status` tool. Run `/history-status`, or open `/history` in the terminal UI, for the same status. The model reads index progress from the `index` object every result carries. Drop `history_status` from your permission rules, which no longer match anything. Jelly no longer lists it.
+- Recall answers:
+  - the `synthesize` input of `history_recall`, and the `answer` field of its result;
+  - the `recall.synthesize` and `recall.model` plugin options;
+  - the `Recall answers` status row, and `recall` in the status RPC;
+  - the `RECALL_MODEL_UNAVAILABLE` and `RECALL_FAILED` codes.
+
+  `history_recall` now returns quoted evidence only, and the calling agent answers from it, so the plugin makes no model call of its own. Remove `recall` from your plugin options: it now fails setup with `OPTIONS_INVALID`.
+- `kinds` on `history_files`, which it ignored: a call with it is now refused. `title` in `history_read`'s `kinds`, which never matched a message.
+
+### Fixed
+
+- `history_read`'s `kinds` said "Default: all", but reasoning is shown only with `full: true`. It now says so.
+- `docs/configuration.md` said no tool asserts a permission, and `SECURITY.md` said the plugin adds no permission rules. Every call asserts its action, and the plugin inserts its default rules after each agent's base allow.
+
 ## [0.0.2] - 2026-11-04
 
 ### Added
