@@ -13,7 +13,7 @@ The history tools read every OpenCode session the user has had, by default only 
 |---|---|---|
 | how something was fixed, decided or done | `search` with 2-4 phrasings | `brief` the best hit, `read` at a snippet's seq |
 | what they worked on in a time window | `sessions` with `since`/`until`, no query | `brief` the ones worth describing |
-| which sessions touched a file, and why | `files` with a path that includes its repo folder | `read` at that session's `firstSeq` |
+| which sessions touched a file, and why | `files` with a path that includes its repo folder | `read` at a seq from that session's `seqs` |
 | most expensive or largest sessions | `sessions` with `sort: "cost"` (or `"messages"`) | |
 | totals per day, week, project or agent | one `sql` statement over `v_sessions` | |
 | quoted evidence for a question in one call | `recall` | answer from its evidence yourself |
@@ -54,13 +54,11 @@ The result gives the previous and next seq for paging. A `…[N chars cut; full:
 
 - **Scope.** The default is this project. Use `scope: "all"` when the user says "all repos", "anywhere" or "ever", names another repository, or is working from their home folder. `scope: "directory"` is this folder and the folders under it; `scope: "session"` is this session only, for what was said here before a compaction.
 - **Time.** `since` and `until` take an ISO date, a date-time or an age (`36h`, `7d`, `2w`). A bare date is a UTC day. For the user's "yesterday" or "this week", pass date-times with their UTC offset, for example `{ since: "2026-11-03T00:00+01:00", until: "2026-11-03T23:59:59+01:00" }`.
-- **Subagents.** Work an agent delegated runs in subagent sessions, which are left out by default. Add `includeSubagents: true` when a file or topic comes up empty but should be there.
-- **Paging.** For a day or a week, keep the default `limit` and follow `next` as `cursor`; a page of 100 is large. Or tell the user more exist.
-- **Widening.** `hidden` counts what the default filters left out. Widen only when it is non-zero or the result is empty, with the input the result names.
+- **Subagents, archived sessions, paging.** Left out by default. The `includeSubagents`, `includeArchived` and `limit` descriptions say when to change them: widen only after an empty result names the input, and follow `next` as `cursor` rather than raising `limit`.
 
 ## Files
 
-A relative path matches the end of a recorded path in any checkout, so a bare `README.md` matches every repo's README and fills the page with other projects. Include the folder that makes it unique.
+A relative path matches the end of a recorded path in any checkout, so a bare `README.md` matches every repo's README and fills the page with other projects. Include the folder that makes it unique. Each session lists the `seqs` of its touches (the latest 20, `seqsCut` when there are more), so read at those seqs without SQL.
 
 ```js
 await tools.history.files({ path: "opencode-gws/README.md", scope: "all", ops: ["edit", "write"] })
@@ -80,7 +78,7 @@ await tools.history.sql({ sql: "select strftime('%Y-%W', created) as week, round
 
 ## Cite
 
-Cite the session ID and seq of everything you rely on, written out in full each time, for example "(ses_abc123 #42)", so the user can open exactly that message. Several citations from one session still each carry the ID: "(ses_abc123 #42, ses_abc123 #57)". A heading with the session ID followed by a bare "#42" is not a citation. A list from `sessions` has no seq, so cite its sessions by ID.
+Cite the session ID and seq of everything you rely on, written out in full each time, for example "(ses_abc123 #42)", so the user can open exactly that message. Every search snippet, read message and recall item has a `cite` string in that form: copy it. Several citations from one session still each carry the ID: "(ses_abc123 #42) (ses_abc123 #57)". A heading with the session ID followed by a bare "#42" is not a citation. A list from `sessions` has no seq, so cite its sessions by ID.
 
 ## Errors and gaps
 
