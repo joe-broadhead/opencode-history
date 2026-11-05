@@ -6,11 +6,11 @@ import { placeholders, SUMMARY_COLUMNS, toSummary, type Mask, type SummaryRow } 
 import { HistoryError } from "../domain/common.js"
 
 /** The latest compaction summaries kept, oldest first. */
-export const MAX_SUMMARIES = 10
-export const MAX_FILES_EDITED = 50
+const MAX_SUMMARIES = 10
+const MAX_FILES_EDITED = 50
 /** Distinct shell commands kept, the most used first, then the most recent. */
 export const MAX_COMMANDS = 30
-export const MAX_SUBAGENTS = 50
+const MAX_SUBAGENTS = 50
 
 const SHELL_TOOLS = ["bash", "shell"]
 const EDIT_OPS = ["edit", "write", "patch"]

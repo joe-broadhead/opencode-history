@@ -5,7 +5,7 @@ import type { Source, SourceMessage, SourceProject, SourceSession } from "../dom
 import { openDb, type Db } from "../domain/sqlite.js"
 
 /** Columns this module reads, per table. `todo` is optional. */
-export const REQUIRED_COLUMNS: Record<string, readonly string[]> = {
+const REQUIRED_COLUMNS: Record<string, readonly string[]> = {
   session_v2: [
     "id",
     "project_id",
@@ -66,7 +66,7 @@ const SESSION_SELECT = `select id, project_id, parent_id, directory, title, agen
 const MESSAGE_SELECT = `select id, session_id, type, seq, time_created, time_updated, data from session_message`
 
 /** Whether OpenCode's database can be used; when not, whether it cannot be read or has a layout this version does not know. */
-export type DatabaseProbe = { readonly ok: true } | { readonly ok: false; readonly problem: "unreadable" | "layout" }
+type DatabaseProbe = { readonly ok: true } | { readonly ok: false; readonly problem: "unreadable" | "layout" }
 
 /** OpenCode's database as a source, with the probe that decides whether the plugin uses it. */
 export function openOpencodeSource(path: string): Source & { probe(): Promise<DatabaseProbe> } {

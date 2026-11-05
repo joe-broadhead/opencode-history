@@ -42,12 +42,12 @@ export const MASKS_CHANGED =
 
 export const BUILDING = "Wait for the index to finish building, since until then results cover only the sessions indexed so far."
 
-export function stateOf(view: Pick<StatusView, "index" | "mismatch">): State {
+function stateOf(view: Pick<StatusView, "index" | "mismatch">): State {
   if (view.mismatch || view.index.source === "context") return "failed"
   return view.index.ready ? "ready" : "connecting"
 }
 
-export interface StatusSources {
+interface StatusSources {
   readonly version: string
   readonly host: HostCheck
   readonly config: Pick<ResolvedConfig, "database" | "indexPath" | "defaultScope">

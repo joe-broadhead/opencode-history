@@ -6,7 +6,7 @@ import { basename, dirname, join, parse, resolve, sep } from "node:path"
 import { defaultDatabasePath } from "../source/opencode-db.js"
 
 /** Why an `indexPath` is refused: OpenCode's database or one of its files, OpenCode's data folder, or the project. */
-export type IndexPathProblem = "database" | "opencode-data" | "project"
+type IndexPathProblem = "database" | "opencode-data" | "project"
 
 /** The path with every symlink in its existing part resolved, so two spellings of one file compare equal. */
 export function canonicalPath(path: string): string {
@@ -35,7 +35,7 @@ export const INDEX_PATH_MESSAGES: Record<IndexPathProblem | "foreign", string> =
   foreign: "The indexPath option names an existing file that is not a History index, so it was left unchanged.",
 }
 
-export interface IndexPathContext {
+interface IndexPathContext {
   /** OpenCode's database, from the `database` option or its default. */
   readonly database: string
   /** The folders of the plugin instance's location: its directory and its project's root. */

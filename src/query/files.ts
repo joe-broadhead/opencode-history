@@ -9,9 +9,9 @@ import { refused } from "../domain/common.js"
 import { QUERY_HINTS } from "./parse.js"
 
 /** Sessions listed per path, most recent first. */
-export const MAX_FILE_SESSIONS = 20
+const MAX_FILE_SESSIONS = 20
 
-export interface FilesOptions {
+interface FilesOptions {
   /** Epoch milliseconds that durations count back from. */
   readonly now?: number
 }

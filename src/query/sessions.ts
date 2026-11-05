@@ -9,7 +9,7 @@ import { decodeCursor, encodeCursor } from "./parse.js"
 /** Largest first; ties go to the most recently updated. */
 const SORTS = { updated: "s.updated", created: "s.created", cost: "s.cost", messages: "s.messages" } as const
 
-export interface SessionsOptions {
+interface SessionsOptions {
   /** Epoch milliseconds that durations count back from. */
   readonly now?: number
 }

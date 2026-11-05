@@ -9,7 +9,7 @@ export interface ContextSessionApi {
   context(input: { readonly sessionID: string }): Promise<readonly SessionMessageInfo[]>
 }
 
-export interface ContextSourceOptions {
+interface ContextSourceOptions {
   /** Sessions per list call. */
   readonly pageSize?: number
   /** Stop listing after this many pages. */

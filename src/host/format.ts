@@ -48,7 +48,7 @@ const HIDDEN: { readonly [R in HiddenReason]: readonly [what: string, input: str
  * under every reason that leaves it out, so when the most are left out as subagents and at least as many as the current
  * session's, they are the current session's subagents, and the input is both.
  */
-export function hiddenNotes(hidden: Hidden | null): { readonly note?: string; readonly input?: string } {
+function hiddenNotes(hidden: Hidden | null): { readonly note?: string; readonly input?: string } {
   if (!hidden) return {}
   const reasons = HIDDEN_REASONS.filter(reason => hidden[reason] > 0).sort((a, b) => hidden[b] - hidden[a])
   if (reasons.length === 0) return {}
@@ -220,25 +220,25 @@ export const NOTHING_TO_DO = "Nothing to do."
 /** The row that shows only when the index file's schema is not this build's. */
 export const MISMATCH_ROW = "Index schema:"
 /** The permission block, one rule a line, as JSON to paste. */
-export function blockLines(rules: readonly { readonly action: string; readonly resource: string; readonly effect: string }[]) {
+function blockLines(rules: readonly { readonly action: string; readonly resource: string; readonly effect: string }[]) {
   return rules.length ? ["[", ...rules.map((rule, at) => `  ${JSON.stringify(rule)}${at < rules.length - 1 ? "," : ""}`), "]"] : []
 }
 /** The row of agents that miss the default rules: their names, then the block to paste. */
-export const AGENTS_ROW = "Agents without default rules:"
+const AGENTS_ROW = "Agents without default rules:"
 function agentsRow(view: StatusView) {
   const names = view.unguardedAgents
   if (names.length === 0) return [`${AGENTS_ROW} none`]
   return [`${AGENTS_ROW} ${names.join(", ")}`, ...blockLines(view.permissionsBlock ?? []).map(line => `  ${line}`)]
 }
 /** The Account row: History has no accounts. */
-export const ACCOUNT_TEXT = "none; History needs no sign-in"
+const ACCOUNT_TEXT = "none; History needs no sign-in"
 /** The Access row: what the plugin can do. */
-export const ACCESS_TEXT = "reads OpenCode's database read-only and writes only its own index; history_pin asks before it changes a session"
+const ACCESS_TEXT = "reads OpenCode's database read-only and writes only its own index; history_pin asks before it changes a session"
 const FALLBACK_TEXT = { SOURCE_UNAVAILABLE: "OpenCode's database could not be read", SOURCE_SCHEMA_UNKNOWN: "OpenCode's database has an unknown layout" } as const
 /** The Connection row's words for each state: the S9 labels. */
-export const CONNECTION_WORDS: { readonly [S in State]: string } = { ready: "connected", connecting: "connecting", failed: "failed" }
+const CONNECTION_WORDS: { readonly [S in State]: string } = { ready: "connected", connecting: "connecting", failed: "failed" }
 /** The row that shows only when the mask options changed after text was indexed. */
-export const MASKS_ROW = "Masks:"
+const MASKS_ROW = "Masks:"
 /** A byte count in the largest unit that keeps it at least 1: `512 B`, `3.4 KB`, `511 MB`. */
 export function size(bytes: number) {
   const units = ["B", "KB", "MB", "GB", "TB"]

@@ -14,7 +14,7 @@ export const escapeLike = (text: string) => text.replace(/[\\%_]/g, char => `\\$
 
 export const trimSlash = (path: string) => (path.length > 1 ? path.replace(/\/+$/, "") : path)
 
-export function clampInt(value: number | undefined, fallback: number, min: number, max: number): number {
+function clampInt(value: number | undefined, fallback: number, min: number, max: number): number {
   if (value === undefined || !Number.isFinite(value)) return fallback
   return Math.min(max, Math.max(min, Math.floor(value)))
 }

@@ -3,7 +3,6 @@ import { HOST_RANGE, testedWords } from "./hosts.js"
 
 export const text = (max = 256) => z.string().max(max).refine(s => !s.includes("\0"), "must not contain NUL")
 export const integer = z.number().int().safe()
-export const empty = z.strictObject({})
 
 /** Every failure the plugin reports. Other modules throw these through `fail`. */
 export type FailureCode =

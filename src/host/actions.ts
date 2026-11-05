@@ -15,7 +15,7 @@ type SessionID = Parameters<Entries["put"]>[0]["sessionID"]
 export const MAX_PIN_BYTES = 256 * 1024
 export const PIN_PREFIX = "history."
 /** The most messages one pin can hold. */
-export const MAX_PIN_RANGE = 200
+const MAX_PIN_RANGE = 200
 
 /**
  * The instruction entry key of a pinned session. Keys must match `^[a-z0-9][a-z0-9._-]*$` and session IDs are mixed
@@ -51,7 +51,7 @@ export const PinInputSchema = z.strictObject({
 })
 const PinSchema = z.strictObject({ sessionID: z.string(), key: z.string(), chars: integer.min(0), label: z.string() })
 export const PinOutputSchema = z.strictObject({ action: z.enum(["put", "remove", "list"]), changed: z.boolean(), pins: z.array(PinSchema) })
-export type PinOutput = z.output<typeof PinOutputSchema>
+type PinOutput = z.output<typeof PinOutputSchema>
 type Pin = z.output<typeof PinSchema>
 
 export interface ActionSources {

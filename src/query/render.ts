@@ -3,7 +3,7 @@ import type { DocKind, SourceMessage } from "../domain/contract.js"
 import { clip, headTail, type Mask } from "./common.js"
 
 /** A tool call line is cut to this many characters unless `full`. */
-export const CALL_CHARS = 300
+const CALL_CHARS = 300
 /** Tool output and tool input bodies keep this head and tail unless `full`. */
 export const OUTPUT_HEAD = 400
 export const OUTPUT_TAIL = 200

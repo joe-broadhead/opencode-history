@@ -32,14 +32,14 @@ export interface Progress {
   readonly failed: number
 }
 
-export interface IndexError {
+interface IndexError {
   readonly message: string
   readonly sessionID: string | null
   /** By the indexer's clock. */
   readonly at: number
 }
 
-export interface Health extends IndexState {
+interface Health extends IndexState {
   readonly lastError: IndexError | null
   /** Sessions waiting to be retried on the next catch-up. */
   readonly failedSessions: number

@@ -13,13 +13,13 @@ import {
 
 export const SNIPPET_CHARS = 240
 /** Best-ranked docs kept per phrasing, and per phrasing's near matches in substring mode, before grouping. */
-export const MAX_DOC_HITS = 5000
+const MAX_DOC_HITS = 5000
 /** Words mode: the near matches of a phrasing are its best texts by bm25, at most this many, before the filters. */
 export const NEAR_CANDIDATES = 2000
 /** Candidate docs substring and regex modes read at most per phrasing, newest first. */
 export const SCAN_DOCS = 20_000
 /** Substring and regex modes stop reading new docs after this long. */
-export const SCAN_BUDGET_MS = 5000
+const SCAN_BUDGET_MS = 5000
 /** Share of its score a near match keeps: a text with only some of a phrasing's terms. */
 export const NEAR_WEIGHT = 0.4
 /** Snippet highlight and cut marks. */
@@ -42,7 +42,7 @@ const MAX_RANGES = 50
 /** Rows read per phrasing when counting what the filters left out of an empty search. */
 const HIDDEN_ROWS = 50_000
 
-export interface SearchOptions {
+interface SearchOptions {
   /** Epoch milliseconds that durations and recency count back from. */
   readonly now?: number
 }
@@ -220,7 +220,7 @@ function findRanges(pattern: RegExp, text: string, cap = MAX_RANGES): Range[] {
  * `text` in lower case with every character at the same index, so positions found in it hold in `text`. A character
  * whose lower case is longer, such as `İ`, stays as it is.
  */
-export function fold(text: string): string {
+function fold(text: string): string {
   const lower = text.toLowerCase()
   if (lower.length === text.length) return lower
   let out = ""
@@ -471,7 +471,7 @@ function rank(lists: readonly (readonly DocHit[])[], caller: Caller, recency: bo
 }
 
 /** A title or prompt for comparing near-duplicates: lower case, with runs of anything but letters and digits as one space. */
-export const sameTitleKey = (title: string) => title.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim()
+const sameTitleKey = (title: string) => title.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim()
 
 /** Words that say little about what a title is about, left out when titles are compared word by word. */
 const TITLE_STOPWORDS = new Set("a an and are as at be by for from in into is it of on or the to with".split(" "))
@@ -585,7 +585,7 @@ function collapse(text: string, ranges: readonly Range[]): { text: string; range
 }
 
 /** About `width` characters of `text` around its first range, with ranges marked and cuts shown. */
-export function excerpt(text: string, ranges: readonly Range[], width = SNIPPET_CHARS, cut: { start?: boolean; end?: boolean } = {}): string {
+function excerpt(text: string, ranges: readonly Range[], width = SNIPPET_CHARS, cut: { start?: boolean; end?: boolean } = {}): string {
   const flat = collapse(text, [...ranges].sort((a, b) => a.start - b.start))
   const body = flat.text
   const first = flat.ranges[0]

@@ -43,4 +43,3 @@ export const History = Rpc.define({
   },
   events: {},
 })
-export type HistoryMethod = keyof typeof History.methods
