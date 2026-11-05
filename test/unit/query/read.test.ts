@@ -256,6 +256,25 @@ describe("renderMessage", () => {
     expect(long.length).toBeLessThanOrEqual(310)
   })
 
+  it("draws each known tool by what it did, and falls back to its input as JSON", () => {
+    const call = (name: string, input: Record<string, unknown>) => render("assistant", assistantData([toolPart(name, input)]))
+    expect(call("shell", { command: "ls -la" })).toBe("▸ shell: ls -la")
+    expect(call("write", { filePath: "/a/new.ts", content: "export {}" })).toBe("▸ write: /a/new.ts\n  export {}")
+    expect(call("list", { path: "/a" })).toBe("▸ list: /a")
+    expect(call("read", { offset: 3 })).toBe('▸ read: {"offset":3}')
+    expect(call("glob", { pattern: "**/*.ts" })).toBe("▸ glob: **/*.ts")
+    expect(call("grep", {})).toBe("▸ grep: {}")
+    const patch = "*** Begin Patch\n*** Update File: src/a.ts\n@@\n-x\n+y\n*** Add File: src/b.ts\n+z\n*** End Patch"
+    expect(call("apply_patch", { patchText: patch })).toBe(`▸ apply_patch: src/a.ts, src/b.ts\n${patch.replace(/^/gm, "  ")}`)
+    expect(call("apply_patch", { patchText: "no headers" })).toBe('▸ apply_patch: {"patchText":"no headers"}\n  no headers')
+    expect(call("subagent", { agent: "general", description: "Port it", prompt: "Port the parser" })).toBe("▸ subagent: @general Port it\n  Port the parser")
+    expect(call("task", {})).toBe("▸ task: {}")
+    expect(call("webfetch", { url: "https://example.com/doc" })).toBe("▸ webfetch: https://example.com/doc")
+    expect(call("websearch", { query: "sqlite fts5 trigram" })).toBe("▸ websearch: sqlite fts5 trigram")
+    expect(call("webfetch", {})).toBe("▸ webfetch: {}")
+    expect(call("edit", { filePath: "/a.ts" })).toBe("▸ edit: /a.ts")
+  })
+
   it("renders a shell message like a shell call: the command, its state, and its output cut to head and tail", () => {
     const output = Array.from({ length: 200 }, (_, i) => `line ${i}`).join("\n")
     const shell = (over: Record<string, unknown> = {}) => ({ shellID: "sh_1", command: "npm   test", status: "exited", exit: 0, output: { output, cursor: 0, size: output.length, truncated: false }, ...over })

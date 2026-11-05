@@ -129,16 +129,22 @@ describe(`History on @opencode/sdk, host version ${HOST_VERSION}`, () => {
     expect(JSON.stringify(result.content)).toContain(session.id)
   })
 
-  test("history_recall gives its evidence, and with synthesize on a host that has no model, RECALL_MODEL_UNAVAILABLE", async () => {
+  test("history_recall gives its evidence and no answer, and scope session finds the calling session's own text", async () => {
     const id = await conversation("Certificates", "How do we rotate the ocelot certificates?", "Run the ocelot rotation script, then restart the proxy.")
     await waitFor(async () => (await found("ocelot certificates")).includes(id), 20_000, "the messages to be indexed")
-    const tool = (await contexts.get(directory)!.tool.list()).find(t => t.id === "history_recall")!
+    const tools = await contexts.get(directory)!.tool.list()
     const context = { sessionID: id, agent: "build", messageID: "msg_test2", id: "call_test2", signal: new AbortController().signal, progress: async () => {} } as never
+    const recall = tools.find(t => t.id === "history_recall")!
     const input = { question: "How do we rotate the ocelot certificates?", queries: ["ocelot certificates"], scope: "all", includeCurrent: true }
-    const evidence = await tool.execute({ ...input, synthesize: false }, context) as { output: { answer: string | null; evidence: { sessionID: string }[] } }
-    expect(evidence.output.answer).toBeNull()
+    const evidence = await recall.execute(input, context) as { output: { evidence: { sessionID: string }[] } }
+    expect(evidence.output).not.toHaveProperty("answer")
     expect(evidence.output.evidence.map(e => e.sessionID)).toContain(id)
-    await expect(tool.execute({ ...input, synthesize: true }, context)).rejects.toMatchObject({ message: expect.stringMatching(/^RECALL_MODEL_UNAVAILABLE: No model is available to write the recall answer\. Next step: /) })
+    // The calling session is left out by default, and scope "session" searches only it.
+    const searchTool = tools.find(t => t.id === "history_search")!
+    const own = await searchTool.execute({ query: ["ocelot rotation script"], scope: "session" }, context) as { output: { results: { sessionID: string }[] } }
+    expect(own.output.results.map(r => r.sessionID)).toEqual([id])
+    const others = await searchTool.execute({ query: ["ocelot rotation script"] }, context) as { output: { results: { sessionID: string }[] } }
+    expect(others.output.results.map(r => r.sessionID)).not.toContain(id)
   })
 
   test("puts the default rules after each agent's base allow, so status names no agent", async () => {
