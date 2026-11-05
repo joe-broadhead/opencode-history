@@ -271,6 +271,7 @@ export function formatStatus(view: StatusView) {
     view.masksChanged ? `${MASKS_ROW} changed since text was indexed, so the index file holds that text masked the old way until /history-reindex rebuild` : undefined,
     mismatch ? `${MISMATCH_ROW} ${mismatch.file === null ? "none" : `version ${mismatch.file}`} in the file, but this build uses version ${mismatch.build}, so every query fails (INDEX_MISMATCH)` : undefined,
     `Default scope: ${view.defaultScope}`,
+    `Skill: ${view.shadowedSkills.length ? view.shadowedSkills.map(skill => `${skill.id} is hidden by ${skill.path}`).join("; ") : "history-recall"}`,
     `Tools: ${toolsText(view)}`,
     agentsRow(view),
     `OpenCode: ${hostText(view)}`,
