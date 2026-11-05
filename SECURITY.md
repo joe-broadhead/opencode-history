@@ -14,9 +14,9 @@ When OpenCode loads it, the plugin:
 
 - opens OpenCode's database read-only and reads its sessions, messages, projects and todos;
 - copies text from them into its own index file, and keeps it in step as sessions change;
-- registers nine `history_*` tools, two commands, the status RPC, the tools RPC for scripts and one skill;
+- registers eight `history_*` tools, two commands, the status RPC, the tools RPC for scripts and one skill;
 - in the terminal UI, adds one status dialog, `/history`, which only reads the `status` RPC method;
-- adds no permission rules.
+- inserts its default permission block after each agent's base `* * allow` (see [Permissions](#permissions)).
 
 ### What is read
 
@@ -37,12 +37,7 @@ The index is `$XDG_DATA_HOME/opencode-history/index.db`, or `~/.local/share/open
 
 ### Masking
 
-Built-in patterns cover common credential formats: private key blocks, API keys and tokens with well-known prefixes (OpenAI, Anthropic, xAI, GitHub, GitLab, npm, Hugging Face, Slack, Stripe, Google, AWS access key IDs and others), JSON Web Tokens, the credential in a `Bearer` or `Authorization` header, and the value of a `password`, `secret`, `token` or API key setting. They are on unless the `maskDefaults` option is `false`. The `mask` option adds your own regular expressions. Every match is replaced with `[masked]`:
-
-- before text is written to the index: message text, tool calls and output, shell commands and their output, compaction summaries, reasoning, titles, first prompts, last replies, file paths and subagent descriptions;
-- in what `history_read`, `history_brief` and `history_recall` read from OpenCode's database when they are called.
-
-Masking runs before any cut, so a cut cannot leave part of a secret that no longer matches. Your `mask` patterns are compiled with the `g` flag only, so they are case-sensitive. The built-in patterns are listed in [docs/configuration.md](docs/configuration.md#built-in-patterns); they are written to leave ordinary code such as `password: string` alone, so a credential in a shape they do not know is not masked unless a `mask` pattern covers it.
+Built-in patterns for common credential formats, on unless `maskDefaults` is `false`, and your own `mask` patterns replace every match with `[masked]` before text is written to the index, and in what `history_read`, `history_brief` and `history_recall` read from OpenCode's database when they are called. [docs/configuration.md](docs/configuration.md#masking) lists the patterns and exactly what they cover. They leave ordinary code such as `password: string` alone, so a credential in a shape they do not know is not masked unless a `mask` pattern covers it.
 
 Masking does not cover directory and project paths, agent, model and tool names, or IDs. It does not change OpenCode's database, which keeps the original text; OpenCode's own session views still show it. Text indexed before you add a pattern stays in the index file until you run `/history-reindex rebuild`, and status says so. Until then, every tool, `history_sql` included, masks what it returns with the current patterns, except that a search excerpt cut through a match can show part of it. A rebuild overwrites the dropped pages with zeros and empties the write-ahead log, so the old text does not stay in the file's free space.
 

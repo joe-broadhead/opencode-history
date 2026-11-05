@@ -124,7 +124,7 @@ The plugin reads no other table. The database is opened with SQLite's read-only 
 
 ## Tools
 
-Effective name `history_<name>`. `options.permission` is that name, so a deny with resource `*` hides the tool. Pinned: `history_search`, `history_brief`, `history_read`. Every tool except `history_pin` is in Code Mode as `tools.history.<name>`. No tool asserts a permission.
+Effective name `history_<name>`. `options.permission` is that name, so a deny with resource `*` hides the tool. Pinned: `history_search`, `history_brief`, `history_read`. Every tool except `history_pin` is in Code Mode as `tools.history.<name>`.
 
 | Tool | What it does | Effect |
 | --- | --- | --- |
@@ -134,10 +134,10 @@ Effective name `history_<name>`. `options.permission` is that name, so a deny wi
 | `history_sessions` | Lists sessions without a query. | Reads the index. |
 | `history_files` | Lists the sessions that touched a file or folder. | Reads the index. |
 | `history_recall` | Searches, then quotes message windows around the best excerpts. | Reads the index and the source. |
-| `history_sql` | Runs one read-only `SELECT` over the index views. | Reads the index, on its own read-only connection in a child process, for at most 10 seconds. |
+| `history_sql` | Runs one read-only `SELECT` or `WITH` statement over the index views and full-text tables. | Reads the index, on its own read-only connection in a child process, for at most 10 seconds. |
 | `history_pin` | Puts, removes or lists pins in the current session's instructions. | Writes the current session's instruction entries. Not in Code Mode. |
 
-OpenCode checks tool input against each tool's schema before the call, and a result against its output schema after it. Each result's text ends with the call to make next. The defaults and ranges below are the ones the schemas declare, and the query layer clamps to the same ones (`BOUNDS` in `src/domain/bounds.ts`).
+OpenCode checks tool input against each tool's schema before the call, and a result against its output schema after it. The text of a search, sessions, files, brief, read or recall result ends with the call to make next. The defaults and ranges below are the ones the schemas declare, and the query layer clamps to the same ones (`BOUNDS` in `src/domain/bounds.ts`).
 
 `history_search`, `history_sessions` and `history_recall` first catch the index up with OpenCode's database: they index the sessions changed since the last pass, waiting for that at most about 200 ms, then answer. A longer catch-up finishes in the background. The other tools answer from the index as it is.
 
@@ -342,7 +342,7 @@ The status RPC has the plugin ID, `history.sessions`, and no events. Its contrac
 | `mismatch` | Present only when the index file's schema is not this build's, after another OpenCode process running another version of the plugin rebuilt it: `file`, its version, or `null` when it has none, and `build`, this build's. Every query then fails with `INDEX_MISMATCH`. |
 | `nextStep` | One next step, exactly the Next step row: the first of a host outside the range that runs because of `allowUntestedHost`, an index file at another schema (`INDEX_MISMATCH`), the fallback source (`SOURCE_UNAVAILABLE` or `SOURCE_SCHEMA_UNKNOWN`), changed masks, unguarded agents, or an index still building; `Nothing to do.` when nothing is needed. |
 
-`version`, `host`, `state`, `unguardedAgents` and `nextStep` are the fields every plugin's status RPC shares, with these names. Before 0.0.1 they were `host.found`, `host.required`, `host.availability`, `connection` and `next`.
+`version`, `host`, `state`, `unguardedAgents` and `nextStep` are the fields every plugin's status RPC shares, with these names.
 
 `/history-status` and the `/history` dialog render it as:
 
