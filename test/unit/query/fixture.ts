@@ -14,7 +14,7 @@ export const NOW = Date.parse("2026-11-01T12:00:00Z")
 
 export const STATE: IndexState = { ready: true, sessionsIndexed: 10, sessionsTotal: 10, lagSeconds: 0, source: "opencode-db", complete: true }
 
-export const CALLER: Caller = { sessionID: null, projectID: "prj_app", directory: "/work/app" }
+export const CALLER: Caller = { sessionID: "ses_caller", projectID: "prj_app", directory: "/work/app" }
 
 export const NO_MASK = (text: string) => text
 

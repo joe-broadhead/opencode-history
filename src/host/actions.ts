@@ -107,7 +107,6 @@ async function pinText(runtime: ActionSources["runtime"], caller: Caller, input:
 /** history_pin: pins a brief or a seq range of a past session into the current session's instructions. */
 /** The change happens only after a last cancellation check, so a cancelled call never pins or unpins late. */
 export async function runPin(sources: ActionSources, caller: Caller, input: z.output<typeof PinInputSchema>, signal: AbortSignal): Promise<PinOutput> {
-  if (caller.sessionID === null) return fail("OPERATION_FAILED", { message: "history_pin needs a session to pin into." })
   const target = caller.sessionID as SessionID, entries = sources.session.instructions.entry
   const listed = await entries.list({ sessionID: target })
   const existing = listed.flatMap(entry => pin(entry.key, entry.value) ?? [])

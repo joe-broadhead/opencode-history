@@ -6,7 +6,7 @@ export type MatchMode = "words" | "substring" | "regex"
 
 /** Where the caller is. Scope filters and boosts are relative to it. */
 export interface Caller {
-  readonly sessionID: string | null
+  readonly sessionID: string
   readonly projectID: string
   readonly directory: string
 }

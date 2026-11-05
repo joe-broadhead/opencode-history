@@ -17,7 +17,7 @@ import { assistantData, createOpencodeDb, idleData, shellData, textPart, toolPar
 import { tempDir } from "../temp.js"
 
 const SECRET = "sk-live-0123456789abcdef"
-const CALLER: Caller = { sessionID: null, projectID: "proj_app", directory: "/work/app" }
+const CALLER: Caller = { sessionID: "ses_caller", projectID: "proj_app", directory: "/work/app" }
 const registry = () => (globalThis as { [REGISTRY]?: Map<string, unknown> })[REGISTRY] ?? new Map()
 
 const cleanups: (() => unknown)[] = []

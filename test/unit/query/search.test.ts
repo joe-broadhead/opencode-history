@@ -500,7 +500,6 @@ describe("filters", () => {
     expect((await ids({ query: "validation", scope: "session", sessionID: "ses_login" }))).toEqual(["ses_login"])
     expect((await ids({ query: "login", scope: "session" }, { ...CALLER, sessionID: "ses_current" }))).toEqual(["ses_current"])
     expect((await ids({ query: "login", sessionID: "ses_web" }))).toEqual(["ses_web"])
-    await expect(find({ query: "login", scope: "session" })).rejects.toThrow(/needs a sessionID/)
   })
 
   it("leaves out the caller's whole session tree unless includeCurrent", async () => {
