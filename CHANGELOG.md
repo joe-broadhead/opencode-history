@@ -16,6 +16,10 @@ All notable changes to this project are documented here. The format follows [Kee
 - `sort: "cost"` says that cost covers a session's whole life, and that the index has no per-day cost.
 - The scripting guide says a script uses a session created for it, never one borrowed from a list.
 
+### Fixed
+
+- Search, sessions, files and recall left out the caller's whole conversation tree as "current". A subagent's call then hid its parent, which is another, still running session, along with every sibling subagent, and a non-empty result gave no hint. Now only the calling session is left out: its parent and its subagents are listed like any other session, and `hidden.current` counts only the calling session. A parent's own subagents are now left out only by `includeSubagents`.
+
 ## [0.0.3] - 2026-11-05
 
 ### Added
