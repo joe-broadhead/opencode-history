@@ -9,6 +9,8 @@ All notable changes to this project are documented here. The format follows [Kee
 - Status names any skill with the id `history-recall` that OpenCode loads instead of the plugin's own, such as one in your own skills folder: a `Skill:` row, `shadowedSkills` in the status RPC, and the next step "Rename or move the skill at <path>, …".
 - `history_sql` results carry the same `index` object as search, sessions, files and recall, and their text warns when the index is still building or the source is partial.
 - `history_files` results have `truncated`, true when more paths matched than `limit`. The text then asks for the folder that makes the path unique, since a bare `README.md` matches that file in every repository.
+- `history_sessions`, `history_files` and `history_sql` are pinned in Code Mode, like search, brief and read, so a model sees them without a namespace search.
+- `SQL_FAILED` names the column, table or function SQLite could not find, or the ambiguous column, as in `it names a column the views do not have: nope`, when that name is a plain identifier. Nothing else of the statement is repeated.
 - The tool descriptions and results say how to cite a past session, `(ses_… #seq)`, and the `history` namespace line names the sessions, files and SQL tools and the `history-recall` skill.
 
 ### Changed
@@ -22,6 +24,8 @@ All notable changes to this project are documented here. The format follows [Kee
 - The next step for agents without the default rules now reads: "Put the default rules shown by /history-status first in each listed agent's own permissions, in opencode.json or the agent's Markdown file, followed by your top-level rules for History tools."
 - The next steps of `STATUS_UNAVAILABLE`, `INDEX_FAILED`, `CONTRACT_MISMATCH` and `OPERATION_FAILED`, and the index warnings in results, point at `/history-status` instead of a tool.
 - `SQL_REJECTED` reads "The SQL was refused: <why>." Its next step allows a `WITH` statement and names the `docs_words` and `docs_sub` tables.
+- The `history_sql` description says how times are stored (UTC `YYYY-MM-DD HH:MM:SS`, with a space) and how to compare them, with `datetime(created) >= datetime(?)`, since an ISO value with a `T` sorts after the stored form and shifts a window. It also says its column list is complete, so there is no need to probe with `select *`.
+- Each `history_sessions` row carries the first 200 characters of the first prompt, not 500, so a page of 100 sessions stays small. `history_brief` still has 500.
 - `history_read`'s cut marker reads `…[N chars cut; full: true shows them]…`.
 - The README's Update steps are now part of Install, and Troubleshooting lists only the status rows and the setup codes. The full error table stays in `docs/configuration.md`.
 
