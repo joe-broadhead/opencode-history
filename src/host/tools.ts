@@ -12,7 +12,7 @@ import type { HistoryRuntime, QueryMethod } from "./runtime.js"
 import {
   BriefInputSchema, BriefOutputSchema, FilesInputSchema, FilesOutputSchema, ReadInputSchema, ReadOutputSchema, RecallInputSchema, RecallOutputSchema,
   SearchInputSchema, SearchOutputSchema, SessionsInputSchema, SessionsOutputSchema, SqlInputSchema, SqlOutputSchema,
-} from "./schemas.js"
+} from "../domain/schemas.js"
 
 type ToolEditor = Parameters<Parameters<Plugin.Context["tool"]["transform"]>[0]>[0]
 

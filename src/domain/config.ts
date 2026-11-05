@@ -6,7 +6,8 @@ import { defaultDatabasePath } from "../source/opencode-db.js"
 import { formatFailure, HistoryError } from "./common.js"
 import { DEFAULT_EXTRACT } from "./contract.js"
 
-export const SCOPES = ["project", "directory", "all"] as const
+import { SCOPES } from "./schemas.js"
+
 export type DefaultScope = typeof SCOPES[number]
 
 /** A user regex source; it must compile, because every match is replaced before storage and output. */

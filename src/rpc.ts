@@ -2,7 +2,7 @@ import { Rpc } from "@opencode/plugin/rpc"
 import { PLUGIN_ID } from "./domain/contract.js"
 
 // The status RPC contract in plain JSON Schema, so the TUI bundle carries no zod. A unit test keeps it identical to the
-// server's zod status schema (host/schemas.ts).
+// server's zod status schema (domain/schemas.ts).
 const string = { type: "string" } as const
 const integer = { type: "integer" } as const
 const number = { type: "number" } as const

@@ -6,7 +6,7 @@ import { BOUNDS } from "../domain/bounds.js"
 import { fail, fence, integer } from "../domain/common.js"
 import { formatBrief, formatRead, oneLine } from "./format.js"
 import type { HistoryRuntime } from "./runtime.js"
-import { ranged, sessionID } from "./schemas.js"
+import { ranged, sessionID } from "../domain/schemas.js"
 
 type Entries = Plugin.Context["session"]["instructions"]["entry"]
 type SessionID = Parameters<Entries["put"]>[0]["sessionID"]

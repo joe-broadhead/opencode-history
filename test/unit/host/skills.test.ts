@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url"
 import type * as z from "zod"
 import { loadSkills, SKILLS, skillTransform } from "../../../src/host/skills.js"
 import { PinInputSchema } from "../../../src/host/actions.js"
-import * as S from "../../../src/host/schemas.js"
+import * as S from "../../../src/domain/schemas.js"
 import { ACTIONS, TOOL_NAMES, type ToolName } from "../../../src/host/tools.js"
 import { tempDir } from "../../temp.js"
 

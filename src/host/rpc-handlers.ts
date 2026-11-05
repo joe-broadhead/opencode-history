@@ -2,7 +2,7 @@ import type { RpcHandlers } from "@opencode/plugin/promise/rpc"
 import { formatFailure, HistoryError, logUnexpected } from "../domain/common.js"
 import type { History } from "../rpc.js"
 import { isFailure } from "./errors.js"
-import { StatusSchema } from "./schemas.js"
+import { StatusSchema } from "../domain/schemas.js"
 import type { StatusView } from "./status.js"
 
 export interface RpcSources { readonly status: () => Promise<StatusView> }
