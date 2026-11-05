@@ -3,7 +3,7 @@ import { homedir } from "node:os"
 import { isAbsolute, join } from "node:path"
 import { DEFAULT_MASK } from "../extract/index.js"
 import { defaultDatabasePath } from "../source/opencode-db.js"
-import { formatFailure } from "./common.js"
+import { formatFailure, HistoryError } from "./common.js"
 import { DEFAULT_EXTRACT } from "./contract.js"
 
 export const SCOPES = ["project", "directory", "all"] as const
@@ -49,7 +49,7 @@ export function loadConfig(options: unknown, env: Readonly<Record<string, string
       const path = ["options", ...issue.path.map(String)].join(".")
       return issue.code === "unrecognized_keys" ? issue.keys.map(key => `${path}.${key} is not a History option`) : [`${path} ${issue.message.replace(/^Invalid input: /, "is invalid: ")}`]
     })
-    throw new Error(formatFailure({ code: "OPTIONS_INVALID", message: `The plugin options are invalid: ${problems.join("; ")}.`, hint: "Fix the History plugin options in opencode.json (see Configure in the README), then restart OpenCode." }))
+    throw new Error(formatFailure(new HistoryError("OPTIONS_INVALID", { message: `The plugin options are invalid: ${problems.join("; ")}.` })))
   }
   const value = parsed.data
   const data = env.XDG_DATA_HOME && isAbsolute(env.XDG_DATA_HOME) ? env.XDG_DATA_HOME : join(homedir(), ".local/share")

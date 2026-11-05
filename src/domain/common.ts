@@ -1,4 +1,5 @@
 import * as z from "zod"
+import { HOST_RANGE, testedWords } from "./hosts.js"
 
 export const text = (max = 256) => z.string().max(max).refine(s => !s.includes("\0"), "must not contain NUL")
 export const integer = z.number().int().safe()
@@ -20,8 +21,8 @@ export interface HistoryFailure { readonly code: FailureCode; readonly message: 
 
 /** What happened and the user's next step, per code. Messages never contain private input values or history text. */
 export const FAILURES: { readonly [C in FailureCode]: readonly [message: string, hint?: string] } = {
-  OPTIONS_INVALID: ["The plugin options are invalid.", "Fix the named option in the history.sessions plugin options."],
-  HOST_UNTESTED: ["This OpenCode version is not a tested host for the History plugin.", "Use OpenCode 2.2.x, or set allowUntestedHost: true in the plugin options."],
+  OPTIONS_INVALID: ["The plugin options are invalid.", "Fix the History plugin options in opencode.json (see Configure in the README), then restart OpenCode."],
+  HOST_UNTESTED: ["This OpenCode version is outside the range History supports.", `Use OpenCode ${testedWords()}, or another release inside ${HOST_RANGE}, or set the plugin option allowUntestedHost: true to run anyway.`],
   CLOSED: ["The History plugin is shutting down.", "Retry after OpenCode has reloaded the plugin."],
   STATUS_UNAVAILABLE: ["History status could not be read.", "Run /history-status again, or check the OpenCode server log."],
   SKILLS_INVALID: ["A History skill file is missing or malformed, so that skill was skipped.", "Reinstall the plugin."],

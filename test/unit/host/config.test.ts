@@ -4,7 +4,8 @@ import { join } from "node:path"
 import { readFileSync } from "node:fs"
 import { loadConfig } from "../../../src/domain/config.js"
 import { DEFAULT_MASK } from "../../../src/extract/index.js"
-import { checkHost, HOST_RANGE, inRange, TESTED_HOSTS } from "../../../src/host/compat.js"
+import { HOST_RANGE, TESTED_HOSTS } from "../../../src/domain/hosts.js"
+import { checkHost, inRange } from "../../../src/host/compat.js"
 
 describe("host check", () => {
   test("the supported line is 2.2.3 up to, not including, 2.3.0, as package.json states", () => {
