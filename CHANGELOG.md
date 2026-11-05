@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Every search snippet, `history_read` message and `history_recall` evidence item has `cite`, a ready citation such as `(ses_abc123 #42)`, with the session ID written out, so a long answer keeps citing in full instead of falling back to a bare `#42`.
+- `history_files` lists each session's `seqs`: the distinct seqs of its matching touches, ascending, at most the latest 20, with `seqsCut` when there are more. A file's history no longer needs `history_sql`; pass `ops: ["edit", "write", "patch"]` for changes only. `firstSeq` stays.
+
+### Changed
+
+- The search, read, files, recall and SQL descriptions, and their result text, ask for the session ID in every citation.
+- The `includeSubagents` and `includeArchived` descriptions say to set them only on a repeat, after an empty result whose `hidden` count is above 0, or when the user asks for that kind of session. The `history_sessions` `limit` description says to keep the default for a day or a week and follow `next`. The `history-recall` skill now points at these descriptions instead of repeating them.
+- `sort: "cost"` says that cost covers a session's whole life, and that the index has no per-day cost.
+- The scripting guide says a script uses a session created for it, never one borrowed from a list.
+
 ## [0.0.3] - 2026-11-05
 
 ### Added
