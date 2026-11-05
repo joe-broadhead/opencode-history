@@ -202,6 +202,7 @@ export interface SqlOutput {
   readonly columns: readonly string[]
   readonly rows: readonly (readonly unknown[])[]
   readonly truncated: boolean
+  readonly index: IndexState
 }
 
 export interface RecallInput extends Filters {

@@ -15,7 +15,7 @@ export interface Rule {
 }
 
 /** The tools that only read the index, OpenCode's database or the plugin's state. */
-export const READ_TOOLS = ["search", "read", "brief", "sessions", "files", "recall", "sql", "status"] as const
+export const READ_TOOLS = ["search", "read", "brief", "sessions", "files", "recall", "sql"] as const
 export const KNOWN_READS: readonly string[] = READ_TOOLS.map(name => `history_${name}`)
 
 export const DEFAULT_RULES: readonly Rule[] = [

@@ -143,7 +143,7 @@ describe("createRuntime", () => {
     expect((await runtime.files(CALLER, { path: "src/auth.ts" })).files).toMatchObject([{ path: "/work/app/src/auth.ts", sessions: [{ sessionID: "ses_login" }] }])
     expect((await runtime.read(CALLER, { sessionID: "ses_db" })).messages).toMatchObject([{ seq: 0, text: "Write the schema migration for invoices" }])
     expect((await runtime.brief(CALLER, { sessionID: "ses_login" })).filesEdited).toEqual([{ path: "/work/app/src/auth.ts", edits: 1 }])
-    expect(await runtime.sql(CALLER, { sql: "select session_id from v_sessions order by session_id" })).toEqual({ columns: ["session_id"], rows: [["ses_db"], ["ses_login"]], truncated: false })
+    expect(await runtime.sql(CALLER, { sql: "select session_id from v_sessions order by session_id" })).toEqual({ columns: ["session_id"], rows: [["ses_db"], ["ses_login"]], truncated: false, index: await runtime.status() })
   })
 
   it("masks the configured patterns in the index and in what read, brief and recall take from the source", async () => {

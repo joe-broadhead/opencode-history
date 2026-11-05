@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest"
 import * as z from "zod"
 import { FAILURES, fail, formatFailure, HistoryError, parse, type FailureCode } from "../../../src/domain/common.js"
 import { isFailure, mapFailures, toToolError } from "../../../src/host/errors.js"
+import { TOOL_NAMES } from "../../../src/host/tools.js"
 import { failure } from "../../host/runtime.js"
 
 describe("failures", () => {
@@ -12,7 +13,7 @@ describe("failures", () => {
       expect(hint, code).toMatch(/^[A-Z].*\.$/)
       // Exactly one next step: one sentence.
       expect(hint!.slice(0, -1), code).not.toMatch(/[.!?] [A-Z]/)
-      for (const tool of `${message} ${hint}`.match(/\bhistory_\w+/g) ?? []) expect(["history_status", "history_search", "history_sessions", "history_read", "history_recall", "history_sql"], `${code}: ${tool}`).toContain(tool)
+      for (const tool of `${message} ${hint}`.match(/\bhistory_\w+/g) ?? []) expect(TOOL_NAMES.map(name => `history_${name}`), `${code}: ${tool}`).toContain(tool)
     }
   })
 

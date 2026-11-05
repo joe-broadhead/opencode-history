@@ -63,20 +63,20 @@ const asked = async (session: string) => host.sdk.permission.list({ sessionID: s
 describe(`tools RPC on @opencode/sdk, host version ${HOST_VERSION}`, () => {
   test("describes every tool but history_pin", async () => {
     const description = await tools().describe!({}, { location }) as { methods: { name: string; action: string }[] }
-    expect(description.methods.map(method => method.name)).toEqual(["search", "brief", "read", "sessions", "files", "recall", "sql", "status"])
+    expect(description.methods.map(method => method.name)).toEqual(["search", "brief", "read", "sessions", "files", "recall", "sql"])
   })
 
   test("a known read runs as a session whose agent allows it, with no model turn, and returns the tool's output", async () => {
     const before = (await host.sdk.session.get({ sessionID: sessions.build! } as never) as { time?: unknown }).time
     const sql = await run("sql", sessions.build!, { sql: "select count(*) as n from v_sessions" })
     expect(sql.value, sql.message).toMatchObject({ columns: ["n"], rows: [[expect.any(Number)]], truncated: false })
-    const status = await run("status", sessions.build!, {})
-    expect(status.value).toMatchObject({ state: expect.stringMatching(/^(ready|connecting)$/), unguardedAgents: expect.any(Number) })
+    const listed = await run("sessions", sessions.build!, {})
+    expect(listed.value).toMatchObject({ sessions: expect.any(Array), index: { source: "opencode-db" } })
     expect((await host.sdk.session.get({ sessionID: sessions.build! } as never) as { time?: unknown }).time).toEqual(before)
   })
 
   test("an agent deny, which hides the tools from the model, refuses every method", async () => {
-    for (const method of ["search", "sql", "status"]) {
+    for (const method of ["search", "sql", "sessions"]) {
       expect(await run(method, sessions.locked!, method === "search" ? { query: "x" } : method === "sql" ? { sql: "select 1" } : {}), method).toMatchObject({ type: "failed", code: "PERMISSION_DENIED" })
     }
   })
@@ -88,7 +88,7 @@ describe(`tools RPC on @opencode/sdk, host version ${HOST_VERSION}`, () => {
     expect(result.message).toMatch(/cannot answer an approval prompt/)
     expect(Date.now() - started).toBeLessThan(5000)
     expect(await asked(sessions.careful!)).toEqual([])
-    expect((await run("status", sessions.careful!, {})).value).toBeDefined()
+    expect((await run("sessions", sessions.careful!, {})).value).toBeDefined()
   })
 
   test("applies the session's own rules after the agent's", async () => {
@@ -100,14 +100,14 @@ describe(`tools RPC on @opencode/sdk, host version ${HOST_VERSION}`, () => {
     const pending = run("sql", sessions.build!, { sql: "with recursive r(x) as (select 1 union all select x+1 from r) select count(*) from r" })
     await new Promise(resolve => setTimeout(resolve, 1000))
     const started = Date.now()
-    expect((await run("status", sessions.build!, {})).value).toBeDefined()
+    expect((await run("sessions", sessions.build!, {})).value).toBeDefined()
     expect(Date.now() - started).toBeLessThan(2000)
     expect(await pending).toMatchObject({ type: "failed", code: "SQL_TIMEOUT" })
   }, 30_000)
 
   test("names an unknown session with SESSION_UNKNOWN, and a session without an agent with SESSION_AGENT_REQUIRED", async () => {
-    expect(await run("status", "ses_does_not_exist", {})).toMatchObject({ type: "failed", code: "SESSION_UNKNOWN" })
-    expect(await run("status", sessions.agentless!, {})).toMatchObject({ type: "failed", code: "SESSION_AGENT_REQUIRED" })
+    expect(await run("sessions", "ses_does_not_exist", {})).toMatchObject({ type: "failed", code: "SESSION_UNKNOWN" })
+    expect(await run("sessions", sessions.agentless!, {})).toMatchObject({ type: "failed", code: "SESSION_AGENT_REQUIRED" })
   })
 
   test("a bad envelope is rpc.invalid_input, worded as every plugin's tools RPC words it", async () => {

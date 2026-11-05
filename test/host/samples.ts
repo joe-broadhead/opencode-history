@@ -52,7 +52,7 @@ export const SAMPLES = {
     subagents: [{ sessionID: "ses_login1_child", description: "Find cookie settings", agent: "explore" }],
     todos: [{ content: "Add a regression test", status: "completed" }],
   },
-  sql: { columns: ["week", "cost"], rows: [["2026-41", 1.5], ["2026-42", null], ["multi\nline", "x"]], truncated: true },
+  sql: { columns: ["week", "cost"], rows: [["2026-41", 1.5], ["2026-42", null], ["multi\nline", "x"]], truncated: true, index: INDEX },
   recall: {
     answer: "The state cookie used SameSite=Strict; it was changed to Lax.",
     evidence: [{ sessionID: "ses_login1", title: SESSION.title, seq: 40, time: "2026-10-12T10:50:00.000Z", text: "Set SameSite=Lax on the state cookie." }],

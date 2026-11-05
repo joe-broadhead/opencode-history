@@ -16,7 +16,7 @@ import type { HistoryRuntime, IndexSchema, SourceFallback } from "./runtime.js"
  */
 export type State = "ready" | "connecting" | "failed"
 
-/** One status model for the history_status tool, the command, the RPC and the TUI. */
+/** One status model for the command, the RPC and the TUI. */
 export interface StatusView {
   /** The plugin's version. */
   readonly version: string

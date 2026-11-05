@@ -15,7 +15,6 @@ Each method is a tool with the same name, input and output: every tool except `h
 | `files` | `history_files` |
 | `recall` | `history_recall` |
 | `sql` | `history_sql` |
-| `status` | `history_status` |
 | `describe` | none: lists the methods, their permission actions, and their input and output as JSON Schema |
 
 `history_pin` is not a method. It changes a session's instructions, so a script can read history but never pin it.

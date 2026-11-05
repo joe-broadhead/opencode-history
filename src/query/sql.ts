@@ -305,7 +305,7 @@ export interface SqlOptions {
  * own, so a slow or endless statement cannot block OpenCode: it stops after SQL_TIMEOUT_MS with SQL_TIMEOUT, and it
  * stops by itself when OpenCode goes away. Rows stop at the limit and at SQL_OUTPUT_BYTES of data.
  */
-export async function sql(path: string, input: SqlInput, options: SqlOptions = {}): Promise<SqlOutput> {
+export async function sql(path: string, input: SqlInput, options: SqlOptions = {}): Promise<Omit<SqlOutput, "index">> {
   const body = checkSql(input.sql)
   const limit = bounded(input.limit, BOUNDS.sql.limit)
   if (options.signal?.aborted) throw new HistoryError("CANCELLED")

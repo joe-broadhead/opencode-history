@@ -1,9 +1,7 @@
 import { describe, expect, test } from "vitest"
-import { HOST_RANGE } from "../../../src/host/compat.js"
 import { SCRIPT_MARK } from "../../../src/host/permissions.js"
 import { EXCLUDED, registerScripting, sessionNotFound, TOOLS_RPC_ID, UNATTENDED } from "../../../src/host/scripting.js"
 import { ACTIONS, TOOL_NAMES } from "../../../src/host/tools.js"
-import { buildStatus } from "../../../src/host/status.js"
 import { failure, fakeRuntime } from "../../host/runtime.js"
 import { SAMPLES } from "../../host/samples.js"
 import { fakeSession } from "../../host/session.js"
@@ -58,8 +56,7 @@ async function setup(options: SetupOptions = {}) {
       },
     },
   }
-  const status = () => buildStatus({ version: "0.0.0", host: { version: "2.2.3", range: HOST_RANGE, tested: true }, config: { database: "/d", indexPath: "/i", defaultScope: "project", recall: { synthesize: false } }, runtime, agents: async () => [] })
-  const stop = await registerScripting(ctx as never, { runtime, session: session.session, status, location: { projectID: "prj_app", directory: "/work/app" }, defaults: { scope: "project", synthesize: false } })
+  const stop = await registerScripting(ctx as never, { runtime, session: session.session, location: { projectID: "prj_app", directory: "/work/app" }, defaults: { scope: "project", synthesize: false } })
   return { runtime, session, contract: contract!, handlers, asserts, hook: hook!, disposed, stop }
 }
 
@@ -73,7 +70,7 @@ describe("tools RPC contract", () => {
     const h = await setup()
     expect(h.contract.id).toBe(TOOLS_RPC_ID)
     expect(TOOLS_RPC_ID).toBe("history.sessions.tools")
-    expect(Object.keys(h.contract.methods)).toEqual(["describe", "search", "brief", "read", "sessions", "files", "recall", "sql", "status"])
+    expect(Object.keys(h.contract.methods)).toEqual(["describe", "search", "brief", "read", "sessions", "files", "recall", "sql"])
     expect(h.handlers.pin).toBeUndefined()
   })
 
@@ -108,7 +105,7 @@ describe("tools RPC contract", () => {
     expect(description.id).toBe(TOOLS_RPC_ID)
     expect(description.call).toContain(`/api/rpc/${TOOLS_RPC_ID}/<method>`)
     expect(description.methods.map(method => [method.name, method.action])).toEqual(
-      ["search", "brief", "read", "sessions", "files", "recall", "sql", "status"].map(name => [name, `history_${name}`]))
+      ["search", "brief", "read", "sessions", "files", "recall", "sql"].map(name => [name, `history_${name}`]))
     const search = description.methods.find(method => method.name === "search")!
     expect(search.input).toMatchObject({ type: "object", required: ["query"] })
     expect(search.output).toMatchObject({ type: "object", properties: { results: { type: "array" } } })
@@ -121,7 +118,6 @@ describe("tools RPC calls", () => {
     expect(await call(h, "search", { query: "login" })).toEqual(SAMPLES.search)
     expect(h.asserts).toEqual([{ sessionID: "ses_1", agent: "build", action: "history_search", resources: ["*"], save: ["*"], metadata: { [SCRIPT_MARK]: true } }])
     expect(h.runtime.calls[0]).toMatchObject({ method: "search", caller: { sessionID: "ses_1", projectID: "prj_app", directory: "/work/app" }, input: { query: "login", scope: "project", limit: 10 } })
-    expect(await call(h, "status", {})).toMatchObject({ version: "0.0.0", unguardedAgents: 0 })
   })
 
   test("a refused assert is PERMISSION_DENIED, and the tool does not run", async () => {

@@ -83,7 +83,7 @@ describe(`History on @opencode/sdk, host version ${HOST_VERSION}`, () => {
 
   test("registers its tools, commands and skill", async () => {
     const tools = (await contexts.get(directory)!.tool.list()).filter(tool => tool.id.startsWith("history_")).map(tool => tool.id).sort()
-    expect(tools).toEqual(["history_brief", "history_files", "history_pin", "history_read", "history_recall", "history_search", "history_sessions", "history_sql", "history_status"])
+    expect(tools).toEqual(["history_brief", "history_files", "history_pin", "history_read", "history_recall", "history_search", "history_sessions", "history_sql"])
     const commands = await host.sdk.command.list({ location })
     expect(commands.data.map((c: { name: string }) => c.name).filter((name: string) => name.startsWith("history-")).sort()).toEqual(["history-reindex", "history-status"])
     const skills = await host.sdk.skill.list({ location })
@@ -170,11 +170,12 @@ describe(`History on @opencode/sdk, host version ${HOST_VERSION}`, () => {
   })
 
   test("a read tool runs without asking", async () => {
-    const caller = await host.sdk.session.create({ title: "Status caller", location })
-    const tool = (await contexts.get(directory)!.tool.list()).find(t => t.id === "history_status")!
+    const caller = await host.sdk.session.create({ title: "SQL caller", location })
+    const tool = (await contexts.get(directory)!.tool.list()).find(t => t.id === "history_sql")!
     const context = { sessionID: caller.id, agent: "build", messageID: "msg_st1", id: "call_st1", signal: new AbortController().signal, progress: async () => {} } as never
-    const result = await tool.execute({}, context) as { output: { unguardedAgents: number } }
-    expect(result.output.unguardedAgents).toBe(0)
+    const result = await tool.execute({ sql: "select 1 as n" }, context) as { output: { rows: unknown[][]; index: { sessionsTotal: number } } }
+    expect(result.output.rows).toEqual([[1]])
+    expect(result.output.index.sessionsTotal).toEqual(expect.any(Number))
     expect(await host.sdk.permission.list({ sessionID: caller.id })).toEqual([])
   })
 })

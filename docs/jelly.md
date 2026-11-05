@@ -13,7 +13,7 @@ declaration, because that schema accepts no unknown keys.
 
 ## Tools and permissions
 
-9 tools are declared (8 read-only). Jelly's agents have no base "allow everything"
+8 tools are declared (7 read-only). Jelly's agents have no base "allow everything"
 rule, so this plugin's own default rules, which it puts after that rule, never reach them. Jelly
 writes each declared `ask` or `deny` as that tool's default instead (the person's own choice
 replaces it), and denies a read-only helper every tool not marked `readOnly`. A declared `allow`
@@ -23,7 +23,7 @@ changes nothing in Jelly.
   instructions.
 - Off: none.
 - Everything else runs, as the plugin's own rules let it: search, brief, read, sessions, files,
-  recall, SQL and status, which only read the history index and OpenCode's database.
+  recall and SQL, which only read the history index and OpenCode's database.
 
 Keep `jelly.tools` in step with the plugin's tools and default rules; `test/**/jelly.test.ts`
 checks each declared tool and effect against them.
@@ -35,7 +35,7 @@ plugin's or the agent's own.
 
 ## Views
 
-None yet.
+None.
 
 ## Signing in
 

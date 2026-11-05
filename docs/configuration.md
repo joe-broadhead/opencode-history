@@ -139,7 +139,6 @@ Effective name `history_<name>`. `options.permission` is that name, so a deny wi
 | `history_recall` | Searches, then quotes message windows around the best excerpts. Optionally writes an answer. | Reads the index and the source. With `synthesize`, one model call through OpenCode. |
 | `history_sql` | Runs one read-only `SELECT` over the index views. | Reads the index, on its own read-only connection in a child process, for at most 10 seconds. |
 | `history_pin` | Puts, removes or lists pins in the current session's instructions. | Writes the current session's instruction entries. Not in Code Mode. |
-| `history_status` | Returns the [status](#status). | Reads the index state. |
 
 OpenCode checks tool input against each tool's schema before the call, and a result against its output schema after it. Each result's text ends with the call to make next. The defaults and ranges below are the ones the schemas declare, and the query layer clamps to the same ones (`BOUNDS` in `src/domain/bounds.ts`).
 
@@ -287,14 +286,13 @@ Each tool's action is its effective name, `history_<name>`, on resource `*`. At 
   { "action": "history_sessions", "resource": "*", "effect": "allow" },
   { "action": "history_files", "resource": "*", "effect": "allow" },
   { "action": "history_recall", "resource": "*", "effect": "allow" },
-  { "action": "history_sql", "resource": "*", "effect": "allow" },
-  { "action": "history_status", "resource": "*", "effect": "allow" }
+  { "action": "history_sql", "resource": "*", "effect": "allow" }
 ]
 ```
 
 | Tool | Default |
 |---|---|
-| `history_search`, `history_read`, `history_brief`, `history_sessions`, `history_files`, `history_recall`, `history_sql`, `history_status` | allow |
+| `history_search`, `history_read`, `history_brief`, `history_sessions`, `history_files`, `history_recall`, `history_sql` | allow |
 | `history_pin` | ask |
 | any other `history_*` tool | ask |
 
@@ -317,7 +315,6 @@ Agents defined only in your config are created after plugins run, so they miss t
 
 | Surface | What it does |
 | --- | --- |
-| `history_status` | Returns the status object. |
 | `/history-status` | Posts the status into the session as text. On failure it posts the error, `STATUS_UNAVAILABLE` by default. |
 | `/history-reindex` | Catches the index up: indexes the sessions changed since the last pass, then drops sessions OpenCode no longer has. `catch-up` as the argument does the same. Posts `Index caught up: <n> of <total> sessions.` |
 | `/history-reindex rebuild` | Waits for running work, drops the index, and indexes everything again. Posts `Index rebuilt: ...` when done. Any other argument posts the usage. |
@@ -345,7 +342,7 @@ The status RPC has the plugin ID, `history.sessions`, and no events. Its contrac
 | `indexBytes` | The size of the index file with its write-ahead log, in bytes, or `null` when it cannot be read. |
 | `masksChanged` | `true` when the mask options changed after text was indexed: results are masked with the current patterns, but the index file holds that text masked the old way until `/history-reindex rebuild`. |
 | `recall` | `synthesize`, and `model` as `provider/model`, or `null` for OpenCode's default. |
-| `unguardedAgents` | The agents that miss the default rules (see [Permissions](#permissions)). `history_status` gives their count instead, and a `permissions` line that points to `/history-status`. |
+| `unguardedAgents` | The agents that miss the default rules (see [Permissions](#permissions)), by name; empty when none. |
 | `permissionsBlock` | Present when `unguardedAgents` is not empty: the block to put first in their own `permissions`. |
 | `mismatch` | Present only when the index file's schema is not this build's, after another OpenCode process running another version of the plugin rebuilt it: `file`, its version, or `null` when it has none, and `build`, this build's. Every query then fails with `INDEX_MISMATCH`. |
 | `nextStep` | One next step, exactly the Next step row: the first of a host outside the range that runs because of `allowUntestedHost`, an index file at another schema (`INDEX_MISMATCH`), the fallback source (`SOURCE_UNAVAILABLE` or `SOURCE_SCHEMA_UNKNOWN`), changed masks, unguarded agents, or an index still building; `Nothing to do.` when nothing is needed. |
@@ -365,7 +362,7 @@ Database: <database>
 Index file: <indexPath> (511 MB)
 Default scope: project
 Recall answers: off (default model)
-Tools: 9 available
+Tools: 8 available
 Agents without default rules: none
 OpenCode: 2.2.3 (tested). History <version>
 Next step: Nothing to do.
@@ -380,9 +377,9 @@ Index schema: version 2 in the file, but this build uses version 3, so every que
 Next step: Restart every OpenCode process, so they all run one version of the plugin.
 ```
 
-With unguarded agents, their names follow, then the block, one rule a line, and the next step says where to put it. `history_status` shows only their count and points to `/history-status`.
+With unguarded agents, the row lists their names, then the block follows, one rule a line, and the next step says where to put it.
 
-Search, sessions, files and recall results carry the same `index` object, and their text warns when the index is still building or the source is partial.
+Search, sessions, files, recall and SQL results carry the same `index` object, and their text warns when the index is still building or the source is partial. A model has no status tool: when results look incomplete, it reads that warning, and `/history-status` is for you.
 
 ## Bounds
 
@@ -421,9 +418,9 @@ When an unexpected error is reported only by a code, `OPERATION_FAILED` or a com
 | `EVENTS_UNAVAILABLE` | OpenCode's session events stopped. A warning; the plugin subscribes again by itself. Restart if it persists. |
 | `SOURCE_SCHEMA_UNKNOWN` | OpenCode's database has a layout this plugin version does not know, so history comes from the plugin session API. A warning at setup, and the status's next step. Update the plugin, or use a tested OpenCode release. |
 | `SOURCE_UNAVAILABLE` | OpenCode's session history could not be read: at setup, a warning that history comes from the plugin session API; later, the error of a call that reads from the source, such as `history_read` or `/history-reindex`. Check that `database` points at OpenCode's `opencode.db`, then restart. |
-| `STATUS_UNAVAILABLE` | Call `history_status` again, or check the OpenCode server log. |
+| `STATUS_UNAVAILABLE` | Run `/history-status` again, or check the OpenCode server log. |
 | `INDEX_BUSY` | The index is locked by another writer, such as a second OpenCode process using the same `indexPath`. Retry in a moment. |
-| `INDEX_FAILED` | `/history-reindex` failed. Call `history_status`; if it persists, delete the index file and restart. |
+| `INDEX_FAILED` | `/history-reindex` failed. Run `/history-status`; if it persists, delete the index file and restart. |
 | `INDEX_MISMATCH` | Another OpenCode process running another version of the plugin rebuilt the index for its own schema, so this version cannot query it. Restart every OpenCode process so they all run one version. Raised by search, sessions, files, read, brief, recall and SQL, and shown by status as its `Index schema:` row and next step. |
 | `SESSION_NOT_FOUND` | No indexed session has that ID. Find it with `history_search` or `history_sessions`. |
 | `MESSAGE_NOT_FOUND` | The session has no message at that `seq` or ID. Call `history_read` without `at` to see its range. |
@@ -442,5 +439,5 @@ When an unexpected error is reported only by a code, `OPERATION_FAILED` or a com
 | `PERMISSION_DENIED` | Scripts only. The session's agent, or the session's own rules, deny the tool or ask for approval, which a script cannot answer. Add an allow rule, or call as another session. |
 | `SESSION_UNKNOWN` | Scripts only. OpenCode has no session with that ID. |
 | `SESSION_AGENT_REQUIRED` | Scripts only. The session names no agent. |
-| `CONTRACT_MISMATCH` | A result could not be serialised. Reinstall; report it with the `history_status` output if it persists. |
-| `OPERATION_FAILED` | Anything else. Retry, then call `history_status`. The server log gets one line for it, see below. |
+| `CONTRACT_MISMATCH` | A result could not be serialised. Reinstall; report it with the `/history-status` output if it persists. |
+| `OPERATION_FAILED` | Anything else. Retry, then run `/history-status`. The server log gets one line for it, see below. |
