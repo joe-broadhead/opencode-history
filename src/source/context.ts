@@ -19,8 +19,6 @@ export interface ContextSourceOptions {
   readonly now?: () => number
 }
 
-const DETAIL = "plugin session API: only messages after the latest compaction; no todos or project names"
-
 export function contextSource(session: ContextSessionApi, options: ContextSourceOptions = {}): Source {
   const pageSize = options.pageSize ?? 100
   const maxPages = options.maxPages ?? 1000
@@ -61,14 +59,6 @@ export function contextSource(session: ContextSessionApi, options: ContextSource
 
   return {
     kind: "context",
-    async probe() {
-      try {
-        await session.list({ limit: 1 })
-        return { kind: "context", ok: true, complete: false, detail: DETAIL }
-      } catch (error) {
-        return { kind: "context", ok: false, complete: false, detail: `plugin session API unavailable: ${error instanceof Error ? error.message : String(error)}`, problem: "unreadable" }
-      }
-    },
     async session(id) {
       // A session created since the cached listing is not in it yet, so a miss there lists again once.
       const reused = cached()

@@ -251,7 +251,6 @@ function guarded(source: Source): Source {
   }
   return {
     kind: source.kind,
-    probe: () => source.probe(),
     session: id => read(() => source.session(id)),
     changedSessions: (since, limit) => read(() => source.changedSessions(since, limit)),
     sessionIDs: () => read(() => source.sessionIDs()),
