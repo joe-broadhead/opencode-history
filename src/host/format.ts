@@ -1,4 +1,5 @@
-// The text content of each tool result: what the model reads. Each result ends with the call to make next.
+// The text content of each tool result: what the model reads. Search, sessions, files, brief, read and recall results
+// end with the call to make next.
 import {
   HIDDEN_REASONS, type BriefOutput, type FilesInput, type FilesOutput, type Hidden, type HiddenReason, type IndexState, type ReadInput, type ReadOutput,
   type RecallInput, type RecallOutput, type SearchInput, type SearchOutput, type SessionSummary, type SessionsOutput, type SqlOutput,

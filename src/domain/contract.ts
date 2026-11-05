@@ -1,4 +1,4 @@
-// Shared contract for every module. Change it only with the lead's agreement.
+// Shared contract for every module.
 
 export const PLUGIN_ID = "history.sessions"
 export const TUI_ID = "history.sessions.tui"

@@ -46,9 +46,9 @@ await tools.history.sql({ sql: "select date(created) as day, round(sum(cost), 2)
 
 Search, sessions, files and recall look in the current project by default. They leave out the current session, subagent sessions and archived sessions unless you ask for them. The filters are `scope` (`project`, `directory`, `all` or `session`), `since` and `until` (an ISO date, or an age such as `36h`, `7d`, `3w`, `2m` or `1y`), `kinds`, `tool`, `agent`, `path`, `sessionID`, `includeSubagents`, `includeCurrent` and `includeArchived`.
 
-Search has three modes. `words`, the default, matches stemmed words in any order and understands `"exact phrases"`, `-excluded` terms, `prefix*` and `OR`. A word joined by dots or dashes, such as a version `2.2.3`, an address `192.0.2.10` or a name `foo.bar.baz`, matches only as itself, not numbers or words with the same parts. `substring` matches exact text of at least three characters, for identifiers, paths and error messages. `regex` takes a JavaScript regular expression. Substring and regex mode read the newest 20,000 texts that may match, found through a trigram index.
+Search has three modes: `words`, the default, matches stemmed words in any order, with `"exact phrases"`, `-excluded` terms, `prefix*` and `OR`; `substring` matches exact text of at least three characters, for identifiers, paths and error messages; `regex` takes a JavaScript regular expression. [The search reference](https://github.com/joe-broadhead/opencode-history/blob/HEAD/docs/configuration.md#search) has the full syntax and limits.
 
-When the sessions that have every word of a phrasing do not fill the page, a session that has only some of them also shows, marked `near match`, below them. Sessions in one directory that are runs of the same thing, with a near-identical title or the same first prompt, such as the runs of one scheduled prompt, show once, with a count of the `similar` others. When a search, `history_sessions` or `history_files` finds nothing, the result counts what the default filters left out, such as archived sessions, other projects or the current session's own subagents, and names the input that would show them.
+Sessions with only some words of a phrasing show below full matches, marked `near match`; runs of the same thing in one directory, such as one scheduled prompt's runs, show once with a `similar` count. When a search, `history_sessions` or `history_files` finds nothing, the result names the input that would show what the default filters left out.
 
 One skill, `history-recall`, teaches the search, brief, read pattern and how to cite a session as `(ses_… #seq)`.
 
@@ -120,7 +120,7 @@ Options go on the plugin entry in `opencode.json`:
 }
 ```
 
-`database` points at OpenCode's database and `indexPath` moves the index. `indexPath` must be a new file or an existing History index, outside OpenCode's data folder and outside the project; anything else fails setup with `INDEX_PATH_REFUSED` and is left untouched, whichever config sets it. `defaultScope` is the scope when a call names none. `index.reasoning`, `index.toolResults` and `index.maxDocChars` choose what is indexed. Built-in patterns mask common credentials before text is stored or shown: private keys, API keys and tokens with well-known prefixes (such as `sk-`, `ghp_`, `xai-`, `AKIA`), JSON Web Tokens, `Bearer` and `Authorization` header credentials, and `password=`, `secret=`, `token=` and `api_key=` values. `mask` adds your own patterns, and `maskDefaults: false` turns the built-in ones off. `allowUntestedHost` loads on an untested OpenCode version, with a warning in status. An invalid option fails setup and names the key, never the value. The full reference, with every limit and error code, is [docs/configuration.md](https://github.com/joe-broadhead/opencode-history/blob/HEAD/docs/configuration.md).
+`database` points at OpenCode's database and `indexPath` moves the index. `indexPath` must be a new file or an existing History index, outside OpenCode's data folder and outside the project; anything else fails setup with `INDEX_PATH_REFUSED` and is left untouched, whichever config sets it. `defaultScope` is the scope when a call names none. `index.reasoning`, `index.toolResults` and `index.maxDocChars` choose what is indexed. Built-in patterns mask common credentials before text is stored or shown ([the list](https://github.com/joe-broadhead/opencode-history/blob/HEAD/docs/configuration.md#built-in-patterns)). `mask` adds your own patterns, and `maskDefaults: false` turns the built-in ones off. `allowUntestedHost` loads on an untested OpenCode version, with a warning in status. An invalid option fails setup and names the key, never the value. The full reference, with every limit and error code, is [docs/configuration.md](https://github.com/joe-broadhead/opencode-history/blob/HEAD/docs/configuration.md).
 
 The `index` options, `mask` and `maskDefaults` apply to text indexed from then on. After you change them, run `/history-reindex rebuild` so the text already in the index follows them too.
 
@@ -155,21 +155,13 @@ Start with `/history-status`. It ends with one next step. Errors read `CODE: wha
 | `Masks: changed since text was indexed` | You changed `mask` or `maskDefaults` after text was indexed. Results already use the new patterns, but the index file holds the old text: run `/history-reindex rebuild`. |
 | A large index file | The index takes about 2.7 times the text it holds, about 500 MB for 200,000 indexed texts, and status shows its size in the `Index file` row. It grows with your history; a deleted session leaves it, but the file keeps its size and reuses the space. To make it smaller, set `index.toolResults: false`, which leaves out tool output, or a lower `index.maxDocChars`, then delete the index file (with its `-wal` and `-shm` files) and restart OpenCode: the plugin builds a new one. |
 | `OPTIONS_INVALID` | The message names the option. Fix it in the plugin entry and restart. |
-| `SOURCE_UNAVAILABLE` | OpenCode's database stopped answering. Check that `database` points at OpenCode's `opencode.db`, then restart OpenCode. |
 | `INDEX_UNAVAILABLE` | `indexPath` must be a file the plugin can create and write. Fix it and restart. |
 | `INDEX_PATH_REFUSED` | `indexPath` names OpenCode's database or data folder, a file inside the project, or an existing file that is not a History index. The file was left as it was. Set `indexPath` to a new file elsewhere, or remove it, and restart. |
-| `INDEX_BUSY` | Another process, such as a second OpenCode, is writing the index. Retry in a moment. |
 | `INDEX_FAILED` | Run `/history-status`, and if it persists, delete the index file and restart OpenCode. |
 | `INDEX_MISMATCH`, `Index schema: ...` | Another OpenCode process running another version of the plugin rebuilt the index for its own version; status shows both versions. Restart every OpenCode process so they all run one version; the index is then rebuilt for it. |
-| `SESSION_NOT_FOUND` | Find the session ID with `history_search` or `history_sessions`. |
-| `QUERY_INVALID` | Fix what the message names: a substring of at least 3 characters, the regular expression, the date, the path or another filter. The next step fits the mistake. |
-| `SQL_REJECTED`, `SQL_FAILED` | Write one read-only `SELECT` or `WITH` statement, best over the `v_*` views. The message says what was wrong. |
-| `SQL_TIMEOUT` | The statement ran longer than 10 seconds and was stopped. Filter by time or session, and bound a recursive `WITH`. |
-| `PERMISSION_DENIED`, `SESSION_UNKNOWN`, `SESSION_AGENT_REQUIRED` | Scripts only: the session's agent may not use the tool, the session does not exist, or it names no agent. See [Scripting](https://github.com/joe-broadhead/opencode-history/blob/HEAD/docs/scripting.md). |
-| `PIN_TOO_LARGE` | Pin a shorter range, or a lower `maxChars`. |
 | `OPERATION_FAILED` | Something unexpected failed. Retry, and if it persists, the OpenCode server log has one `opencode-history:` line with the error's class, its SQLite code and where it was thrown, to report. |
 
-The full list of codes is in [docs/configuration.md](https://github.com/joe-broadhead/opencode-history/blob/HEAD/docs/configuration.md#errors). Error and status text never contains your input, session text or SQLite's own message.
+The codes a tool call can return, each with its next step, are in [docs/configuration.md](https://github.com/joe-broadhead/opencode-history/blob/HEAD/docs/configuration.md#errors). Error and status text never contains your input, session text or SQLite's own message.
 
 ## Uninstall
 
