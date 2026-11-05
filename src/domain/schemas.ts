@@ -11,9 +11,9 @@ import { DOC_KINDS, type DocKind, type FileOp, type MessageKind } from "./contra
 export const SCOPES = ["project", "directory", "all"] as const
 export const SCOPE_INPUTS = ["session", ...SCOPES] as const
 
-/** An integer input with its default and range from BOUNDS, which the description states. */
-export const ranged = (bound: Bound, what: string) =>
-  integer.min(bound.min).max(bound.max).default(bound.default).describe(`${what}, ${bound.min}-${bound.max}. Default ${bound.default}.`)
+/** An integer input with its default and range from BOUNDS, which the description states, then `advice`. */
+export const ranged = (bound: Bound, what: string, advice?: string) =>
+  integer.min(bound.min).max(bound.max).default(bound.default).describe(`${what}, ${bound.min}-${bound.max}. Default ${bound.default}.${advice ? ` ${advice}` : ""}`)
 
 const FILE_OPS = ["read", "edit", "write", "patch", "search"] as const satisfies readonly FileOp[]
 const kind = z.enum(DOC_KINDS as [DocKind, ...DocKind[]])
@@ -39,9 +39,9 @@ const filters = {
   agent: text(128).min(1).optional().describe("Only sessions run by this agent, for example build or plan."),
   path: text(4096).min(1).optional().describe("Only sessions that read or changed this file or folder. A relative path matches the end of a recorded path, so src/auth.ts finds that file in any checkout; an absolute path matches that file, or anything under that folder. Globs such as src/*.ts work too."),
   sessionID: id.optional().describe("Only this session."),
-  includeSubagents: z.boolean().optional().describe("Also include subagent sessions (work the agent delegated). Default false."),
+  includeSubagents: z.boolean().optional().describe("Also include subagent sessions (work the agent delegated). Default false. Set it only on a repeat, after an empty result whose hidden.subagents is above 0, or when the user asks about delegated work: a first call that finds something reports no hidden counts."),
   includeCurrent: z.boolean().optional().describe("Also include the current session. Default false, because you can already see it, apart from what a compaction removed."),
-  includeArchived: z.boolean().optional().describe("Also include archived sessions. Default false."),
+  includeArchived: z.boolean().optional().describe("Also include archived sessions. Default false. Set it only on a repeat, after an empty result whose hidden.archived is above 0, or when the user asks about archived sessions."),
 }
 export const FiltersSchema = z.strictObject(filters)
 
@@ -59,8 +59,8 @@ export const SearchInputSchema = z.strictObject({
 
 export const SessionsInputSchema = z.strictObject({
   title: text(256).min(1).optional().describe("Only sessions whose title contains this text."),
-  sort: z.enum(["updated", "created", "cost", "messages"]).default("updated").describe("Order, newest or largest first: updated (default), created, cost or messages. cost is the session's own spend in USD; its subagents are separate sessions."),
-  limit: ranged(BOUNDS.sessions.limit, "Sessions to return"),
+  sort: z.enum(["updated", "created", "cost", "messages"]).default("updated").describe("Order, newest or largest first: updated (default), created, cost or messages. cost is the session's own spend in USD over its whole life; its subagents are separate sessions, and the index has no per-day cost."),
+  limit: ranged(BOUNDS.sessions.limit, "Sessions to return", `Keep the default for a day or a week and follow next as cursor: a page of ${BOUNDS.sessions.limit.max} is large.`),
   cursor: text(1024).min(1).optional().describe("The next value of a previous result, to get the next page."),
   ...filters,
 })
@@ -118,7 +118,9 @@ const summary = {
   agent: nullable, messages: count, subagents: count, firstPrompt: nullable, parentID: nullable,
 }
 export const SessionSummarySchema = z.strictObject(summary)
-export const SnippetSchema = z.strictObject({ messageID: z.string(), seq: count, kind, tool: nullable, time, text: z.string(), sessionID: z.string() })
+/** A ready citation, `(ses_… #seq)`, with the session ID written out, for the model to copy. */
+const cite = z.string()
+export const SnippetSchema = z.strictObject({ messageID: z.string(), seq: count, kind, tool: nullable, time, text: z.string(), sessionID: z.string(), cite })
 /**
  * Sessions a call would also have found with one more input: `scope: "all"`, `includeArchived`, `includeSubagents` or
  * `includeCurrent`. Counted only when nothing is found.
@@ -126,8 +128,8 @@ export const SnippetSchema = z.strictObject({ messageID: z.string(), seq: count,
 export const HiddenSchema = z.strictObject({ scope: count, archived: count, subagents: count, current: count })
 /** A matching session. `queriesMatched` is 0 for a near match; `similar` counts the folded sessions like it. */
 export const SearchHitSchema = z.strictObject({ ...summary, score: z.number().finite(), matches: count, queriesMatched: count, similar: count, snippets: z.array(SnippetSchema) })
-export const ReadMessageSchema = z.strictObject({ seq: count, messageID: z.string(), type: z.string(), time, text: z.string() })
-export const EvidenceSchema = z.strictObject({ sessionID: z.string(), title: z.string(), seq: count, time, text: z.string() })
+export const ReadMessageSchema = z.strictObject({ seq: count, messageID: z.string(), type: z.string(), time, text: z.string(), cite })
+export const EvidenceSchema = z.strictObject({ sessionID: z.string(), title: z.string(), seq: count, time, text: z.string(), cite })
 
 export const SearchOutputSchema = z.strictObject({
   results: z.array(SearchHitSchema),
@@ -146,6 +148,8 @@ export const FilesOutputSchema = z.strictObject({
       sessionID: z.string(), title: z.string(),
       ops: z.strictObject(Object.fromEntries(FILE_OPS.map(o => [o, count.optional()])) as { [O in FileOp]: z.ZodOptional<typeof count> }),
       last: time, firstSeq: count,
+      /** The distinct seqs of its matching touches, ascending; the latest MAX_TOUCH_SEQS when `seqsCut`. */
+      seqs: z.array(count), seqsCut: z.boolean(),
     })),
   })),
   /** More paths matched than `limit`; the newest are shown. */

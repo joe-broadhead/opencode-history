@@ -97,7 +97,7 @@ export function formatSearch(result: SearchOutput, input: Pick<SearchInput, "que
     "",
     folded ? `Similar sessions are in the same directory as the one shown, with a near-identical title or the same first prompt; list those with its title with ${call("sessions", { title: folded.title })}.` : undefined,
     result.next ? `More: repeat the call with cursor: ${JSON.stringify(result.next)}.` : undefined,
-    `Next: ${call("brief", { sessionID: first.sessionID })} to see what that session did, then ${call("read", at ? { sessionID: at.sessionID, at: at.seq } : { sessionID: first.sessionID })} for the exact exchange. Cite what you use as (${at ? `${at.sessionID} #${at.seq}` : `${first.sessionID} #<seq>`}).`,
+    `Next: ${call("brief", { sessionID: first.sessionID })} to see what that session did, then ${call("read", at ? { sessionID: at.sessionID, at: at.seq } : { sessionID: first.sessionID })} for the exact exchange. Cite what you use as (${at ? `${at.sessionID} #${at.seq}` : `${first.sessionID} #<seq>`}), with the session ID every time.`,
   )
 }
 
@@ -124,6 +124,8 @@ export function formatSessions(result: SessionsOutput) {
 }
 
 const OPS = ["edit", "write", "patch", "read", "search"] as const
+/** A session's touch seqs; when cut, the first, then the latest. */
+const touchSeqs = (s: FilesOutput["files"][number]["sessions"][number]) => `${s.seqsCut ? `#${s.firstSeq}, … ` : ""}${s.seqs.map(seq => `#${seq}`).join(", ")}`
 export function formatFiles(result: FilesOutput, input: Pick<FilesInput, "path" | "scope" | "limit">) {
   if (result.files.length === 0) {
     const hidden = hiddenNotes(result.hidden)
@@ -140,10 +142,10 @@ export function formatFiles(result: FilesOutput, input: Pick<FilesInput, "path" 
     indexNotes(result.index),
     result.files.flatMap(file => [
       file.path,
-      ...file.sessions.map(s => `  ${title(s)} · last ${when(s.last)} · ${OPS.filter(op => s.ops[op]).map(op => `${op} ${s.ops[op]}`).join(", ") || "no counts"} · first at #${s.firstSeq}`),
+      ...file.sessions.map(s => `  ${title(s)} · last ${when(s.last)} · ${OPS.filter(op => s.ops[op]).map(op => `${op} ${s.ops[op]}`).join(", ") || "no counts"} · at ${touchSeqs(s)}`),
     ]),
     "",
-    first ? `Next: ${call("read", { sessionID: first.sessionID, at: first.firstSeq })} to see why it changed. Cite as (${first.sessionID} #${first.firstSeq}).` : undefined,
+    first ? `Next: ${call("read", { sessionID: first.sessionID, at: first.firstSeq })} to see why it changed. Cite as (${first.sessionID} #${first.firstSeq}), with the session ID every time.` : undefined,
   )
 }
 
@@ -162,7 +164,7 @@ export function formatRead(result: ReadOutput, input: Pick<ReadInput, "sessionID
     "",
     result.messages.flatMap(m => [`#${m.seq} ${m.type} · ${when(m.time)}`, m.text, ""]),
     result.truncated && calls ? "Text was trimmed to maxChars. Read a shorter range, raise maxChars, or set full: true." : undefined,
-    calls && result.messages.length ? `Cite a message as (${session.sessionID} #<seq>).` : undefined,
+    calls && result.messages.length ? `Cite a message as (${session.sessionID} #<seq>), with the session ID every time.` : undefined,
     calls && result.previous !== null ? `Earlier: ${call("read", { sessionID: input.sessionID, at: result.previous, before: 10, after: 0 })}` : undefined,
     calls && result.next !== null ? `Later: ${call("read", { sessionID: input.sessionID, at: result.next, before: 0 })}` : undefined,
     calls && none ? `Next: ${call("read", { sessionID: input.sessionID, at: widened.from })} to read without kinds, or repeat the call with other kinds.` : undefined,
@@ -214,7 +216,7 @@ export function formatRecall(result: RecallOutput, input: Pick<RecallInput, "sco
     `Evidence from ${plural(sessions, "session")}:`,
     result.evidence.flatMap(e => [`[${e.sessionID} #${e.seq} · ${when(e.time)} · ${JSON.stringify(e.title)}]`, e.text, ""]),
     `Searched for ${quoted(result.queries)}.`,
-    `Next: answer from this evidence, citing each claim as (${first.sessionID} #${first.seq}), or ${call("read", { sessionID: first.sessionID, at: first.seq })} for more context.`,
+    `Next: answer from this evidence, citing each claim as (${first.sessionID} #${first.seq}), with the session ID every time, or ${call("read", { sessionID: first.sessionID, at: first.seq })} for more context.`,
   )
 }
 

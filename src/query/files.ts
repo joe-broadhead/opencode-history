@@ -10,6 +10,8 @@ import { QUERY_HINTS } from "./parse.js"
 
 /** Sessions listed per path, most recent first. */
 const MAX_FILE_SESSIONS = 20
+/** Seqs listed per session and path: the latest, when it touched the path more often. */
+export const MAX_TOUCH_SEQS = 20
 
 interface FilesOptions {
   /** Epoch milliseconds that durations count back from. */
@@ -24,6 +26,8 @@ interface TouchRow {
   readonly count: number
   readonly last: number
   readonly firstSeq: number
+  /** The distinct seqs of these touches, comma-separated. */
+  readonly seqs: string
 }
 
 interface SessionTouches {
@@ -32,6 +36,7 @@ interface SessionTouches {
   readonly ops: Partial<Record<FileOp, number>>
   last: number
   firstSeq: number
+  readonly seqs: Set<number>
 }
 
 /** Paths most recently touched first; each with the sessions that touched it, most recent first. */
@@ -43,7 +48,7 @@ export function files(db: Db, caller: Caller, input: FilesInput, state: IndexSta
   const from = "from files f join sessions s on s.id = f.session_id left join sessions r on r.id = s.root_id"
   const opsSql = ops ? ` and f.op in (${placeholders(ops.length)})` : ""
   const rows = db.all<TouchRow>(
-    `select f.path as path, f.session_id as sessionID, s.title as title, f.op as op, count(*) as count, max(f.time) as last, min(f.seq) as firstSeq
+    `select f.path as path, f.session_id as sessionID, s.title as title, f.op as op, count(*) as count, max(f.time) as last, min(f.seq) as firstSeq, group_concat(distinct f.seq) as seqs
       ${from} where ${where.sql}${opsSql}
       group by f.path, f.session_id, f.op`,
     ...where.params,
@@ -61,10 +66,11 @@ export function files(db: Db, caller: Caller, input: FilesInput, state: IndexSta
     let bySession = paths.get(row.path)
     if (!bySession) paths.set(row.path, (bySession = new Map()))
     let touches = bySession.get(row.sessionID)
-    if (!touches) bySession.set(row.sessionID, (touches = { sessionID: row.sessionID, title: row.title, ops: {}, last: row.last, firstSeq: row.firstSeq }))
+    if (!touches) bySession.set(row.sessionID, (touches = { sessionID: row.sessionID, title: row.title, ops: {}, last: row.last, firstSeq: row.firstSeq, seqs: new Set() }))
     touches.ops[row.op] = (touches.ops[row.op] ?? 0) + row.count
     touches.last = Math.max(touches.last, row.last)
     touches.firstSeq = Math.min(touches.firstSeq, row.firstSeq)
+    for (const seq of String(row.seqs).split(",")) touches.seqs.add(Number(seq))
   }
 
   const byRecent = (a: { last: number }, b: { last: number }) => b.last - a.last
@@ -76,7 +82,10 @@ export function files(db: Db, caller: Caller, input: FilesInput, state: IndexSta
   return {
     files: grouped.slice(0, limit).map(file => ({
       path: file.path,
-      sessions: file.sessions.slice(0, MAX_FILE_SESSIONS).map(s => ({ sessionID: s.sessionID, title: s.title, ops: s.ops, last: iso(s.last), firstSeq: s.firstSeq })),
+      sessions: file.sessions.slice(0, MAX_FILE_SESSIONS).map(s => {
+        const seqs = [...s.seqs].sort((a, b) => a - b)
+        return { sessionID: s.sessionID, title: s.title, ops: s.ops, last: iso(s.last), firstSeq: s.firstSeq, seqs: seqs.slice(-MAX_TOUCH_SEQS), seqsCut: seqs.length > MAX_TOUCH_SEQS }
+      }),
     })),
     truncated: grouped.length > limit,
     hidden,

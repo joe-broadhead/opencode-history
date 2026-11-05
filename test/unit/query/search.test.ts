@@ -102,6 +102,9 @@ describe("words mode", () => {
     expect(hit.sessionID).toBe("ses_login")
     expect(hit.matches).toBe(2)
     expect(hit.snippets.map(snippet => snippet.sessionID).sort()).toEqual(["ses_explore", "ses_login"])
+    // A ready citation names the snippet's own session, the subagent's included.
+    expect(hit.snippets.map(snippet => snippet.cite).sort()).toEqual(hit.snippets.map(snippet => `(${snippet.sessionID} #${snippet.seq})`).sort())
+    expect(hit.snippets.some(snippet => snippet.cite.startsWith("(ses_explore #"))).toBe(true)
   })
 
   it("leaves subagent docs out unless includeSubagents", async () => {
@@ -553,6 +556,7 @@ describe("snippets", () => {
     expect(hit.matches).toBe(5)
     expect(hit.snippets.map(snippet => snippet.messageID)).toEqual(["m1", "m2", "m3"])
     expect(hit.snippets[0]).toMatchObject({ kind: "user", sessionID: "ses_a", time: new Date(NOW - DAY).toISOString() })
+    expect(hit.snippets.map(snippet => snippet.cite)).toEqual(hit.snippets.map(snippet => `(ses_a #${snippet.seq})`))
     expect(hit.snippets[0]!.text).toBe(`${MARK.open}deploy${MARK.close} ${MARK.open}deploy${MARK.close} ${MARK.open}deploy${MARK.close} now`)
     expect((await find({ query: "deploy", snippets: 1 })).results[0]!.snippets).toHaveLength(1)
     expect((await find({ query: "deploy", snippets: 0 })).results[0]!.snippets).toEqual([])

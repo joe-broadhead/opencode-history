@@ -3,7 +3,7 @@ import type { ReadInput, ReadMessage, ReadOutput, SessionSummary } from "../doma
 import { BOUNDS } from "../domain/bounds.js"
 import type { Source, SourceMessage } from "../domain/contract.js"
 import type { Db } from "../domain/sqlite.js"
-import { bounded, clip, iso, summaries, type Mask } from "./common.js"
+import { bounded, cite, clip, iso, summaries, type Mask } from "./common.js"
 import { HistoryError } from "../domain/common.js"
 import { renderMessage, type RenderOptions } from "./render.js"
 
@@ -164,14 +164,14 @@ export async function read(db: Db, source: MessageSource, input: ReadInput, mask
       text = clip(text, maxChars)
       next = rendered[index + 1]?.message.seq ?? neighbours.after
       last = message
-      if (text) messages.push({ seq: message.seq, messageID: message.id, type: message.type, time: iso(message.created), text })
+      if (text) messages.push({ seq: message.seq, messageID: message.id, type: message.type, time: iso(message.created), text, cite: cite(session.sessionID, message.seq) })
       break
     }
     last = message
     // Messages with nothing shown, such as tool-only messages under a kinds filter, still count as read.
     if (!text) continue
     used += text.length
-    messages.push({ seq: message.seq, messageID: message.id, type: message.type, time: iso(message.created), text })
+    messages.push({ seq: message.seq, messageID: message.id, type: message.type, time: iso(message.created), text, cite: cite(session.sessionID, message.seq) })
   }
 
   return {
