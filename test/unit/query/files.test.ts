@@ -80,15 +80,22 @@ describe("files", () => {
     expect(touched({ path: "src/auth.ts" }).hidden).toBeNull()
     expect(touched({ path: "session.ts" }).hidden).toEqual({ ...none, subagents: 1 })
     expect(touched({ path: "/work/web/src" }).hidden).toEqual({ ...none, scope: 1 })
-    expect(touched({ path: "login.ts" }, { ...CALLER, sessionID: "ses_a_child" }).hidden).toEqual({ ...none, current: 1 })
+    expect(touched({ path: "session.ts", includeSubagents: true }, { ...CALLER, sessionID: "ses_a_child" }).hidden).toEqual({ ...none, current: 1 })
     expect(touched({ path: "auth.ts", ops: ["search"] }).hidden).toEqual(none)
   })
 
-  it("counts touches by the caller's own subagents under both current and subagents", () => {
+  it("leaves out only the caller's own session: a subagent still sees its live parent, and a parent its subagents", () => {
     const none = { scope: 0, archived: 0, subagents: 0, current: 0 }
-    expect(touched({ path: "session.ts" }, { ...CALLER, sessionID: "ses_a" }).hidden).toEqual({ ...none, subagents: 1, current: 1 })
-    expect(touched({ path: "session.ts", includeSubagents: true }, { ...CALLER, sessionID: "ses_a" }).hidden).toEqual({ ...none, current: 1 })
-    expect(touched({ path: "session.ts", includeSubagents: true, includeCurrent: true }, { ...CALLER, sessionID: "ses_a" }).files).toMatchObject([{ sessions: [{ sessionID: "ses_a_child" }] }])
+    const child = { ...CALLER, sessionID: "ses_a_child" }
+    // The parent that started the calling subagent is another session, still running: it is history like any other.
+    expect(touched({ path: "src/auth.ts" }, child).files[0]!.sessions.map(s => s.sessionID)).toEqual(["ses_a", "ses_b"])
+    expect(touched({ path: "login.ts" }, child).files).toMatchObject([{ sessions: [{ sessionID: "ses_a" }] }])
+    // The caller's own touches are left out, and counted as exactly that: the caller, a subagent, under both reasons.
+    expect(touched({ path: "session.ts" }, child).hidden).toEqual({ ...none, subagents: 1, current: 1 })
+    expect(touched({ path: "session.ts", includeSubagents: true, includeCurrent: true }, child).files).toMatchObject([{ sessions: [{ sessionID: "ses_a_child" }] }])
+    // A parent's own subagent is not the caller: only includeSubagents leaves it out.
+    expect(touched({ path: "session.ts" }, { ...CALLER, sessionID: "ses_a" }).hidden).toEqual({ ...none, subagents: 1 })
+    expect(touched({ path: "session.ts", includeSubagents: true }, { ...CALLER, sessionID: "ses_a" }).files).toMatchObject([{ sessions: [{ sessionID: "ses_a_child" }] }])
   })
 
   it("limits the number of paths", () => {

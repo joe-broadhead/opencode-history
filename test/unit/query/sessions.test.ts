@@ -83,9 +83,10 @@ describe("sessions", () => {
     expect(ids({ sessionID: "ses_web" })).toEqual(["ses_web"])
   })
 
-  it("leaves out the caller's session tree unless includeCurrent", () => {
-    expect(ids({}, { ...CALLER, sessionID: "ses_a_child" })).toEqual(["ses_c", "ses_b"])
-    expect(ids({ includeCurrent: true }, { ...CALLER, sessionID: "ses_a_child" })).toEqual(["ses_a", "ses_c", "ses_b"])
+  it("leaves out only the caller's own session unless includeCurrent; a subagent caller still lists its parent", () => {
+    expect(ids({}, { ...CALLER, sessionID: "ses_a" })).toEqual(["ses_c", "ses_b"])
+    expect(ids({ includeCurrent: true }, { ...CALLER, sessionID: "ses_a" })).toEqual(["ses_a", "ses_c", "ses_b"])
+    expect(ids({}, { ...CALLER, sessionID: "ses_a_child" })).toEqual(["ses_a", "ses_c", "ses_b"])
   })
 
   it("counts what the default filters left out when nothing is listed", () => {
@@ -100,10 +101,12 @@ describe("sessions", () => {
     expect(list({ cursor: encodeCursor(10) })).toMatchObject({ sessions: [], hidden: null })
   })
 
-  it("counts the caller's own subagent sessions under both current and subagents", () => {
+  it("counts a caller's subagent only as a subagent, and a subagent caller under both current and subagents", () => {
     const none = { scope: 0, archived: 0, subagents: 0, current: 0 }
-    expect(list({ title: "explore" }, { ...CALLER, sessionID: "ses_a" }).hidden).toEqual({ ...none, subagents: 1, current: 1 })
-    expect(ids({ title: "explore", includeSubagents: true, includeCurrent: true }, { ...CALLER, sessionID: "ses_a" })).toEqual(["ses_a_child"])
+    expect(list({ title: "explore" }, { ...CALLER, sessionID: "ses_a" }).hidden).toEqual({ ...none, subagents: 1 })
+    expect(ids({ title: "explore", includeSubagents: true }, { ...CALLER, sessionID: "ses_a" })).toEqual(["ses_a_child"])
+    expect(list({ title: "explore" }, { ...CALLER, sessionID: "ses_a_child" }).hidden).toEqual({ ...none, subagents: 1, current: 1 })
+    expect(ids({ title: "explore", includeSubagents: true, includeCurrent: true }, { ...CALLER, sessionID: "ses_a_child" })).toEqual(["ses_a_child"])
   })
 
   it("pages with a cursor", () => {

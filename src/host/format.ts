@@ -41,13 +41,13 @@ const HIDDEN: { readonly [R in HiddenReason]: readonly [what: string, input: str
   scope: ["in other projects or folders", 'scope: "all"'],
   archived: ["archived", "includeArchived: true"],
   subagents: ["in subagent sessions", "includeSubagents: true"],
-  current: ["in the current session or its subagents", "includeCurrent: true"],
+  current: ["in the current session", "includeCurrent: true"],
 }
 
 /**
  * For an empty result: what the default filters left out, and the input that shows the most of it. A session counts
- * under every reason that leaves it out, so when the most are left out as subagents and at least as many as the current
- * session's, they are the current session's subagents, and the input is both.
+ * under every reason that leaves it out, so when the most are left out as subagents and the current session is left out
+ * too, as many, the caller is a subagent itself and the input is both.
  */
 function hiddenNotes(hidden: Hidden | null): { readonly note?: string; readonly input?: string } {
   if (!hidden) return {}
