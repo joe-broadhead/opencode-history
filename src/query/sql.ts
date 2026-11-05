@@ -3,9 +3,9 @@ import { spawn } from "node:child_process"
 import { dirname } from "node:path"
 import type { SqlInput, SqlOutput } from "../domain/api.js"
 import { BOUNDS } from "../domain/bounds.js"
-import { HistoryError } from "../domain/common.js"
+import { HistoryError, refused } from "../domain/common.js"
+import { locked } from "../domain/sqlite.js"
 import { bounded } from "./common.js"
-import { QueryError } from "./parse.js"
 
 export const SQL_CELL_CHARS = 2000
 export const SQL_BUSY_MS = 2000
@@ -41,7 +41,7 @@ export function checkSql(text: string): string {
         if (end < 0 || close === "]" || text[end + 1] !== close) break
         end += 2
       }
-      if (end < 0) throw new QueryError("the SQL has an unclosed quote", "sql_rejected")
+      if (end < 0) throw refused("SQL_REJECTED", "the SQL has an unclosed quote")
       out += text.slice(at, end + 1)
       code += "0"
       at = end + 1
@@ -52,9 +52,9 @@ export function checkSql(text: string): string {
     }
   }
   const statement = code.trim().replace(/[;\s]+$/, "")
-  if (!statement) throw new QueryError("the SQL is empty", "sql_rejected")
-  if (statement.includes(";")) throw new QueryError("only one SQL statement is allowed", "sql_rejected")
-  if (!/^(select|with)\b/i.test(statement)) throw new QueryError("only a SELECT or WITH statement is allowed", "sql_rejected")
+  if (!statement) throw refused("SQL_REJECTED", "the SQL is empty")
+  if (statement.includes(";")) throw refused("SQL_REJECTED", "only one SQL statement is allowed")
+  if (!/^(select|with)\b/i.test(statement)) throw refused("SQL_REJECTED", "only a SELECT or WITH statement is allowed")
   return out.trim().replace(/[;\s]+$/, "")
 }
 
@@ -269,10 +269,10 @@ function runChild(job: Record<string, unknown> & { readonly timeoutMs: number },
       chunks.push(chunk)
     })
     child.stdin.on("error", () => {})
-    child.on("error", error => {
+    child.on("error", () => {
       clearTimeout(timer)
       signal?.removeEventListener("abort", abort)
-      reject(new QueryError("the SQL process could not start", "sql_failed", { cause: error }))
+      reject(new HistoryError("SQL_FAILED"))
     })
     child.on("close", () => {
       clearTimeout(timer)
@@ -281,15 +281,26 @@ function runChild(job: Record<string, unknown> & { readonly timeoutMs: number },
       let answer: Answer | undefined
       try { answer = JSON.parse(Buffer.concat(chunks).toString("utf8")) as Answer } catch { /* no answer: a kill, or a crash */ }
       const why = stop ?? (answer && !answer.ok ? answer.reason : undefined)
-      if (why === "timeout") return reject(new QueryError(`the SQL ran longer than ${timeoutMs / 1000} s and was stopped`, "sql_timeout"))
+      if (why === "timeout") return reject(new HistoryError("SQL_TIMEOUT"))
       if (why === "output") return reject(new HistoryError("OUTPUT_LIMIT"))
       if (why === "cancelled") return reject(new HistoryError("CANCELLED"))
       if (answer) return resolve(answer)
-      reject(new QueryError("the SQL process gave no answer", "sql_failed"))
+      reject(new HistoryError("SQL_FAILED"))
     })
     // One line, and no end: the child reads the job up to the newline, and takes the end of stdin as this process exiting.
     child.stdin.write(`${JSON.stringify(job)}\n`)
   })
+}
+
+/** The kind of mistake SQLite found, in words that cannot repeat the statement as SQLite's own message does. */
+function sqliteMistake(text: string): string | undefined {
+  if (/no such column/i.test(text)) return "it names a column the views do not have"
+  if (/no such table/i.test(text)) return "it names a table or view the index does not have"
+  if (/no such function/i.test(text)) return "it calls a function SQLite does not have"
+  if (/ambiguous column/i.test(text)) return "a column name is ambiguous, so prefix it with its view"
+  if (/syntax error|unrecognized token|incomplete input/i.test(text)) return "it has a syntax error"
+  if (/index out of range/i.test(text)) return "params has more values than the statement has ? placeholders"
+  return undefined
 }
 
 export interface SqlOptions {
@@ -331,8 +342,9 @@ export async function sql(path: string, input: SqlInput, options: SqlOptions = {
   if (!answer.ok) {
     const failed = answer as Extract<Answer, { message: string }>
     const cause = Object.assign(new Error(failed.message), failed.errcode === undefined ? {} : { errcode: failed.errcode })
-    if (/unable to open|cannot open/i.test(failed.message)) throw new QueryError("the history index could not be opened for reading", "sql_failed", { cause })
-    throw new QueryError("the SQL failed", "sql_failed", { cause })
+    if (locked(cause)) throw new HistoryError("INDEX_BUSY")
+    const mistake = sqliteMistake(failed.message)
+    throw mistake ? refused("SQL_FAILED", mistake) : new HistoryError("SQL_FAILED")
   }
   return { columns: answer.columns, rows: answer.rows, truncated: answer.truncated }
 }

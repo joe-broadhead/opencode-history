@@ -1,3 +1,4 @@
+import { HistoryError } from "../../../src/domain/common.js"
 import { DatabaseSync } from "node:sqlite"
 import { describe, expect, it } from "vitest"
 import {
@@ -12,7 +13,6 @@ import {
   parseQuery,
   parseRegex,
   parseTime,
-  QueryError,
   requiredLiteral,
   substringCandidates,
   toMatch,
@@ -256,9 +256,9 @@ describe("parseTime", () => {
 
   it("rejects anything else with a clear message", () => {
     for (const bad of ["yesterday", "7", "7x", "", "October 1"]) {
-      expect(() => parseTime(bad, NOW, "since")).toThrow(QueryError)
+      expect(() => parseTime(bad, NOW, "since")).toThrow(HistoryError)
     }
-    expect(() => parseTime("soon", NOW, "until")).toThrow(/^until must be an ISO date/)
+    expect(() => parseTime("soon", NOW, "until")).toThrow(/^The search query cannot be used: until must be an ISO date/)
     expect(() => parseTime("soon", NOW, "until")).not.toThrow(/soon/)
   })
 })
@@ -274,7 +274,7 @@ describe("parseRegex", () => {
   })
 
   it("reports invalid patterns clearly", () => {
-    expect(() => parseRegex("(unclosed")).toThrow(QueryError)
+    expect(() => parseRegex("(unclosed")).toThrow(HistoryError)
     expect(() => parseRegex("(unclosed")).toThrow("invalid regex: Unterminated group")
     expect(() => parseRegex("/x/q")).not.toThrow()
     expect(() => parseRegex("(unclosed")).not.toThrow(/unclosed/)
@@ -286,7 +286,7 @@ describe("cursor", () => {
   it("round-trips an offset and rejects anything else", () => {
     expect(decodeCursor(encodeCursor(16))).toBe(16)
     expect(decodeCursor(undefined)).toBe(0)
-    expect(() => decodeCursor("garbage")).toThrow(expect.objectContaining({ reason: "cursor" }))
-    expect(() => decodeCursor(Buffer.from("o:-3").toString("base64url"))).toThrow(QueryError)
+    expect(() => decodeCursor("garbage")).toThrow(expect.objectContaining({ code: "CURSOR_INVALID" }))
+    expect(() => decodeCursor(Buffer.from("o:-3").toString("base64url"))).toThrow(HistoryError)
   })
 })

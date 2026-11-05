@@ -116,7 +116,7 @@ describe("brief", () => {
   })
 
   it("reports a missing session and survives a source without todos", async () => {
-    await expect(brief(db, source, { sessionID: "ses_nope" }, NO_MASK)).rejects.toMatchObject({ reason: "session" })
+    await expect(brief(db, source, { sessionID: "ses_nope" }, NO_MASK)).rejects.toMatchObject({ code: "SESSION_NOT_FOUND" })
     const broken: TodoSource = { todos: async () => Promise.reject(new Error("no todo table")) }
     expect((await brief(db, broken, { sessionID: "ses_main" }, NO_MASK)).todos).toEqual([])
   })

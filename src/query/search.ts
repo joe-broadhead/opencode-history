@@ -3,10 +3,11 @@ import type { Caller, Hidden, IndexState, SearchHit, SearchInput, SearchOutput, 
 import { BOUNDS, MAX_PHRASINGS } from "../domain/bounds.js"
 import { DOC_KINDS, KIND_WEIGHT, type DocKind } from "../domain/contract.js"
 import type { Db } from "../domain/sqlite.js"
+import { refused } from "../domain/common.js"
 import { bounded, iso, placeholders, summaries, trimSlash } from "./common.js"
 import { filterSql, hiddenCounts, hidingColumns, type Filtered, type Where } from "./filters.js"
 import {
-  decodeCursor, encodeCursor, hasJoined, highlightTerms, joinedPattern, joinedWords, MIN_SUBSTRING, nearMatch, parseQuery, parseRegex, QUERY_HINTS, QueryError,
+  decodeCursor, encodeCursor, hasJoined, highlightTerms, joinedPattern, joinedWords, MIN_SUBSTRING, nearMatch, parseQuery, parseRegex, QUERY_HINTS,
   requiredLiteral, substringCandidates, termMatch, toMatch, trigramMatch, usableQuery, type ParsedQuery, type Term,
 } from "./parse.js"
 
@@ -96,7 +97,7 @@ interface Hits {
 }
 
 const ftsFailure = (error: unknown) =>
-  error instanceof Error && /fts5|syntax error/i.test(error.message) ? new QueryError("the query could not be searched", "query", { cause: error, hint: QUERY_HINTS.words }) : error
+  error instanceof Error && /fts5|syntax error/i.test(error.message) ? refused("QUERY_INVALID", "the query could not be searched", QUERY_HINTS.words) : error
 
 /** The best docs for one words-mode MATCH, scored by bm25 and kind. */
 function ftsHits(db: Db, match: string, where: Where): { hits: DocHit[]; truncated: boolean } {
@@ -782,7 +783,7 @@ export async function search(db: Db, caller: Caller, input: SearchInput, state: 
     })
   } else if (mode === "substring") {
     const parsed = texts.map(parseQuery)
-    if (parsed.every(query => !substringCandidates(query))) throw new QueryError(`substring search needs a term of at least ${MIN_SUBSTRING} characters`, "query", { hint: QUERY_HINTS.substring })
+    if (parsed.every(query => !substringCandidates(query))) throw refused("QUERY_INVALID", `substring search needs a term of at least ${MIN_SUBSTRING} characters`, QUERY_HINTS.substring)
     hits = await substringHits(db, parsed, where, deadline, limit)
     highlighters = parsed.map(query => ({ kind: "literal", terms: highlightTerms(query, "substring").map(fold) }))
     probes = parsed.flatMap(query => {
@@ -794,7 +795,7 @@ export async function search(db: Db, caller: Caller, input: SearchInput, state: 
     })
   } else {
     const parsed = texts.map(parseQuery)
-    if (parsed.every(query => toMatch(query, "words") === undefined)) throw new QueryError("query has nothing to include; excluded terms need at least one word to search for", "query", { hint: QUERY_HINTS.excluded })
+    if (parsed.every(query => toMatch(query, "words") === undefined)) throw refused("QUERY_INVALID", "query has nothing to include; excluded terms need at least one word to search for", QUERY_HINTS.excluded)
     hits = wordsHits(db, parsed, where, limit)
     highlighters = parsed.map(query => {
       const full = toMatch(query, "words")

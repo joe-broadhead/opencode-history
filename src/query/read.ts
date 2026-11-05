@@ -4,7 +4,7 @@ import { BOUNDS } from "../domain/bounds.js"
 import type { Source, SourceMessage } from "../domain/contract.js"
 import type { Db } from "../domain/sqlite.js"
 import { bounded, clip, iso, summaries, type Mask } from "./common.js"
-import { QueryError } from "./parse.js"
+import { HistoryError } from "../domain/common.js"
 import { renderMessage, type RenderOptions } from "./render.js"
 
 /** The part of a source that reading needs. */
@@ -12,7 +12,7 @@ export type MessageSource = Pick<Source, "messages" | "message">
 
 export function indexedSession(db: Db, sessionID: string): SessionSummary {
   const summary = summaries(db, [sessionID]).get(sessionID)
-  if (!summary) throw new QueryError("no indexed session has that ID", "session")
+  if (!summary) throw new HistoryError("SESSION_NOT_FOUND")
   return summary
 }
 
@@ -37,7 +37,7 @@ async function centre(source: MessageSource, sessionID: string, at: ReadInput["a
   if (typeof at === "string" && at !== "") {
     if (/^\d+$/.test(at)) return { seq: Number(at), given: true }
     const message = await source.message(sessionID, { id: at })
-    if (!message) throw new QueryError("that session has no message with that ID", "message")
+    if (!message) throw new HistoryError("MESSAGE_NOT_FOUND")
     return { seq: message.seq, given: true }
   }
   const first = (await source.messages(sessionID, 0, 1))[0]
@@ -122,7 +122,7 @@ export async function read(db: Db, source: MessageSource, input: ReadInput, mask
   const from = Math.max(0, at.seq - before)
   const window = await messageWindow(source, input.sessionID, from, at.seq + after)
   if (window.inside.length === 0) {
-    if (at.given) throw new QueryError("that session has no message at that position", "message")
+    if (at.given) throw new HistoryError("MESSAGE_NOT_FOUND")
     return { ...empty, firstSeq: from, lastSeq: from - 1 }
   }
 

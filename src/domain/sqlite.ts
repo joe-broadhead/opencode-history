@@ -50,3 +50,10 @@ export function openDb(path: string, options: { readOnly?: boolean; busyMs?: num
     },
   }
 }
+
+/** SQLite's busy or locked result, by its primary code, or by its text where a driver gives no code. */
+export function locked(cause: unknown): boolean {
+  const code = typeof cause === "object" && cause !== null ? (cause as { errcode?: unknown }).errcode : undefined
+  if (typeof code === "number") return (code & 0xff) === 5 || (code & 0xff) === 6
+  return cause instanceof Error && /\bdatabase (?:table )?is locked\b/i.test(cause.message)
+}

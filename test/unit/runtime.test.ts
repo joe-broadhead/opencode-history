@@ -10,8 +10,7 @@ import { openDb } from "../../src/domain/sqlite.js"
 import type { HistoryRuntime, RuntimeOptions } from "../../src/host/runtime.js"
 import { acquire, REGISTRY } from "../../src/index/shared.js"
 import { SYNCED_AT } from "../../src/index/sync.js"
-import { QueryError, type QueryFailure } from "../../src/query/parse.js"
-import { createRuntime, QUERY_FAILURES, REFRESH_MS, toFailure } from "../../src/runtime.js"
+import { createRuntime, REFRESH_MS, toFailure } from "../../src/runtime.js"
 import type { ContextSessionApi } from "../../src/source/context.js"
 import { assistantData, createOpencodeDb, idleData, shellData, textPart, toolPart, userData, type OpencodeDbFixture } from "../fixtures/opencode-db.js"
 import { tempDir } from "../temp.js"
@@ -466,17 +465,8 @@ describe("recall", () => {
 })
 
 describe("failures", () => {
-  it("maps every QueryError reason to its host failure code", () => {
-    const reasons = Object.keys(QUERY_FAILURES) as QueryFailure[]
-    expect(reasons.map(reason => toFailure(new QueryError("x", reason)).code)).toEqual([
-      "QUERY_INVALID",
-      "CURSOR_INVALID",
-      "SESSION_NOT_FOUND",
-      "MESSAGE_NOT_FOUND",
-      "SQL_REJECTED",
-      "SQL_FAILED",
-      "SQL_TIMEOUT",
-    ])
+  it("keeps a HistoryError, and reports anything else by the fallback code alone", () => {
+    expect(toFailure(new HistoryError("CURSOR_INVALID")).code).toBe("CURSOR_INVALID")
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
     cleanups.push(() => warn.mockRestore())
     expect(toFailure(new Error("disk full at /private/path"))).toMatchObject({ code: "OPERATION_FAILED", message: FAILURES.OPERATION_FAILED[0] })
@@ -571,7 +561,7 @@ describe("failures", () => {
     await expect(runtime.reindex("catch-up")).rejects.toMatchObject({ code: "SOURCE_UNAVAILABLE", message: FAILURES.SOURCE_UNAVAILABLE[0] })
   })
 
-  it("maps SQLite's busy and locked results to INDEX_BUSY, also under a failed SQL query", () => {
+  it("maps SQLite's busy and locked results to INDEX_BUSY", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
     cleanups.push(() => warn.mockRestore())
     const path = join(temp(), "locked.db")
@@ -589,9 +579,7 @@ describe("failures", () => {
     holder.exec("rollback")
     expect(locked).toBeInstanceOf(Error)
     expect(toFailure(locked, "INDEX_FAILED")).toMatchObject({ code: "INDEX_BUSY", message: FAILURES.INDEX_BUSY[0] })
-    expect(toFailure(new QueryError("the SQL failed", "sql_failed", { cause: locked })).code).toBe("INDEX_BUSY")
     expect(toFailure(Object.assign(new Error("x"), { errcode: 517 })).code).toBe("INDEX_BUSY")
     expect(toFailure(Object.assign(new Error("x"), { errcode: 1 })).code).toBe("OPERATION_FAILED")
-    expect(toFailure(new QueryError("x", "sql_failed", { cause: new HistoryError("CANCELLED") })).code).toBe("CANCELLED")
   })
 })

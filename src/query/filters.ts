@@ -3,7 +3,8 @@ import { posix } from "node:path"
 import type { Caller, Filters, Hidden, HiddenReason } from "../domain/api.js"
 import type { Db, Value } from "../domain/sqlite.js"
 import { escapeLike, placeholders, trimSlash } from "./common.js"
-import { parseTime, QUERY_HINTS, QueryError } from "./parse.js"
+import { refused } from "../domain/common.js"
+import { parseTime, QUERY_HINTS } from "./parse.js"
 
 /** A SQL condition and its parameters. */
 export interface Where {
@@ -67,7 +68,7 @@ export type FilterTarget = "docs" | "sessions" | "files"
  */
 export function pathMatch(path: string, directory: string): Where {
   let clean = path.trim().replace(/^\.\//, "")
-  if (!clean || clean === "/" || clean === ".") throw new QueryError("path must name a file or folder", "query", { hint: QUERY_HINTS.path })
+  if (!clean || clean === "/" || clean === ".") throw refused("QUERY_INVALID", "path must name a file or folder", QUERY_HINTS.path)
   if (/[*?[]/.test(clean)) {
     return clean.startsWith("/") || clean.startsWith("*")
       ? { sql: "f.path glob ?", params: [clean] }

@@ -1,11 +1,5 @@
 // Turn free text from agents and people into safe FTS5 MATCH strings, time bounds, regexes and cursors.
-
-/**
- * What went wrong, for the host to pick its failure code: query (QUERY_INVALID), cursor (CURSOR_INVALID),
- * session (SESSION_NOT_FOUND), message (MESSAGE_NOT_FOUND), sql_rejected (SQL_REJECTED), sql_failed (SQL_FAILED)
- * and sql_timeout (SQL_TIMEOUT).
- */
-export type QueryFailure = "query" | "cursor" | "session" | "message" | "sql_rejected" | "sql_failed" | "sql_timeout"
+import { HistoryError, refused } from "../domain/common.js"
 
 /**
  * The next step for each cause of QUERY_INVALID, so the advice fits the mistake. A cause without one gets the code's
@@ -19,21 +13,6 @@ export const QUERY_HINTS = {
   excluded: "Add a word to search for besides the excluded terms.",
   path: "Pass a file or folder path, such as src/auth.ts.",
 } as const
-
-/** A request the query layer cannot serve. Messages say what to change and never repeat input values or history text. */
-export class QueryError extends Error {
-  /** The next step, when it is more specific than the failure code's own. */
-  readonly hint?: string
-  constructor(
-    message: string,
-    readonly reason: QueryFailure = "query",
-    options?: { cause?: unknown; hint?: string },
-  ) {
-    super(message, options?.cause === undefined ? undefined : { cause: options.cause })
-    this.name = "QueryError"
-    if (options?.hint !== undefined) this.hint = options.hint
-  }
-}
 
 export interface Term {
   readonly text: string
@@ -385,7 +364,7 @@ export function parseTime(value: string, now: number, edge: "since" | "until"): 
   }
   const time = ISO.test(text) ? Date.parse(DATE_ONLY.test(text) ? `${text}T00:00:00Z` : text) : Number.NaN
   if (!Number.isFinite(time)) {
-    throw new QueryError(`${edge} must be an ISO date such as "2026-10-01" or an age such as "36h", "7d", "2w", "3m" or "1y"`, "query", { hint: QUERY_HINTS.time })
+    throw refused("QUERY_INVALID", `${edge} must be an ISO date such as "2026-10-01" or an age such as "36h", "7d", "2w", "3m" or "1y"`, QUERY_HINTS.time)
   }
   return DATE_ONLY.test(text) && edge === "until" ? time + DAY - 1 : time
 }
@@ -398,13 +377,13 @@ export function parseRegex(pattern: string): RegExp {
   const literal = /^\/(.+)\/([dgimsuvy]*)$/s.exec(pattern)
   const source = literal ? literal[1]! : pattern
   const flags = literal ? literal[2]! : "i"
-  if (!source) throw new QueryError("regex pattern is empty", "query", { hint: QUERY_HINTS.regex })
+  if (!source) throw refused("QUERY_INVALID", "regex pattern is empty", QUERY_HINTS.regex)
   try {
     return new RegExp(source, flags.includes("g") ? flags : `${flags}g`)
   } catch (error) {
     // V8 puts the pattern before the last colon; keep only the reason.
     const reason = error instanceof Error && error.message.startsWith("Invalid regular expression") ? error.message.split(": ").at(-1) : "invalid flags"
-    throw new QueryError(`invalid regex: ${reason}`, "query", { hint: QUERY_HINTS.regex })
+    throw refused("QUERY_INVALID", `invalid regex: ${reason}`, QUERY_HINTS.regex)
   }
 }
 
@@ -418,6 +397,6 @@ export function decodeCursor(cursor: string | undefined): number {
   if (cursor === undefined || cursor === "") return 0
   const text = Buffer.from(cursor, "base64url").toString("utf8")
   const offset = text.startsWith(CURSOR) ? Number(text.slice(CURSOR.length)) : Number.NaN
-  if (!Number.isSafeInteger(offset) || offset < 0) throw new QueryError("cursor is not one this call returned; start again without it", "cursor")
+  if (!Number.isSafeInteger(offset) || offset < 0) throw new HistoryError("CURSOR_INVALID")
   return offset
 }

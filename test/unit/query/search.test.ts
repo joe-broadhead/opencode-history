@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import type { Caller, SearchInput } from "../../../src/domain/api.js"
 import { BOUNDS, MAX_PHRASINGS } from "../../../src/domain/bounds.js"
 import type { Db } from "../../../src/domain/sqlite.js"
-import { QueryError, decodeCursor } from "../../../src/query/parse.js"
+import { HistoryError } from "../../../src/domain/common.js"
+import { decodeCursor } from "../../../src/query/parse.js"
 import { MARK, NEAR_CANDIDATES, NEAR_WEIGHT, SCAN_DOCS, SNIPPET_CHARS, search } from "../../../src/query/search.js"
 import { CALLER, DAY, NOW, STATE, doc, file, noise, project, session, sidecar, titleDoc, type Sidecar } from "./fixture.js"
 
@@ -517,7 +518,7 @@ describe("filters", () => {
     expect((await ids({ query: "fixed", since: "7d" }))).toEqual(["ses_login"])
     expect((await ids({ query: "fixed", until: "2m" }))).toEqual(["ses_db"])
     expect((await ids({ query: "fixed", since: new Date(NOW - 2 * DAY).toISOString().slice(0, 10) }))).toEqual(["ses_login"])
-    await expect(find({ query: "fixed", since: "last tuesday" })).rejects.toThrow(QueryError)
+    await expect(find({ query: "fixed", since: "last tuesday" })).rejects.toThrow(HistoryError)
   })
 
   it("filters by kind, tool and agent", async () => {
@@ -649,7 +650,7 @@ describe("regex mode", () => {
   })
 
   it("reports an invalid pattern clearly", async () => {
-    await expect(find({ query: "fix(", match: "regex" })).rejects.toThrow(QueryError)
+    await expect(find({ query: "fix(", match: "regex" })).rejects.toThrow(HistoryError)
     await expect(find({ query: "fix(", match: "regex" })).rejects.toThrow("invalid regex: Unterminated group")
   })
 

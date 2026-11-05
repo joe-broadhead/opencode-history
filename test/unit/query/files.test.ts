@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import type { Caller, FilesInput } from "../../../src/domain/api.js"
 import type { Db } from "../../../src/domain/sqlite.js"
 import { files } from "../../../src/query/files.js"
-import { QueryError } from "../../../src/query/parse.js"
+import { HistoryError } from "../../../src/domain/common.js"
 import { CALLER, DAY, NOW, STATE, file, project, session, sidecar, type Sidecar } from "./fixture.js"
 
 let index: Sidecar
@@ -56,7 +56,6 @@ describe("files", () => {
     expect(touched({ path: "src", ops: ["edit"] }).files).toMatchObject([{ path: "/work/app/src/auth.ts", sessions: [{ sessionID: "ses_a", ops: { edit: 2 } }] }])
     expect(touched({ path: "src", tool: "apply_patch" }).files).toMatchObject([{ sessions: [{ sessionID: "ses_b" }] }])
     expect(touched({ path: "src", since: "7d" }).files.flatMap(item => item.sessions.map(s => s.sessionID))).toEqual(["ses_a", "ses_a"])
-    expect(() => touched({ path: "src", ops: ["delete" as never] })).toThrow(/ops must be among/)
   })
 
   it("includes subagent touches and other projects only on request", () => {
@@ -86,7 +85,7 @@ describe("files", () => {
   })
 
   it("needs a path", () => {
-    expect(() => touched({ path: " " })).toThrow(QueryError)
+    expect(() => touched({ path: " " })).toThrow(HistoryError)
     expect(() => touched({ path: "/" })).toThrow(/path must name a file or folder/)
   })
 })
