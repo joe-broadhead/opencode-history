@@ -18,14 +18,7 @@ opencode plugin add @joe-broadhead/opencode-history
 
 Run `opencode reload`, or restart OpenCode. Then run `/history-status`. On first start the plugin indexes every session in OpenCode's database in the background, newest first. The tools work while it runs, over the sessions indexed so far. `/history-status`, or `/history` in the terminal UI, shows the progress.
 
-## Update
-
-```sh
-opencode plugin update @joe-broadhead/opencode-history
-opencode reload
-```
-
-An entry pinned to a version (`@joe-broadhead/opencode-history@0.0.1`) does not update: remove the `@version` from `plugins` first. The index is kept; when a new version changes its layout, the plugin rebuilds it in the background.
+To update, run `opencode plugin update @joe-broadhead/opencode-history`, then `opencode reload`. An entry pinned to a version, such as `@joe-broadhead/opencode-history@0.0.1`, does not update: remove the `@version` from `plugins` first. The index is kept; when a new version changes its layout, the plugin rebuilds it in the background.
 
 ## Sign in
 
