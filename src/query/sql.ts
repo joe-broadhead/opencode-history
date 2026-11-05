@@ -294,10 +294,15 @@ function runChild(job: Record<string, unknown> & { readonly timeoutMs: number },
 
 /** The kind of mistake SQLite found, in words that cannot repeat the statement as SQLite's own message does. */
 function sqliteMistake(text: string): string | undefined {
-  if (/no such column/i.test(text)) return "it names a column the views do not have"
-  if (/no such table/i.test(text)) return "it names a table or view the index does not have"
-  if (/no such function/i.test(text)) return "it calls a function SQLite does not have"
-  if (/ambiguous column/i.test(text)) return "a column name is ambiguous, so prefix it with its view"
+  // The name SQLite reports, only when it is a plain identifier, so no other text of the statement is repeated.
+  const named = (pattern: RegExp, words: string) => {
+    const name = pattern.exec(text)?.[1]?.replace(/^main\./, "")
+    return name && /^[A-Za-z_][A-Za-z0-9_.]{0,63}$/.test(name) ? `${words}: ${name}` : words
+  }
+  if (/no such column/i.test(text)) return named(/no such column: (\S+)/i, "it names a column the views do not have")
+  if (/no such table/i.test(text)) return named(/no such table: (\S+)/i, "it names a table or view the index does not have")
+  if (/no such function/i.test(text)) return named(/no such function: (\S+)/i, "it calls a function SQLite does not have")
+  if (/ambiguous column/i.test(text)) return named(/ambiguous column name: (\S+)/i, "a column name is ambiguous, so prefix it with its view")
   if (/syntax error|unrecognized token|incomplete input/i.test(text)) return "it has a syntax error"
   if (/index out of range/i.test(text)) return "params has more values than the statement has ? placeholders"
   return undefined

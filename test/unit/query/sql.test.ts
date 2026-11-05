@@ -105,7 +105,30 @@ describe("sql", async () => {
   it("reports SQL errors as failures", async () => {
     const error = await run("select nope from v_sessions").catch((e: unknown) => e)
     expect(error).toBeInstanceOf(HistoryError)
-    expect(error).toMatchObject({ code: "SQL_FAILED", message: "The SQL query failed: it names a column the views do not have." })
+    expect(error).toMatchObject({ code: "SQL_FAILED", message: "The SQL query failed: it names a column the views do not have: nope." })
+  })
+
+  it("names the bad identifier SQLite reports, and never other text from the statement", async () => {
+    const failed = async (text: string) => ((await run(text).catch((e: unknown) => e)) as Error).message
+    const column = await failed("select secret_value from v_sessions where title = 'private words'")
+    expect(column).toBe("The SQL query failed: it names a column the views do not have: secret_value.")
+    expect(column).not.toContain("private words")
+    expect(await failed("select * from v_session")).toBe("The SQL query failed: it names a table or view the index does not have: v_session.")
+    expect(await failed("select nofunc(1)")).toBe("The SQL query failed: it calls a function SQLite does not have: nofunc.")
+    expect(await failed("select session_id from v_sessions, v_docs")).toBe("The SQL query failed: a column name is ambiguous, so prefix it with its view: session_id.")
+    // A name that is not a plain identifier is left out.
+    expect(await failed(`select "my secret phrase" from v_sessions`)).toBe("The SQL query failed: it names a column the views do not have.")
+  })
+
+  it("compares times as the description says: stored as YYYY-MM-DD HH:MM:SS UTC, or datetime(?) on both sides", async () => {
+    // ses_000 was updated at NOW; a window given with an offset converts to UTC under datetime().
+    const at = new Date(NOW).toISOString().slice(0, 19)
+    const count = async (where: string, value: string) => (await run(`select count(*) from v_sessions where session_id = 'ses_000' and ${where}`, [value])).rows[0]![0]
+    expect(await count("datetime(updated) >= datetime(?)", `${at}+01:00`)).toBe(1)
+    expect(await count("datetime(updated) <= datetime(?)", `${at}+01:00`)).toBe(0)
+    expect(await count("updated >= ?", at.replace("T", " "))).toBe(1)
+    // The T form sorts after the stored space form, which is the mistake the description warns about.
+    expect(await count("updated >= ?", at)).toBe(0)
   })
 })
 

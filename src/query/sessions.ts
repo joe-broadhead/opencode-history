@@ -2,11 +2,14 @@
 import type { Caller, Hidden, IndexState, SessionsInput, SessionsOutput } from "../domain/api.js"
 import { BOUNDS } from "../domain/bounds.js"
 import type { Db } from "../domain/sqlite.js"
-import { bounded, escapeLike, SUMMARY_COLUMNS, toSummary, type SummaryRow } from "./common.js"
+import { bounded, clip, escapeLike, SUMMARY_COLUMNS, toSummary, type SummaryRow } from "./common.js"
 import { filterSql, hiddenCounts, hidingColumns } from "./filters.js"
 import { decodeCursor, encodeCursor } from "./parse.js"
 
 /** Largest first; ties go to the most recently updated. */
+/** Characters of each row's first prompt. */
+const FIRST_PROMPT_CHARS = 200
+
 const SORTS = { updated: "s.updated", created: "s.created", cost: "s.cost", messages: "s.messages" } as const
 
 interface SessionsOptions {
@@ -38,7 +41,11 @@ export function sessions(db: Db, caller: Caller, input: SessionsInput, state: In
     hidden = hiddenCounts(left.map(row => ({ key: String(row.key), row })), where.hiding)
   }
   return {
-    sessions: rows.slice(0, limit).map(row => ({ ...toSummary(row), cost: row.cost, outcome: row.outcome })),
+    // A page of 100 rows stays small: each first prompt is cut to FIRST_PROMPT_CHARS; history_brief has more of it.
+    sessions: rows.slice(0, limit).map(row => {
+      const summary = toSummary(row)
+      return { ...summary, firstPrompt: summary.firstPrompt === null ? null : clip(summary.firstPrompt, FIRST_PROMPT_CHARS), cost: row.cost, outcome: row.outcome }
+    }),
     next: rows.length > limit ? encodeCursor(offset + limit) : null,
     hidden,
     index: state,

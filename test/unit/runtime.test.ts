@@ -534,11 +534,12 @@ describe("failures", () => {
     })
     const sqlFailures = await Promise.all(
       [
-        ["select secret_column from v_sessions", "it names a column the views do not have"],
-        ["select * from secret_table", "it names a table or view the index does not have"],
-        ["select secret_fn(1)", "it calls a function SQLite does not have"],
+        // The one identifier SQLite names is shown, so the next statement can fix it; nothing else of the statement is.
+        ["select bad_column from v_sessions where title = 'secret'", "it names a column the views do not have: bad_column"],
+        ["select * from bad_table where title = 'secret'", "it names a table or view the index does not have: bad_table"],
+        ["select bad_fn('secret')", "it calls a function SQLite does not have: bad_fn"],
         ["select secret from where", "it has a syntax error"],
-        ["select session_id from v_sessions, v_docs", "a column name is ambiguous, so prefix it with its view"],
+        ["select session_id from v_sessions, v_docs", "a column name is ambiguous, so prefix it with its view: session_id"],
         ["select json('{secret')", undefined],
       ].map(async ([sql, mistake]) => [mistake, await failure(runtime.sql(CALLER, { sql: sql! }))] as const),
     )

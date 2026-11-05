@@ -38,6 +38,13 @@ describe("sessions", () => {
     expect(out.next).toBeNull()
   })
 
+  it("keeps each row's first prompt short, so a long page stays small", () => {
+    session(db, { id: "ses_long", title: "Long prompt", updated: NOW, firstPrompt: "x".repeat(500) })
+    const row = list().sessions.find(item => item.sessionID === "ses_long")!
+    expect(row.firstPrompt).toHaveLength(200)
+    expect(row.firstPrompt!.endsWith("…")).toBe(true)
+  })
+
   it("adds subagent sessions with includeSubagents", () => {
     expect(ids({ includeSubagents: true })).toEqual(["ses_a", "ses_c", "ses_a_child", "ses_b"])
   })

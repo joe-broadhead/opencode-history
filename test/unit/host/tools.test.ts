@@ -42,7 +42,7 @@ describe("registration", () => {
     expect(added.map(t => t.name)).toEqual(["search", "brief", "read", "sessions", "files", "recall", "sql", "pin"])
     expect(added.map(t => t.name)).toEqual([...TOOL_NAMES])
     for (const tool of added) expect(tool.options).toMatchObject({ namespace: "history", permission: `history_${tool.name}` })
-    expect(added.filter(t => t.options.pinned).map(t => t.name)).toEqual(["search", "brief", "read"])
+    expect(added.filter(t => t.options.pinned).map(t => t.name)).toEqual(["search", "brief", "read", "sessions", "files", "sql"])
     expect(added.filter(t => !t.options.pinned).every(t => !("pinned" in t.options))).toBe(true)
   })
 
@@ -112,6 +112,10 @@ describe("descriptions teach the lookup", () => {
         expect(text).toContain("read-only SELECT or WITH statement")
         for (const name of [...VIEW_NAMES, ...fts]) expect(text, name).toContain(name)
       }
+      // How times are stored and compared, and that the columns listed are all there are.
+      expect(DESCRIPTIONS.sql).toContain("YYYY-MM-DD HH:MM:SS")
+      expect(DESCRIPTIONS.sql).toContain("datetime(?)")
+      expect(DESCRIPTIONS.sql).toMatch(/not.*select \*/)
       expect(FAILURES.SQL_REJECTED).toEqual(["The SQL was refused.", "Rewrite it as one read-only SELECT or WITH statement over the v_* views and the docs_words and docs_sub tables."])
     } finally { db.close() }
   })

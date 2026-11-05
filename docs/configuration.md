@@ -124,7 +124,7 @@ The plugin reads no other table. The database is opened with SQLite's read-only 
 
 ## Tools
 
-Effective name `history_<name>`. `options.permission` is that name, so a deny with resource `*` hides the tool. Pinned: `history_search`, `history_brief`, `history_read`. Every tool except `history_pin` is in Code Mode as `tools.history.<name>`.
+Effective name `history_<name>`. `options.permission` is that name, so a deny with resource `*` hides the tool. Pinned: `history_search`, `history_brief`, `history_read`, `history_sessions`, `history_files`, `history_sql`. Every tool except `history_pin` is in Code Mode as `tools.history.<name>`.
 
 | Tool | What it does | Effect |
 | --- | --- | --- |
@@ -219,7 +219,7 @@ With `kinds`, when no message in the window has those kinds, the window widens t
 
 ### Sessions and files
 
-`history_sessions` takes `title` (text the title contains, at most 256 characters), `sort` (`updated` by default, `created`, `cost` or `messages`, largest first; `cost` is the session's own spend in USD, and a subagent session is its own row), `limit` (1–100, default 20) and `cursor`. When it lists nothing, `hidden` counts the sessions one more input would list, as in [Search](#search).
+Each `history_sessions` row carries the first 200 characters of the session's first prompt; `history_brief` has 500. `history_sessions` takes `title` (text the title contains, at most 256 characters), `sort` (`updated` by default, `created`, `cost` or `messages`, largest first; `cost` is the session's own spend in USD, and a subagent session is its own row), `limit` (1–100, default 20) and `cursor`. When it lists nothing, `hidden` counts the sessions one more input would list, as in [Search](#search).
 
 `history_files` takes `path` (required), `ops` (`read`, `edit`, `write`, `patch`, `search`; default all) and `limit` (paths, 1–100, default 20). Paths are listed most recently touched first, each with up to 20 sessions, their counts per operation, the last touch and the `seq` of the first. `truncated` is `true` when more paths matched than `limit`; the text then asks for the folder that makes the path unique, since a bare name such as `README.md` matches that file in every repository. Touches are recorded from completed `read`, `edit`, `write`, `apply_patch`, `grep` and `glob` calls (`grep` and `glob` as `search` on their folder). When no file matches, `hidden` counts the sessions whose touches one more input would show.
 
@@ -256,7 +256,7 @@ Any table of the index can be read, but only the four views and the two full-tex
 
 Both index `v_docs.text`, and their `rowid` is `v_docs.doc_id`, for example `select d.session_id, count(*) from v_docs d join docs_words w on w.rowid = d.doc_id where docs_words match ? group by d.session_id`, or `select session_id from v_docs where doc_id in (select rowid from docs_sub where text like '%auth.ts%')`.
 
-Times are UTC text such as `2026-10-12 09:30:00`. `project` is the project's worktree. `archived` is `0` or `1`. `root_id` is the top-level session of the tree. `tool_calls` counts the model's tool calls, not the shell commands you ran yourself. Title texts are in `v_docs` with `seq` `-1`.
+Times are UTC text `YYYY-MM-DD HH:MM:SS`, such as `2026-10-12 09:30:00`, with a space and no zone. An ISO value with a `T` sorts after it and shifts a window, so compare with a value in the stored form, or wrap both sides in `datetime()`: `datetime(created) >= datetime(?)` also takes `2026-11-03T00:00+01:00` and converts it to UTC. `cost` is the session's own spend in USD. `project` is the project's worktree. `archived` is `0` or `1`. `root_id` is the top-level session of the tree. `tool_calls` counts the model's tool calls, not the shell commands you ran yourself. Title texts are in `v_docs` with `seq` `-1`.
 
 ### Pin
 
@@ -424,7 +424,7 @@ When an unexpected error is reported only by a code, `OPERATION_FAILED` or a com
 | `QUERY_INVALID` | The query, regular expression, date, path or other filter cannot be used; the message says which, and the next step fits it: for example "Use a substring of at least 3 characters, or search with match: \"words\".", or "Use an ISO date such as 2026-10-01 or an age such as 7d." |
 | `SQL_REJECTED` | The SQL was not one read-only `SELECT` or `WITH` statement over the index. Rewrite it as one, best over the `v_*` views. |
 | `SQL_TIMEOUT` | The statement ran longer than 10 seconds and was stopped. Narrow it: filter by time or session, and bound a recursive `WITH` with a `LIMIT` or a `WHERE` on its counter. |
-| `SQL_FAILED` | Check the view and column names. The message names the kind of mistake: an unknown column, table or function, an ambiguous column, a syntax error, or too many params. |
+| `SQL_FAILED` | Check the view and column names in the `history_sql` description. The message names the kind of mistake: an unknown column, table or function, with its name when that is a plain identifier (`it names a column the views do not have: nope`), an ambiguous column with its name, a syntax error, or too many params. Nothing else of the statement is repeated. |
 | `PIN_TOO_LARGE` | Pin a shorter range, or set a lower `maxChars`. |
 | `OUTPUT_LIMIT` | Narrow the request: a lower `limit`, a smaller `maxChars` or a shorter range. |
 | `CANCELLED` | Call again if you still need the result. |
