@@ -63,18 +63,8 @@ export interface SourceProject {
 /** Where the history comes from. `opencode-db` is complete; `context` is the partial fallback. */
 export type SourceKind = "opencode-db" | "context"
 
-export interface SourceProbe {
-  readonly kind: SourceKind
-  readonly ok: boolean
-  readonly complete: boolean
-  readonly detail: string
-  /** Why the probe failed: the source cannot be read, or it is a layout this version does not know. Absent when ok. */
-  readonly problem?: "unreadable" | "layout"
-}
-
 export interface Source {
   readonly kind: SourceKind
-  probe(): Promise<SourceProbe>
   /** One session by ID; undefined when missing. */
   session(id: string): Promise<SourceSession | undefined>
   /** Sessions updated after `since` (exclusive), oldest first, at most `limit`. */

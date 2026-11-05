@@ -1,5 +1,5 @@
 // Test doubles shared by the index tests: an in-memory source and a tiny extractor.
-import type { Doc, Extracted, Source, SourceKind, SourceMessage, SourceProbe, SourceProject, SourceSession } from "../../../src/domain/contract.js"
+import type { Doc, Extracted, Source, SourceKind, SourceMessage, SourceProject, SourceSession } from "../../../src/domain/contract.js"
 import { TITLE_SEQ } from "../../../src/index/store.js"
 
 export interface Said {
@@ -73,10 +73,6 @@ export class FakeSource implements Source {
 
   calls(prefix: string): string[] {
     return this.log.filter(line => line.startsWith(prefix))
-  }
-
-  async probe(): Promise<SourceProbe> {
-    return { kind: this.kind, ok: true, complete: this.kind === "opencode-db", detail: "fake" }
   }
 
   async session(id: string): Promise<SourceSession | undefined> {

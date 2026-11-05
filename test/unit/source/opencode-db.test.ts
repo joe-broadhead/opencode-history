@@ -40,37 +40,30 @@ describe("openOpencodeSource probe", () => {
   it("reports a complete source for the 2.2 layout", async () => {
     const { source } = setup()
     expect(source.kind).toBe("opencode-db")
-    expect(await source.probe()).toEqual({ kind: "opencode-db", ok: true, complete: true, detail: "OpenCode database readable" })
+    expect(await source.probe()).toEqual({ ok: true })
   })
 
   it("reports a missing file without throwing", async () => {
     const source = openOpencodeSource(join("/nonexistent", "dir", "opencode.db"))
     sources.push(source)
-    const probe = await source.probe()
-    expect(probe.ok).toBe(false)
-    expect(probe.complete).toBe(false)
-    expect(probe.detail).toMatch(/^cannot read OpenCode database/)
-    expect(probe.problem).toBe("unreadable")
+    expect(await source.probe()).toEqual({ ok: false, problem: "unreadable" })
   })
 
-  it("names missing tables and columns, as a layout it does not know", async () => {
+  it("takes missing tables and columns for a layout it does not know", async () => {
     const { fixture, source } = setup({ tables: ["project", "session_message"] })
     fixture.db.exec("alter table session_message drop column data")
-    const probe = await source.probe()
-    expect(probe.ok).toBe(false)
-    expect(probe.detail).toBe("unsupported OpenCode database: missing table session_v2, column session_message.data")
-    expect(probe.problem).toBe("layout")
+    expect(await source.probe()).toEqual({ ok: false, problem: "layout" })
   })
 
   it("takes a database with none of OpenCode's tables for an unreadable one, not a new layout", async () => {
     const { source } = setup({ tables: [] })
-    expect(await source.probe()).toMatchObject({ ok: false, problem: "unreadable", detail: "unsupported OpenCode database: missing table session_v2, table session_message, table project" })
+    expect(await source.probe()).toEqual({ ok: false, problem: "unreadable" })
   })
 
   it("stays usable without a todo table", async () => {
     const { fixture, source } = setup({ tables: ["project", "session_v2", "session_message"] })
     fixture.insertSession({ id: "ses_a" })
-    expect((await source.probe()).detail).toBe("OpenCode database readable; no todo table")
+    expect(await source.probe()).toEqual({ ok: true })
     expect(await source.todos("ses_a")).toEqual([])
   })
 })

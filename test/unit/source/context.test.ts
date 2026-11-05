@@ -51,21 +51,8 @@ describe("contextSource", () => {
     expectTypeOf<Pick<SessionDomain, "list" | "context">>().toExtend<ContextSessionApi>()
   })
 
-  it("probes as a partial source", async () => {
-    const { api } = fakeApi([])
-    const source = contextSource(api)
-    expect(source.kind).toBe("context")
-    expect(await source.probe()).toMatchObject({ kind: "context", ok: true, complete: false })
-  })
-
-  it("reports a failing session API", async () => {
-    const source = contextSource({
-      list: async () => {
-        throw new Error("not ready")
-      },
-      context: async () => [],
-    })
-    expect(await source.probe()).toEqual({ kind: "context", ok: false, complete: false, detail: "plugin session API unavailable: not ready", problem: "unreadable" })
+  it("is a partial source", () => {
+    expect(contextSource(fakeApi([]).api).kind).toBe("context")
   })
 
   it("lists every page and returns changed sessions oldest first", async () => {

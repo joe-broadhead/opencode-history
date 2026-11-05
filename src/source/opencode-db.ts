@@ -1,7 +1,7 @@
 // The complete source: OpenCode's own database, opened read-only. Layout of OpenCode 2.2.x.
 import { homedir } from "node:os"
 import { isAbsolute, join } from "node:path"
-import type { Source, SourceMessage, SourceProbe, SourceProject, SourceSession } from "../domain/contract.js"
+import type { Source, SourceMessage, SourceProject, SourceSession } from "../domain/contract.js"
 import { openDb, type Db } from "../domain/sqlite.js"
 
 /** Columns this module reads, per table. `todo` is optional. */
@@ -65,7 +65,11 @@ const SESSION_SELECT = `select id, project_id, parent_id, directory, title, agen
 
 const MESSAGE_SELECT = `select id, session_id, type, seq, time_created, time_updated, data from session_message`
 
-export function openOpencodeSource(path: string): Source {
+/** Whether OpenCode's database can be used; when not, whether it cannot be read or has a layout this version does not know. */
+export type DatabaseProbe = { readonly ok: true } | { readonly ok: false; readonly problem: "unreadable" | "layout" }
+
+/** OpenCode's database as a source, with the probe that decides whether the plugin uses it. */
+export function openOpencodeSource(path: string): Source & { probe(): Promise<DatabaseProbe> } {
   let db: Db | undefined
   let hasTodo: boolean | undefined
   // Open on first use so probe() can report a missing or unreadable file.
@@ -73,19 +77,18 @@ export function openOpencodeSource(path: string): Source {
 
   return {
     kind: "opencode-db",
-    async probe(): Promise<SourceProbe> {
+    async probe() {
       try {
         const missing = missingColumns(conn(), REQUIRED_COLUMNS)
         if (missing.length > 0) {
           // A file with none of the tables is some other database, not another layout of OpenCode's.
           const tables = missing.filter(item => item.startsWith("table ")).length
-          const problem = tables < Object.keys(REQUIRED_COLUMNS).length ? "layout" : "unreadable"
-          return { kind: "opencode-db", ok: false, complete: false, detail: `unsupported OpenCode database: missing ${missing.join(", ")}`, problem }
+          return { ok: false, problem: tables < Object.keys(REQUIRED_COLUMNS).length ? "layout" : "unreadable" }
         }
         hasTodo = missingColumns(conn(), { todo: TODO_COLUMNS }).length === 0
-        return { kind: "opencode-db", ok: true, complete: true, detail: hasTodo ? "OpenCode database readable" : "OpenCode database readable; no todo table" }
-      } catch (error) {
-        return { kind: "opencode-db", ok: false, complete: false, detail: `cannot read OpenCode database: ${errorMessage(error)}`, problem: "unreadable" }
+        return { ok: true }
+      } catch {
+        return { ok: false, problem: "unreadable" }
       }
     },
     async session(id) {
@@ -225,8 +228,4 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function count(limit: number): number {
   return Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : -1
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
 }
