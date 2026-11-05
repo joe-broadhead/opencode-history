@@ -165,7 +165,7 @@ export const BriefOutputSchema = z.strictObject({
 }) satisfies z.ZodType<BriefOutput>
 
 export const SqlOutputSchema = z.strictObject({
-  columns: z.array(z.string()), rows: z.array(z.array(z.unknown())), truncated: z.boolean(),
+  columns: z.array(z.string()), rows: z.array(z.array(z.unknown())), truncated: z.boolean(), index: IndexStateSchema,
 }) satisfies z.ZodType<SqlOutput>
 
 export const RecallOutputSchema = z.strictObject({
@@ -193,12 +193,3 @@ export const StatusSchema = z.strictObject({
   mismatch: z.strictObject({ file: z.string().max(64).nullable(), build: z.string().max(64) }).optional(),
   nextStep: z.string().max(4096),
 }) satisfies z.ZodType<StatusView>
-
-/**
- * What history_status returns: the status view, compact. The unguarded agents become a count and one line pointing at
- * /history-status, which names them and gives the block.
- */
-export const StatusToolSchema = StatusSchema.omit({ unguardedAgents: true, permissionsBlock: true }).extend({
-  unguardedAgents: z.number().int().min(0),
-  permissions: z.string().max(1024).optional(),
-})

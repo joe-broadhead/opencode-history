@@ -6,7 +6,6 @@ import type * as z from "zod"
 import { loadSkills, SKILLS, skillTransform } from "../../../src/host/skills.js"
 import { PinInputSchema } from "../../../src/host/actions.js"
 import * as S from "../../../src/host/schemas.js"
-import { empty } from "../../../src/domain/common.js"
 import { ACTIONS, TOOL_NAMES, type ToolName } from "../../../src/host/tools.js"
 import { tempDir } from "../../temp.js"
 
@@ -16,7 +15,7 @@ afterEach(async () => { await Promise.all(temps.splice(0).map(dir => rm(dir, { r
 
 const INPUTS: Partial<Record<ToolName, z.ZodType>> = {
   search: S.SearchInputSchema, brief: S.BriefInputSchema, read: S.ReadInputSchema, sessions: S.SessionsInputSchema,
-  files: S.FilesInputSchema, recall: S.RecallInputSchema, sql: S.SqlInputSchema, pin: PinInputSchema, status: empty,
+  files: S.FilesInputSchema, recall: S.RecallInputSchema, sql: S.SqlInputSchema, pin: PinInputSchema,
 }
 
 describe("skills", () => {
@@ -44,7 +43,7 @@ describe("skills", () => {
     for (const name of content.match(/\bhistory_\w+/g) ?? []) expect(TOOL_NAMES.map(t => `history_${t}`)).toContain(name)
     // Code Mode calls, as the model writes them inside execute: every tool but the actions, which are direct tools.
     const calls = [...content.matchAll(/tools\.history\.(\w+)\((\{.*?\})\)/g)]
-    expect(calls.map(m => m[1])).toEqual(["search", "brief", "read", "files", "sessions", "recall", "sql", "status"])
+    expect(calls.map(m => m[1])).toEqual(["search", "brief", "read", "files", "sessions", "recall", "sql"])
     for (const [, tool, literal] of calls) {
       expect(ACTIONS.has(tool as ToolName), tool).toBe(false)
       const input = new Function(`return (${literal!.replaceAll("ses_...", "ses_x")})`)() as Record<string, unknown>

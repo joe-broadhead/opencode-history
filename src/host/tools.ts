@@ -1,24 +1,23 @@
 import type * as z from "zod"
 import type { Plugin } from "@opencode/plugin"
 import type { Caller, Scope } from "../domain/api.js"
-import { empty, fail, HistoryError } from "../domain/common.js"
+import { fail, HistoryError } from "../domain/common.js"
 import type { DefaultScope } from "../domain/config.js"
 import { NAMESPACE } from "../domain/contract.js"
 import { formatPin, PinInputSchema, PinOutputSchema, runPin, type ActionSources } from "./actions.js"
 import { mapFailures } from "./errors.js"
-import { formatBrief, formatFiles, formatRead, formatRecall, formatSearch, formatSessions, formatSql, formatStatus } from "./format.js"
+import { formatBrief, formatFiles, formatRead, formatRecall, formatSearch, formatSessions, formatSql } from "./format.js"
 import { READ_TOOLS, permissionRequest, type Assert, type Call } from "./permissions.js"
 import type { HistoryRuntime, QueryMethod } from "./runtime.js"
 import {
   BriefInputSchema, BriefOutputSchema, FilesInputSchema, FilesOutputSchema, ReadInputSchema, ReadOutputSchema, RecallInputSchema, RecallOutputSchema,
-  SearchInputSchema, SearchOutputSchema, SessionsInputSchema, SessionsOutputSchema, SqlInputSchema, SqlOutputSchema, StatusToolSchema,
+  SearchInputSchema, SearchOutputSchema, SessionsInputSchema, SessionsOutputSchema, SqlInputSchema, SqlOutputSchema,
 } from "./schemas.js"
-import type { StatusView } from "./status.js"
 
 type ToolEditor = Parameters<Parameters<Plugin.Context["tool"]["transform"]>[0]>[0]
 
 /** The tools, registered in NAMESPACE as `history_<name>`, in the order of a good lookup: search, brief, read. */
-export const TOOL_NAMES = ["search", "brief", "read", "sessions", "files", "recall", "sql", "pin", "status"] as const
+export const TOOL_NAMES = ["search", "brief", "read", "sessions", "files", "recall", "sql", "pin"] as const
 export type ToolName = typeof TOOL_NAMES[number]
 export const PINNED: ReadonlySet<ToolName> = new Set(["search", "brief", "read"])
 /** Action tools change the current session through the plugin context, so Code Mode does not get them, and they ask. */
@@ -44,14 +43,12 @@ export const DESCRIPTIONS: { readonly [K in ToolName]: string } = {
   recall: "Answer a question from past sessions in one call: it searches with several phrasings, takes the best sessions and returns quoted evidence with session ID and seq. With synthesize: true it also writes an answer from that evidence with a model. Pass 2-4 `queries` phrasings for better recall. Check the evidence before relying on an answer, and cite session IDs. For open-ended exploring, history_search, history_brief and history_read give more control.",
   sql: `Run one read-only SELECT or WITH statement over the history index of every project, for counts and reports the other tools cannot express, such as cost per week, sessions per directory or the most edited files. Views: ${VIEWS.join("; ")}. Full-text tables: ${FTS_TABLES.join(" and ")}, whose rowid is v_docs.doc_id. Query only these: the other tables can change between versions. Times are UTC text such as 2026-10-12 09:30:00. Pass values as ? placeholders with params. For text, use history_search: it ranks far better than LIKE.`,
   pin: "Pin a past session's brief, or a range of its messages, into this session's instructions, so it stays in context through compactions; also remove or list pins. Use it when earlier work should stay in view while you work, such as a design decision or the steps of a fix. Find the session and seqs first with history_search, history_brief or history_read. Pinned text is sent with every request, so pin briefs or short ranges, and remove pins once they are no longer needed.",
-  status: "Show whether the history index is ready, how many sessions it holds, whether it reads the full OpenCode database or a partial fallback, and the options in effect. Call it when a history tool fails or results look incomplete.",
 }
 
 export interface ToolSources {
   readonly runtime: Pick<HistoryRuntime, QueryMethod>
   /** The plugin context's session domain, for the action tools. */
   readonly session: ActionSources["session"]
-  readonly status: () => Promise<StatusView>
   /** Where the plugin runs. Each call adds its own session. */
   readonly location: { readonly projectID: string; readonly directory: string }
   /** From the plugin options: the scope when a call names none, and whether recall writes an answer by default. */
@@ -116,22 +113,7 @@ export const TOOL_DEFINITIONS: readonly ToolDefinition[] = [
     const output = await runPin(sources, caller, input, signal)
     return { output, content: formatPin(output, input) }
   }, input => ({ pin: input.action, ...input.sessionID ? { pinned: input.sessionID } : {} })),
-  define("status", empty, StatusToolSchema, async sources => {
-    const view = await sources.status()
-    return { output: compactStatus(view), content: formatStatus(view, { compact: true }) }
-  }),
 ]
-
-/** The status for the model: the unguarded agents as a count, and a pointer to /history-status for their names. */
-export function compactStatus(view: StatusView) {
-  const { unguardedAgents, permissionsBlock: _block, ...rest } = view
-  const count = unguardedAgents.length
-  return {
-    ...rest,
-    unguardedAgents: count,
-    ...count ? { permissions: `${count} agent${count === 1 ? "" : "s"} missed the default rules, so history_pin runs there without asking; /history-status names them and gives the block to add.` } : {},
-  }
-}
 
 /** Most bytes of content, and of serialized output, one call returns. */
 export const MAX_RESULT_BYTES = 1_048_576

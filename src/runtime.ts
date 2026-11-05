@@ -357,7 +357,10 @@ export const createRuntime: CreateRuntime = async ({ config, session, generate }
     brief: (_caller, input) => query("brief", async () => masked(await brief(shared.store.db, shared.source, input, mask))),
     // A closing instance stops its statements, so a reload never leaves one running.
     sql: (_caller, input, signal) =>
-      query("sql", () => sql(shared.store.path, input, { signal: signal ? AbortSignal.any([signal, closing.signal]) : closing.signal, mask: config.mask })),
+      query("sql", async () => ({
+        ...await sql(shared.store.path, input, { signal: signal ? AbortSignal.any([signal, closing.signal]) : closing.signal, mask: config.mask }),
+        index: state(),
+      })),
     recall: (caller, input) =>
       query("recall", () =>
         fresh(async () => masked(await recall(shared.store.db, shared.source, caller, input, state(), (input.synthesize ?? config.recall.synthesize) ? generate : undefined, mask))),

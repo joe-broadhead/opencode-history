@@ -43,7 +43,6 @@ await tools.history.sessions({ since: "7d", sort: "cost" })
 await tools.history.files({ path: "src/auth/login.ts" })
 await tools.history.recall({ question: "How did we fix the flaky upload test?", queries: ["flaky upload test", "upload test timeout"] })
 await tools.history.sql({ sql: "select date(created) as day, round(sum(cost), 2) as cost from v_sessions group by day order by day desc", limit: 14 })
-await tools.history.status({})
 ```
 
 - **Search, brief, read.** The usual lookup. `history_search` ranks sessions for two to four phrasings of one topic and returns excerpts, each with a `seq`. `history_brief` summarises one session: first prompt, compaction summaries, last reply, outcome, files edited, commands, subagents and todos. `history_read` reads the messages around a `seq`, with paging; with `kinds`, a window with none of those kinds widens to the nearest messages that have them. These three tools are pinned.
@@ -51,7 +50,6 @@ await tools.history.status({})
 - **Recall.** `history_recall` searches, takes the best sessions and returns quoted evidence with session IDs and `seq`s. With `synthesize: true` it also asks a model to write an answer from that evidence.
 - **SQL.** `history_sql` runs one read-only `SELECT` or `WITH` statement over the index, for counts and reports. Its stable interface is four views, `v_sessions`, `v_docs`, `v_files` and `v_links`, and two full-text tables, `docs_words` (`MATCH`) and `docs_sub` (`text LIKE '%substring%'`). The other tables can change between versions.
 - **Pin.** `history_pin` keeps a past session's brief, or a range of its messages, in the current session's instructions, so it stays in view through compactions. It is not in Code Mode, because it changes the current session.
-- **Status.** `history_status` shows index progress, the source and the options in effect.
 
 Search, sessions, files and recall look in the current project by default. They leave out the current session, subagent sessions and archived sessions unless you ask for them. The filters are `scope` (`project`, `directory`, `all` or `session`), `since` and `until` (an ISO date, or an age such as `36h`, `7d`, `3w`, `2m` or `1y`), `kinds`, `tool`, `agent`, `path`, `sessionID`, `includeSubagents`, `includeCurrent` and `includeArchived`.
 
@@ -93,7 +91,7 @@ The plugin puts a default block after each agent's base `* * allow` rule:
 
 | Tool | Default |
 |---|---|
-| `history_search`, `history_read`, `history_brief`, `history_sessions`, `history_files`, `history_recall`, `history_sql`, `history_status` | allow |
+| `history_search`, `history_read`, `history_brief`, `history_sessions`, `history_files`, `history_recall`, `history_sql` | allow |
 | `history_pin`, which changes the current session's instructions | ask |
 | any other `history_*` tool | ask |
 
@@ -151,7 +149,7 @@ There is nothing to sign in to and no client ID to set. `mask` adds patterns tha
 
 ## Troubleshooting
 
-Start with `/history-status` or `history_status`. They end with one next step. Errors read `CODE: what happened. Next step: What to do.`
+Start with `/history-status`. It ends with one next step. Errors read `CODE: what happened. Next step: What to do.`
 
 | State or code | What to do |
 | --- | --- |

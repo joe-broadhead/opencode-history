@@ -85,12 +85,6 @@
         "permission": "history_pin",
         "effect": "ask",
         "readOnly": false
-      },
-      {
-        "name": "history.status",
-        "permission": "history_status",
-        "effect": "allow",
-        "readOnly": true
       }
     ],
     "skills": [

@@ -69,9 +69,9 @@ export function createPlugin({ createRuntime, packageRoot }: PluginSources): Plu
         const assert = (request: Parameters<typeof ctx.permission.assert>[0]) => ctx.permission.assert(request)
         const skills = await loadSkills(packageRoot)
         await registerDefaultRules(ctx.agent)
-        await ctx.tool.transform(toolTransform({ runtime, session: ctx.session, status, location, defaults, assert: request => assert(request as never) }))
+        await ctx.tool.transform(toolTransform({ runtime, session: ctx.session, location, defaults, assert: request => assert(request as never) }))
         await ctx.rpc.register(History, rpcHandlers({ status }))
-        stopScripting = await registerScripting(ctx, { runtime, session: ctx.session, status, location, defaults })
+        stopScripting = await registerScripting(ctx, { runtime, session: ctx.session, location, defaults })
         await ctx.command.transform(commandTransform({ synthetic: input => ctx.session.synthetic(input), runtime, status }))
         await ctx.skill.transform(skillTransform(skills))
         // Session events keep the index fresh. The loop ends when the plugin unloads.

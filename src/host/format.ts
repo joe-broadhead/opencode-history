@@ -22,8 +22,8 @@ const title = (session: Pick<SessionSummary, "sessionID" | "title">) => `${sessi
 export function indexNotes(index: IndexState) {
   const notes: string[] = []
   if (!index.ready) notes.push(`The index is still being built (${index.sessionsIndexed} of ${index.sessionsTotal} sessions), so results may be incomplete.`)
-  if (index.source === "context") notes.push("History comes from a partial source that keeps only the messages after each compaction; call history_status for the fix.")
-  else if (!index.complete) notes.push("The history source is incomplete; call history_status for the fix.")
+  if (index.source === "context") notes.push("History comes from a partial source that keeps only the messages after each compaction; the user can run /history-status for the fix.")
+  else if (!index.complete) notes.push("The history source is incomplete; the user can run /history-status for the fix.")
   return notes
 }
 const lines = (...groups: readonly (string | readonly string[] | undefined | false)[]) =>
@@ -193,6 +193,7 @@ const cell = (value: unknown) => {
 export function formatSql(result: SqlOutput) {
   return lines(
     `${plural(result.rows.length, "row")}${result.truncated ? "; more rows exist, so raise limit or narrow the query" : ""}.`,
+    indexNotes(result.index),
     result.columns.join(" | "),
     result.rows.map(row => row.map(cell).join(" | ")),
   )
@@ -223,12 +224,11 @@ export const MISMATCH_ROW = "Index schema:"
 export function blockLines(rules: readonly { readonly action: string; readonly resource: string; readonly effect: string }[]) {
   return rules.length ? ["[", ...rules.map((rule, at) => `  ${JSON.stringify(rule)}${at < rules.length - 1 ? "," : ""}`), "]"] : []
 }
-/** The row of agents that miss the default rules: their names, or with `compact` their count and a pointer. */
+/** The row of agents that miss the default rules: their names, then the block to paste. */
 export const AGENTS_ROW = "Agents without default rules:"
-function agentsRow(view: StatusView, compact: boolean) {
+function agentsRow(view: StatusView) {
   const names = view.unguardedAgents
   if (names.length === 0) return [`${AGENTS_ROW} none`]
-  if (compact) return [`${AGENTS_ROW} ${names.length}; /history-status names them and gives the block`]
   return [`${AGENTS_ROW} ${names.join(", ")}`, ...blockLines(view.permissionsBlock ?? []).map(line => `  ${line}`)]
 }
 /** The Account row: History has no accounts. */
@@ -255,7 +255,7 @@ function toolsText({ tools }: StatusView) {
   const unknown = tools.unknown.length ? `, ${tools.unknown.length} unknown (they ask first): ${tools.unknown.join(", ")}` : ""
   return `${tools.visible} available${unknown}`
 }
-export function formatStatus(view: StatusView, options: { readonly compact?: boolean } = {}) {
+export function formatStatus(view: StatusView) {
   const { index, mismatch } = view
   return lines(
     "History status",
@@ -271,7 +271,7 @@ export function formatStatus(view: StatusView, options: { readonly compact?: boo
     `Default scope: ${view.defaultScope}`,
     `Recall answers: ${view.recall.synthesize ? "on" : "off"}${view.recall.model ? ` (${view.recall.model})` : " (default model)"}`,
     `Tools: ${toolsText(view)}`,
-    agentsRow(view, options.compact ?? false),
+    agentsRow(view),
     `OpenCode: ${hostText(view)}`,
     `Next step: ${view.nextStep}`,
   )

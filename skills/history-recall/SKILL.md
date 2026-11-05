@@ -51,7 +51,6 @@ When you rely on history, cite the session ID and seq, for example "(ses_abc123 
 - `tools.history.sessions({ since: "7d" })` lists sessions by time, cost or size with no query.
 - `tools.history.recall({ question: "...", queries: ["...", "..."] })` returns quoted evidence from the best sessions in one call. Check the evidence before relying on it.
 - `tools.history.sql({ sql: "select ..." })` runs one read-only SELECT over the index views for counts and reports.
-- `tools.history.status({})` explains missing or incomplete results.
 - `history_pin` (a direct tool) keeps a brief or a seq range of a past session in this session's instructions, with `sessionID`, and `from` and `to` for a range, for example `"from": 40, "to": 48`. It asks the user first. Pins are sent with every request, so remove one with `"action": "remove"` and its `sessionID` when done.
 
 ## Care

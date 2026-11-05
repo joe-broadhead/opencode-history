@@ -33,9 +33,9 @@ describe("result text", () => {
     expect(formatSearch({ ...SAMPLES.search, truncated: true }, { query: "a" })).toContain("Too many texts matched to rank them all, so the count and order are approximate")
     expect(indexNotes({ ...INDEX, ready: false, sessionsIndexed: 5, source: "context", complete: false })).toEqual([
       "The index is still being built (5 of 42 sessions), so results may be incomplete.",
-      "History comes from a partial source that keeps only the messages after each compaction; call history_status for the fix.",
+      "History comes from a partial source that keeps only the messages after each compaction; the user can run /history-status for the fix.",
     ])
-    expect(indexNotes({ ...INDEX, complete: false })).toEqual(["The history source is incomplete; call history_status for the fix."])
+    expect(indexNotes({ ...INDEX, complete: false })).toEqual(["The history source is incomplete; the user can run /history-status for the fix."])
     expect(indexNotes(INDEX)).toEqual([])
   })
 
@@ -114,6 +114,7 @@ describe("result text", () => {
     expect(formatFiles(SAMPLES.files, { path: "src/auth" })).toContain("Next: history_read {\"sessionID\":\"ses_login1\",\"at\":14}")
     expect(formatFiles({ ...SAMPLES.files, files: [] }, { path: "src/x", scope: "project" })).toMatch(/^No session touched "src\/x" in scope project\./)
     expect(formatSql(SAMPLES.sql).split("\n")).toEqual(["3 rows; more rows exist, so raise limit or narrow the query.", "week | cost", "2026-41 | 1.5", "2026-42 | null", "multi\\nline | x"])
+    expect(formatSql({ ...SAMPLES.sql, index: { ...INDEX, ready: false, sessionsIndexed: 3, sessionsTotal: 9 } }).split("\n")[1]).toBe("The index is still being built (3 of 9 sessions), so results may be incomplete.")
     const recall = formatRecall(SAMPLES.recall, {})
     expect(recall).toMatch(/^Answer, written from the evidence below \(check it before relying on it\):\nThe state cookie/)
     expect(recall).toContain("Evidence from 1 session:\n[ses_login1 #40 · 2026-10-12 10:50 · \"Fix login redirect loop\"]\nSet SameSite=Lax")

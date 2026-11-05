@@ -1,14 +1,15 @@
 import { describe, expect, test, vi } from "vitest"
 import * as z from "zod"
 import { BOUNDS, MAX_PHRASINGS } from "../../../src/domain/bounds.js"
-import { FAILURES, HistoryError } from "../../../src/domain/common.js"
+import { FAILURES } from "../../../src/domain/common.js"
 import { openDb } from "../../../src/domain/sqlite.js"
 import { TABLES, TRIGGERS, VIEW_NAMES, VIEWS } from "../../../src/index/schema.js"
 import { checkHost, HOST_RANGE, type HostCheck } from "../../../src/host/compat.js"
 import { formatBrief, formatFiles, formatRead, formatRecall, formatSearch, formatSessions, formatSql, formatStatus } from "../../../src/host/format.js"
 import type { PermissionRequest } from "../../../src/host/permissions.js"
-import { BUILDING, buildStatus, fallbackFailure, MASKS_CHANGED, nextStep, type StatusView } from "../../../src/host/status.js"
-import { compactStatus, DESCRIPTIONS, MAX_RESULT_BYTES, NAMESPACE_DESCRIPTION, TOOL_NAMES, toolTransform, type ToolName, type ToolSources } from "../../../src/host/tools.js"
+import { StatusSchema } from "../../../src/host/schemas.js"
+import { BUILDING, buildStatus, fallbackFailure, MASKS_CHANGED, nextStep } from "../../../src/host/status.js"
+import { DESCRIPTIONS, MAX_RESULT_BYTES, NAMESPACE_DESCRIPTION, TOOL_NAMES, toolTransform, type ToolName, type ToolSources } from "../../../src/host/tools.js"
 import { failure, fakeRuntime } from "../../host/runtime.js"
 import { INDEX, SAMPLES } from "../../host/samples.js"
 import { fakeSession } from "../../host/session.js"
@@ -20,25 +21,24 @@ type Added = {
 }
 function register(overrides: Partial<ToolSources> = {}) {
   const runtime = fakeRuntime(), session = fakeSession(), added: Added[] = [], namespaces: { name: string; description: string }[] = []
-  const status = vi.fn(async (): Promise<StatusView> => buildStatus({ version: "0.0.0", host: { version: "2.2.3", range: HOST_RANGE, tested: true }, config: CONFIG, runtime, agents: async () => [] }))
   const asserts: PermissionRequest[] = []
   const assert = vi.fn(async (request: PermissionRequest) => { asserts.push(request) })
-  const sources: ToolSources = { runtime, session: session.session, status, location: { projectID: "prj_app", directory: "/work/app" }, defaults: { scope: "project", synthesize: false }, assert, ...overrides }
+  const sources: ToolSources = { runtime, session: session.session, location: { projectID: "prj_app", directory: "/work/app" }, defaults: { scope: "project", synthesize: false }, assert, ...overrides }
   toolTransform(sources)({ namespace: (n: { name: string; description: string }) => { namespaces.push(n) }, add: (tool: Added) => { added.push(tool) } } as never)
   const tool = (name: ToolName) => added.find(t => t.name === name)!
   /** Decodes the input with the tool's schema, as the host does, then runs it. */
   const run = (name: ToolName, input: unknown, ctx: object = context()) => tool(name).execute(tool(name).input.parse(input), ctx)
-  return { runtime, session, added, namespaces, tool, run, status, asserts, assert }
+  return { runtime, session, added, namespaces, tool, run, asserts, assert }
 }
 const CONFIG = { database: "/data/opencode/opencode.db", indexPath: "/data/opencode-history/index.db", defaultScope: "project", recall: { synthesize: false } } as const
 const context = (signal = new AbortController().signal) => ({ sessionID: "ses_now", agent: "build", messageID: "msg_1", id: "call_1", signal, progress: async () => {} })
 const CALLER = { sessionID: "ses_now", projectID: "prj_app", directory: "/work/app" }
 
 describe("registration", () => {
-  test("nine tools in the history namespace, each with its effective name as permission; search, brief and read are pinned", () => {
+  test("eight tools in the history namespace, each with its effective name as permission; search, brief and read are pinned", () => {
     const { added, namespaces } = register()
     expect(namespaces).toEqual([{ name: "history", description: NAMESPACE_DESCRIPTION }])
-    expect(added.map(t => t.name)).toEqual(["search", "brief", "read", "sessions", "files", "recall", "sql", "pin", "status"])
+    expect(added.map(t => t.name)).toEqual(["search", "brief", "read", "sessions", "files", "recall", "sql", "pin"])
     expect(added.map(t => t.name)).toEqual([...TOOL_NAMES])
     for (const tool of added) expect(tool.options).toMatchObject({ namespace: "history", permission: `history_${tool.name}` })
     expect(added.filter(t => t.options.pinned).map(t => t.name)).toEqual(["search", "brief", "read"])
@@ -150,15 +150,6 @@ describe("calls", () => {
     await t.run("recall", { question: "q", synthesize: false, scope: "directory" })
     expect(t.runtime.calls.map(c => c.input)).toMatchObject([{ scope: "all" }, { scope: "session" }, { scope: "all", synthesize: true }, { scope: "directory", synthesize: false }])
   })
-
-  test("status renders the one status view", async () => {
-    const t = register()
-    const result = await t.run("status", {})
-    const view = await t.status.mock.results[0]!.value
-    expect(result).toEqual({ output: compactStatus(view), content: formatStatus(view, { compact: true }) })
-    expect(t.tool("status").output.safeParse(result.output).success).toBe(true)
-    expect(result.content.split("\n").at(-1)).toBe("Next step: Nothing to do.")
-  })
 })
 
 describe("inputs", () => {
@@ -220,7 +211,6 @@ describe("inputs", () => {
     expect(input("sql").safeParse({ sql: "select ?", params: ["a", 1, null] }).success).toBe(true)
     expect(input("sql").safeParse({ sql: "select ?", params: [{}] }).success).toBe(false)
     expect(input("recall").safeParse({ question: "q", sessions: 11 }).success).toBe(false)
-    expect(input("status").safeParse({ x: 1 }).success).toBe(false)
   })
 })
 
@@ -254,9 +244,9 @@ describe("failures", () => {
 
   test("a result over the size limit is OUTPUT_LIMIT, and an unserializable one is CONTRACT_MISMATCH", async () => {
     const t = register()
-    t.runtime.answers.set("sql", { columns: ["text"], rows: [["x".repeat(MAX_RESULT_BYTES)]], truncated: false })
+    t.runtime.answers.set("sql", { columns: ["text"], rows: [["x".repeat(MAX_RESULT_BYTES)]], truncated: false, index: INDEX })
     await expect(t.run("sql", { sql: "select text from v_docs" })).rejects.toMatchObject({ metadata: { code: "OUTPUT_LIMIT" } })
-    t.runtime.sql = async () => ({ columns: ["n"], rows: [[1n]], truncated: false })
+    t.runtime.sql = async () => ({ columns: ["n"], rows: [[1n]], truncated: false, index: INDEX })
     await expect(t.run("sql", { sql: "select 1" })).rejects.toMatchObject({ metadata: { code: "CONTRACT_MISMATCH" } })
   })
 })
@@ -266,7 +256,7 @@ describe("status", () => {
   test("the view shows the options in effect, with the recall model as provider/model", async () => {
     const runtime = fakeRuntime()
     expect(await buildStatus({ version: "1.2.3", host, config: { ...CONFIG, recall: { synthesize: true, model: { providerID: "openrouter", id: "anthropic/claude" } } }, runtime, agents: async () => [] })).toEqual({
-      version: "1.2.3", host, state: "ready", index: INDEX, tools: { visible: 9, unknown: [] }, database: CONFIG.database, indexPath: CONFIG.indexPath, indexBytes: 1_536_000, masksChanged: false,
+      version: "1.2.3", host, state: "ready", index: INDEX, tools: { visible: 8, unknown: [] }, database: CONFIG.database, indexPath: CONFIG.indexPath, indexBytes: 1_536_000, masksChanged: false,
       defaultScope: "project", recall: { synthesize: true, model: "openrouter/anthropic/claude" }, unguardedAgents: [], nextStep: "Nothing to do.",
     })
   })
@@ -310,25 +300,22 @@ describe("status", () => {
     expect(formatStatus(view)).toContain("\nSource: plugin session API (partial), incomplete (OpenCode's database has an unknown layout)\n")
   })
   test("an index file at another schema shows its row and the INDEX_MISMATCH next step, after an untested host", async () => {
-    const t = register()
-    t.runtime.indexSchema = { file: "1", build: "3" }
-    const result = await t.run("status", {})
-    expect(result.output).toMatchObject({ mismatch: { file: "1", build: "3" }, nextStep: FAILURES.INDEX_MISMATCH[1] })
-    expect(t.tool("status").output.safeParse(result.output).success).toBe(true)
-    expect(result.content).toContain("\nIndex schema: version 1 in the file, but this build uses version 3, so every query fails (INDEX_MISMATCH)\n")
-    expect(result.content).toMatch(/\nNext step: Restart every OpenCode process, so they all run one version of the plugin\.$/)
-    t.runtime.indexSchema = { file: null, build: "3" }
-    expect((await t.run("status", {})).content).toContain("Index schema: none in the file, but this build uses version 3")
+    const runtime = fakeRuntime()
+    const view = () => buildStatus({ version: "1.2.3", host, config: CONFIG, runtime, agents: async () => [] })
+    runtime.indexSchema = { file: "1", build: "3" }
+    const result = await view()
+    expect(result).toMatchObject({ mismatch: { file: "1", build: "3" }, nextStep: FAILURES.INDEX_MISMATCH[1] })
+    expect(StatusSchema.safeParse(result).success).toBe(true)
+    expect(formatStatus(result)).toContain("\nIndex schema: version 1 in the file, but this build uses version 3, so every query fails (INDEX_MISMATCH)\n")
+    expect(formatStatus(result)).toMatch(/\nNext step: Restart every OpenCode process, so they all run one version of the plugin\.$/)
+    runtime.indexSchema = { file: null, build: "3" }
+    expect(formatStatus(await view())).toContain("Index schema: none in the file, but this build uses version 3")
     const mismatch = { file: "1", build: "3" }
     expect(nextStep({ ...host, tested: false, next: "host" }, { index: INDEX, mismatch, unguardedAgents: [], masksChanged: false })).toBe("host")
     expect(nextStep(host, { index: { ...INDEX, ready: false, source: "context" }, mismatch, unguardedAgents: [], masksChanged: false })).toBe(FAILURES.INDEX_MISMATCH[1])
-    t.runtime.indexSchema = { file: "3", build: "3" }
-    const matched = await t.run("status", {})
-    expect(matched.output).not.toHaveProperty("mismatch")
-    expect(matched.content).not.toContain("Index schema")
-  })
-  test("a status failure inside the tool becomes STATUS_UNAVAILABLE only if the source says so", async () => {
-    const t = register({ status: async () => { throw new HistoryError("STATUS_UNAVAILABLE") } })
-    await expect(t.run("status", {})).rejects.toMatchObject({ metadata: { code: "STATUS_UNAVAILABLE" } })
+    runtime.indexSchema = { file: "3", build: "3" }
+    const matched = await view()
+    expect(matched).not.toHaveProperty("mismatch")
+    expect(formatStatus(matched)).not.toContain("Index schema")
   })
 })

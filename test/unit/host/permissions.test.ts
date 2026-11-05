@@ -5,7 +5,7 @@ import {
   AGENT_FIX, DEFAULT_RULES, evaluate, hasDefaultRules, insertDefaultRules, KNOWN_READS, permissionRequest, registerDefaultRules, SCRIPT_MARK, unguardedAgents, type Rule,
 } from "../../../src/host/permissions.js"
 import { buildStatus } from "../../../src/host/status.js"
-import { ACTIONS, compactStatus, READS, TOOL_NAMES } from "../../../src/host/tools.js"
+import { ACTIONS, READS, TOOL_NAMES } from "../../../src/host/tools.js"
 import { fakeRuntime } from "../../host/runtime.js"
 
 const BASE: Rule = { action: "*", resource: "*", effect: "allow" }
@@ -14,7 +14,7 @@ const rule = (action: string, effect: Rule["effect"]): Rule => ({ action, resour
 describe("the default rules", () => {
   test("allow the known reads, ask for history_pin and any unknown history tool", () => {
     const rules = [BASE, ...DEFAULT_RULES]
-    for (const name of ["search", "read", "brief", "sessions", "files", "recall", "sql", "status"]) expect(evaluate(rules, `history_${name}`), name).toBe("allow")
+    for (const name of ["search", "read", "brief", "sessions", "files", "recall", "sql"]) expect(evaluate(rules, `history_${name}`), name).toBe("allow")
     expect(evaluate(rules, "history_pin")).toBe("ask")
     expect(evaluate(rules, "history_export")).toBe("ask")
     expect(evaluate(rules, "other_tool")).toBe("allow")
@@ -78,7 +78,7 @@ describe("unguarded agents", () => {
     ])).toEqual(["smoke-bot"])
   })
 
-  test("are named in status with the block and the fix, and counted in the model's compact status", async () => {
+  test("are named in status with the block and the fix", async () => {
     const view = await buildStatus({
       version: "0.0.0", host: { version: "2.2.3", range: HOST_RANGE, tested: true },
       config: { database: "/d", indexPath: "/i", defaultScope: "project", recall: { synthesize: false } }, runtime: fakeRuntime(),
@@ -88,9 +88,6 @@ describe("unguarded agents", () => {
     const text = formatStatus(view)
     expect(text).toContain("\nAgents without default rules: reviewer\n  [\n    {\"action\":\"history_*\",\"resource\":\"*\",\"effect\":\"ask\"},\n")
     expect(text.split("\n").at(-1)).toBe("Next step: Put the default rules shown by /history-status first in each listed agent's own permissions, in opencode.json or the agent's Markdown file, followed by your top-level rules for History tools.")
-    expect(compactStatus(view)).toMatchObject({ unguardedAgents: 1, permissions: expect.stringMatching(/^1 agent missed the default rules.*\/history-status/) })
-    expect(compactStatus(view)).not.toHaveProperty("permissionsBlock")
-    expect(formatStatus(view, { compact: true })).toContain("\nAgents without default rules: 1; /history-status names them and gives the block\n")
   })
 })
 
@@ -110,7 +107,7 @@ describe("permission requests", () => {
     const runtime = fakeRuntime(), session = fakeSession()
     const assert = vi.fn(async (request: { action: string }) => { if (request.action === "history_pin") throw Object.assign(new Error("Permission denied: history_pin"), { _tag: "Tool.Error" }) })
     const added: { name: string; input: { parse(v: unknown): unknown }; execute(input: unknown, context: object): Promise<unknown> }[] = []
-    toolTransform({ runtime, session: session.session, status: async () => { throw new Error("unused") }, location: { projectID: "prj", directory: "/w" }, defaults: { scope: "project", synthesize: false }, assert })(
+    toolTransform({ runtime, session: session.session, location: { projectID: "prj", directory: "/w" }, defaults: { scope: "project", synthesize: false }, assert })(
       { namespace: () => {}, add: (tool: never) => { added.push(tool) } } as never)
     const context = { sessionID: "ses_now", agent: "build", messageID: "msg_1", id: "call_1", signal: new AbortController().signal, progress: async () => {} }
     const pin = added.find(tool => tool.name === "pin")!

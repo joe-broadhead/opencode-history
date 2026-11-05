@@ -41,7 +41,7 @@ describe("commands", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
     const t = setup({ status: async () => { throw new Error("boom") } })
     await t.run("history-status")
-    expect(t.posts[0]!.text).toBe("STATUS_UNAVAILABLE: History status could not be read. Next step: Call history_status again, or check the OpenCode server log.")
+    expect(t.posts[0]!.text).toBe("STATUS_UNAVAILABLE: History status could not be read. Next step: Run /history-status again, or check the OpenCode server log.")
     expect(warn.mock.calls).toEqual([[expect.stringMatching(/^opencode-history: STATUS_UNAVAILABLE in \/history-status: Error(, thrown in .*)?\.$/)]])
     warn.mockRestore()
     const coded = setup({ status: async () => { throw new HistoryError("INDEX_UNAVAILABLE") } })
