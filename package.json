@@ -1,6 +1,6 @@
 {
   "name": "@joe-broadhead/opencode-history",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Unofficial OpenCode plugin: search, read and recall your past OpenCode sessions",
   "keywords": [
     "opencode",
@@ -35,7 +35,7 @@
   },
   "jelly": {
     "title": "History",
-    "summary": "Search, read and recall your past OpenCode sessions.",
+    "summary": "Your past OpenCode sessions.",
     "icon": "assets/icon.svg",
     "tools": [
       {
@@ -108,7 +108,7 @@
     "test:tui": "npx -y bun@1.4.4 test test/tui",
     "test:pack": "npx -y bun@1.4.4 test test/pack",
     "bench": "vitest run -c vitest.bench.config.ts --silent=false",
-    "lint": "node scripts/check-forbidden.mjs",
+    "lint": "node scripts/check-forbidden.mjs && node scripts/check-copies.mjs",
     "check": "npm run typecheck && npm test && npm run build && npm run test:host && npm run test:tui && npm run lint && npm run test:pack"
   },
   "devDependencies": {
