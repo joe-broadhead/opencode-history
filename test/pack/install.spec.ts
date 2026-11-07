@@ -1,5 +1,5 @@
 // Packs the package as npm would publish it, installs the tarball into an empty project with scripts disabled,
-// imports its entries, and loads it on stock OpenCode 2.2.3, 2.2.4 and 2.2.5. Run `npm run build` first.
+// imports its entries, and loads it on stock OpenCode 2.2.3, 2.2.4, 2.2.5 and 2.2.6. Run `npm run build` first.
 // It runs on every release in src/host/tested-hosts.json. OPENCODE_BIN_2_2_3, OPENCODE_BIN_2_2_4 and
 // OPENCODE_BIN_2_2_5 name the stock `opencode` binaries when set. When unset, each release is installed into this
 // test's temp project with --ignore-scripts.

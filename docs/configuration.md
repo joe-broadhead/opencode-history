@@ -80,18 +80,18 @@ It does not cover directory and project paths, agent, model and tool names, IDs,
 
 ## Host check
 
-`package.json` states the supported range, `"opencode": { "host": ">=2.2.3 <2.3.0" }`. The checks run on the tested releases 2.2.3, 2.2.4 and 2.2.5. Setup compares `ctx.app.version` with both.
+`package.json` states the supported range, `"opencode": { "host": ">=2.2.3 <2.3.0" }`. The checks run on the tested releases 2.2.3, 2.2.4, 2.2.5 and 2.2.6. Setup compares `ctx.app.version` with both.
 
 | Version | Result |
 | --- | --- |
-| 2.2.3, 2.2.4, 2.2.5 | Tested. Loads. |
-| 2.2.6, 2.2.10 | Inside the range, untested. Loads normally, with a `HOST_UNTESTED` warning in the server log. Status works as usual: `host.tested` is `false` and the OpenCode row says untested, but the state and the next step are not changed by it. |
+| 2.2.3, 2.2.4, 2.2.5, 2.2.6 | Tested. Loads. |
+| 2.2.99, 2.2.10 | Inside the range, untested. Loads normally, with a `HOST_UNTESTED` warning in the server log. Status works as usual: `host.tested` is `false` and the OpenCode row says untested, but the state and the next step are not changed by it. |
 | 2.2.2, 2.3.0, 3.0.0 | Outside the range. Refused, unless `allowUntestedHost` is `true`. |
 | Prerelease, dev build, `unknown` | Outside the range. Refused, unless `allowUntestedHost` is `true`. |
 
 Do not write the range as `^2.2.3`. That would accept 2.3.
 
-The refusal text is: `HOST_UNTESTED: History supports OpenCode >=2.2.3 <2.3.0, found <version>. Next step: Use OpenCode 2.2.3, 2.2.4 or 2.2.5, or another release inside >=2.2.3 <2.3.0, or set the plugin option allowUntestedHost: true to run anyway.`
+The refusal text is: `HOST_UNTESTED: History supports OpenCode >=2.2.3 <2.3.0, found <version>. Next step: Use OpenCode 2.2.3, 2.2.4, 2.2.5 or 2.2.6, or another release inside >=2.2.3 <2.3.0, or set the plugin option allowUntestedHost: true to run anyway.`
 
 With `allowUntestedHost: true`, a version outside the range loads too and works normally, with the same warning; its next step says to use a tested release if something fails. History has no status-only mode, so its state is never `host_untested`.
 
@@ -325,7 +325,7 @@ The status RPC has the plugin ID, `history.sessions`, and no events. Its contrac
 | Field | Meaning |
 | --- | --- |
 | `version` | The plugin version. |
-| `host` | `version`, the OpenCode version (`null` when OpenCode gives none); `range`, the supported range `>=2.2.3 <2.3.0`; and `tested`, true only for 2.2.3, 2.2.4 and 2.2.5. |
+| `host` | `version`, the OpenCode version (`null` when OpenCode gives none); `range`, the supported range `>=2.2.3 <2.3.0`; and `tested`, true only for 2.2.3, 2.2.4, 2.2.5 and 2.2.6. |
 | `state` | `ready`; `connecting` while the first index builds; `failed` when the history is partial (`fallback`) or every query fails (`mismatch`). The Connection row shows the same states as `connected`, `connecting` and `failed`. An untested host does not change it; see `host.tested`. |
 | `index.ready` | The first full pass has finished. Before that, results cover only the sessions indexed so far. |
 | `index.sessionsIndexed`, `index.sessionsTotal` | Sessions in the index, and the source's count when it was last listed in full. |
@@ -364,7 +364,7 @@ OpenCode: 2.2.3 (tested). History <version>
 Next step: Nothing to do.
 ```
 
-On a release inside the range that is not tested, the OpenCode row reads `2.2.6 (untested; supported range >=2.2.3 <2.3.0)`. When the mask options changed after text was indexed, a `Masks:` row follows `Index file:`, and the next step is `/history-reindex rebuild`.
+On a release inside the range that is not tested, the OpenCode row reads `2.2.99 (untested; supported range >=2.2.3 <2.3.0)`. When the mask options changed after text was indexed, a `Masks:` row follows `Index file:`, and the next step is `/history-reindex rebuild`.
 
 With `mismatch`, a row follows `Index file:`, the connection is `failed`, and the next step is the fix:
 
@@ -407,7 +407,7 @@ When an unexpected error is reported only by a code, `OPERATION_FAILED` or a com
 | Code | Next step |
 | --- | --- |
 | `OPTIONS_INVALID` | Fix the named option, then restart OpenCode. Fails setup. |
-| `HOST_UNTESTED` | Use OpenCode 2.2.3, 2.2.4 or 2.2.5. Outside `>=2.2.3 <2.3.0` it fails setup unless `allowUntestedHost` is set; inside the range it is a warning. |
+| `HOST_UNTESTED` | Use OpenCode 2.2.3, 2.2.4, 2.2.5 or 2.2.6. Outside `>=2.2.3 <2.3.0` it fails setup unless `allowUntestedHost` is set; inside the range it is a warning. |
 | `INDEX_UNAVAILABLE` | The index could not be opened. Check that `indexPath` is a writable file path, then restart. Fails setup. |
 | `INDEX_PATH_REFUSED` | `indexPath` names OpenCode's database or a file in its data folder, a file inside the project, or an existing file that is not a History index (see [Where the index may live](#where-the-index-may-live)). The file is not changed. Set `indexPath` to a new file elsewhere, or remove it, then restart. Fails setup. |
 | `SKILLS_INVALID` | A skill file is missing or malformed; setup skips it with this warning. Reinstall the plugin. |

@@ -1,6 +1,6 @@
 # The one local check on public GitHub-hosted runners: `npm ci --ignore-scripts` and `npm run check`.
-# The pack test loads the packed plugin on every stock OpenCode release in src/host/tested-hosts.json (2.2.3, 2.2.4
-# and 2.2.5), installed here. The Bun-based tests run Bun 1.4.4 through
+# The pack test loads the packed plugin on every stock OpenCode release in src/host/tested-hosts.json (2.2.3, 2.2.4,
+# 2.2.5 and 2.2.6), installed here. The Bun-based tests run Bun 1.4.4 through
 # `npx -y bun@1.4.4` from the npm scripts, so the runner needs no Bun of its own.
 name: CI
 on:

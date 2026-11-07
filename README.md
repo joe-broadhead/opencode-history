@@ -6,7 +6,7 @@ Unofficial; not affiliated with OpenCode.
 
 ## Requirements
 
-- OpenCode `>=2.2.3 <2.3.0`, tested on 2.2.3, 2.2.4 and 2.2.5. Another release inside that range starts too, and status says it is untested. Outside `>=2.2.3 <2.3.0` the plugin does not start, unless you set [`allowUntestedHost`](https://github.com/joe-broadhead/opencode-history/blob/HEAD/docs/configuration.md#options).
+- OpenCode `>=2.2.3 <2.3.0`, tested on 2.2.3, 2.2.4, 2.2.5 and 2.2.6. Another release inside that range starts too, and status says it is untested. Outside `>=2.2.3 <2.3.0` the plugin does not start, unless you set [`allowUntestedHost`](https://github.com/joe-broadhead/opencode-history/blob/HEAD/docs/configuration.md#options).
 - macOS or Linux.
 - Nothing else: no native programs, downloads or accounts. The index is SQLite with full-text search, through the `node:sqlite` module of OpenCode's runtime.
 
@@ -152,7 +152,7 @@ Start with `/history-status`. It ends with one next step. Errors read `CODE: wha
 | `Agents without default rules: …` | Those agents run every History tool, `history_pin` included, without asking. Put the default rules shown by `/history-status` first in each listed agent's own permissions, in `opencode.json` or the agent's Markdown file, followed by your top-level rules for History tools. |
 | `Index: ..., 35 s behind` | Seconds since the index was last in step with OpenCode. The next search, sessions or recall call catches up, or run `/history-reindex`. |
 | A recent session is missing | Search, sessions and recall catch up for up to about 200 ms before they answer. A longer catch-up finishes in the background, so run `/history-reindex` to wait for it. |
-| `HOST_UNTESTED`, `OpenCode: … (untested; …)` | The OpenCode release is not one of the tested 2.2.3, 2.2.4 and 2.2.5. Inside `>=2.2.3 <2.3.0` the plugin runs normally; outside it, it starts only with `allowUntestedHost: true`. If something fails, use a tested release. |
+| `HOST_UNTESTED`, `OpenCode: … (untested; …)` | The OpenCode release is not one of the tested 2.2.3, 2.2.4, 2.2.5 and 2.2.6. Inside `>=2.2.3 <2.3.0` the plugin runs normally; outside it, it starts only with `allowUntestedHost: true`. If something fails, use a tested release. |
 | `Skill: history-recall is hidden by <path>` | A skill with the same id, such as one in your own skills folder, loads instead of the plugin's. Rename or move the skill at that path. |
 | `Masks: changed since text was indexed` | You changed `mask` or `maskDefaults` after text was indexed. Results already use the new patterns, but the index file holds the old text: run `/history-reindex rebuild`. |
 | A large index file | The index takes about 2.7 times the text it holds, about 500 MB for 200,000 indexed texts, and status shows its size in the `Index file` row. It grows with your history; a deleted session leaves it, but the file keeps its size and reuses the space. To make it smaller, set `index.toolResults: false`, which leaves out tool output, or a lower `index.maxDocChars`, then delete the index file (with its `-wal` and `-shm` files) and restart OpenCode: the plugin builds a new one. |
