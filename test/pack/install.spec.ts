@@ -160,6 +160,38 @@ for (const version of VERSIONS) describe(`stock OpenCode ${version}`, () => {
     expect(pin.status).not.toBe(200)
   })
 
+  test("describe gives each method's class and, with a session, its permission; a write needs a prior allow, and a location is required", async () => {
+    const script = await host.api("POST", "/api/session", { title: "v2", agent: "build", location: { directory: host.directory } })
+    const sessionID = (script.data as { data: { id: string } }).data.id
+    const described = await host.api("POST", `/api/rpc/${PLUGIN_ID}.tools/describe`, { input: { sessionID } })
+    expect(described.status).toBe(200)
+    const methods = (described.data as { output: { methods: { name: string; class: string; permission?: string }[] } }).output.methods
+    expect(Object.fromEntries(methods.map(method => [method.name, method.class]))).toEqual({
+      search: "read", brief: "read", read: "read", sessions: "read", files: "read", recall: "read", sql: "read", pin: "write",
+    })
+    expect(Object.fromEntries(methods.map(method => [method.name, method.permission]))).toMatchObject({ search: "allow", pin: "ask" })
+    // The write asks by default, so a script is refused before anything runs.
+    const refused = await host.api("POST", `/api/rpc/${PLUGIN_ID}.tools/pin`, { input: { sessionID, input: { action: "list" } } })
+    expect(refused.status).not.toBe(200)
+    expect(JSON.stringify(refused.data)).toContain("would ask")
+    // A session rule allows it, and the same call runs.
+    const allowed = await host.api("POST", "/api/session", { title: "pin", agent: "build", permissions: [{ action: "history_pin", resource: "*", effect: "allow" }], location: { directory: host.directory } })
+    const granted = (allowed.data as { data: { id: string } }).data.id
+    const pinned = await host.api("POST", `/api/rpc/${PLUGIN_ID}.tools/pin`, { input: { sessionID: granted, input: { action: "list" } } })
+    expect(pinned.status).toBe(200)
+    expect((pinned.data as { output: { pins: unknown[] } }).output.pins).toEqual([])
+    // A deny hides the tool, with no call.
+    const denied = await host.api("POST", "/api/session", { title: "deny", agent: "build", permissions: [{ action: "history_*", resource: "*", effect: "deny" }], location: { directory: host.directory } })
+    const locked = (denied.data as { data: { id: string } }).data.id
+    const hidden = await host.api("POST", `/api/rpc/${PLUGIN_ID}.tools/search`, { input: { sessionID: locked, input: { query: "x" } } })
+    expect(hidden.status).not.toBe(200)
+    expect(JSON.stringify(hidden.data)).toContain("hidden from this session's agent")
+    // Without a location, the call reaches the server's default location, where the installed plugin is not loaded.
+    const missing = await host.api("POST", `/api/rpc/${PLUGIN_ID}.tools/describe`, { input: {} }, null)
+    expect(missing.status).toBe(400)
+    expect(JSON.stringify(missing.data)).toContain("rpc.unavailable")
+  })
+
   test("an endless history_sql statement stops with SQL_TIMEOUT while the server keeps answering", async () => {
     const script = await host.api("POST", "/api/session", { title: "SQL script", agent: "build", location: { directory: host.directory } })
     const sessionID = (script.data as { data: { id: string } }).data.id
@@ -265,16 +297,19 @@ async function serve(version: string, binary: string) {
   })
   expect(listed.length).toBeGreaterThanOrEqual(8)
   expect(listed.filter(path => !path.startsWith(root + sep))).toEqual([])
-  const child = spawn(binary, ["serve", "--hostname", "127.0.0.1", "--port", String(port), "--print-logs", "--log-level", "warn"], { cwd: directory, env, detached: true, stdio: ["ignore", "pipe", "pipe"] })
+  // The server's default location is its working directory, which is not the project: a call without a location then
+  // proves rpc.unavailable, as it does for `opencode api` run from elsewhere.
+  const child = spawn(binary, ["serve", "--hostname", "127.0.0.1", "--port", String(port), "--print-logs", "--log-level", "warn"], { cwd: root, env, detached: true, stdio: ["ignore", "pipe", "pipe"] })
   servers.add(child)
   let log = ""
   const keep = (chunk: Buffer) => { log = (log + chunk.toString("utf8")).slice(-8000) }
   child.stdout!.on("data", keep)
   child.stderr!.on("data", keep)
   const authorization = `Basic ${Buffer.from(`opencode:${password}`).toString("base64")}`
-  const api = async (method: string, path: string, body?: unknown) => {
+  // `at: null` sends no location at all, which is a call to the service's default location.
+  const api = async (method: string, path: string, body?: unknown, at: string | null = directory) => {
     const url = new URL(path, `http://127.0.0.1:${port}`)
-    url.searchParams.set("location[directory]", directory)
+    if (at) url.searchParams.set("location[directory]", at)
     const response = await fetch(url, { method, headers: { authorization, "content-type": "application/json" }, ...body === undefined ? {} : { body: JSON.stringify(body) } })
     const text = await response.text()
     let data: unknown = text

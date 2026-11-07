@@ -6,7 +6,7 @@ import { join } from "node:path"
 import { Rpc } from "@opencode/plugin/rpc"
 import type { Plugin } from "@opencode/plugin"
 import plugin from "../../src/index.js"
-import { TOOLS_RPC_ID } from "../../src/host/scripting.js"
+import { TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
 import { TOOL_NAMES } from "../../src/host/tools.js"
 
 const database = join(root, "opencode.db")
@@ -61,9 +61,26 @@ async function run(method: string, session: string, input: unknown): Promise<Rec
 const asked = async (session: string) => host.sdk.permission.list({ sessionID: session })
 
 describe(`tools RPC on @opencode/sdk, host version ${HOST_VERSION}`, () => {
-  test("describes every tool but history_pin", async () => {
-    const description = await tools().describe!({}, { location }) as { methods: { name: string; action: string }[] }
-    expect(description.methods.map(method => method.name)).toEqual(["search", "brief", "read", "sessions", "files", "recall", "sql"])
+  test("describes every tool, pin included, each with its class", async () => {
+    const description = await tools().describe!({}, { location }) as { methods: { name: string; class: string }[] }
+    expect(Object.fromEntries(description.methods.map(method => [method.name, method.class]))).toEqual({
+      search: "read",
+      brief: "read",
+      read: "read",
+      sessions: "read",
+      files: "read",
+      recall: "read",
+      sql: "read",
+      pin: "write",
+    })
+  })
+
+  test("describe with a session reports each method's permission", async () => {
+    const description = await tools().describe!({ sessionID: sessions.build! }, { location }) as { methods: { name: string; permission?: string }[] }
+    const permission = Object.fromEntries(description.methods.map(method => [method.name, method.permission]))
+    expect(permission).toMatchObject({ search: "allow", sql: "allow", pin: "ask" })
+    const careful = await tools().describe!({ sessionID: sessions.careful! }, { location }) as { methods: { name: string; permission?: string }[] }
+    expect(Object.fromEntries(careful.methods.map(method => [method.name, method.permission]))).toMatchObject({ sql: "ask", search: "allow" })
   })
 
   test("a known read runs as a session whose agent allows it, with no model turn, and returns the tool's output", async () => {
@@ -85,7 +102,7 @@ describe(`tools RPC on @opencode/sdk, host version ${HOST_VERSION}`, () => {
     const started = Date.now()
     const result = await run("sql", sessions.careful!, { sql: "select 1" })
     expect(result).toMatchObject({ type: "failed", code: "PERMISSION_DENIED" })
-    expect(result.message).toMatch(/cannot answer an approval prompt/)
+    expect(result.message).toMatch(/cannot answer/)
     expect(Date.now() - started).toBeLessThan(5000)
     expect(await asked(sessions.careful!)).toEqual([])
     expect((await run("sessions", sessions.careful!, {})).value).toBeDefined()
@@ -124,14 +141,17 @@ describe(`tools RPC on @opencode/sdk, host version ${HOST_VERSION}`, () => {
       message: ['"operation" is not allowed', '"sessionID" must be a non-empty string', '"input" is missing'].join("\n"),
     })
     expect(await raw("search", { sessionID: sessions.build, input: {}, extra: true })).toEqual({ type: "rpc.invalid_input", message: '"extra" is not allowed' })
-    expect(await raw("describe", { sessionID: sessions.build })).toEqual({ type: "rpc.invalid_input", message: "describe takes no input" })
+    expect(await raw("describe", { sessionID: sessions.build, extra: true })).toEqual({ type: "rpc.invalid_input", message: '"extra" is not allowed' })
     expect((await raw("describe", {})).value).toBeDefined()
+    expect((await raw("describe", { sessionID: sessions.build })).value).toBeDefined()
   })
 
-  test("has no pin method", async () => {
-    const result = await run("pin", sessions.build!, { action: "list" })
-    expect(result.value).toBeUndefined()
-    expect(result.type).not.toBe("failed")
-    expect(result.message).toMatch(/not.?found|unknown/i)
+  test("pin is a method: a write that would ask is refused before it runs, and runs when the session allows it", async () => {
+    const refused = await run("pin", sessions.build!, { action: "list" })
+    expect(refused).toMatchObject({ type: "failed", code: "PERMISSION_DENIED" })
+    expect(refused.message).toMatch(/would ask/)
+    const allowed = await host.sdk.session.create({ location, title: "Pin", agent: "build", permissions: [{ action: "history_pin", resource: "*", effect: "allow" }] } as never)
+    const pinned = await run("pin", allowed.id, { action: "list" })
+    expect(pinned.value, pinned.message).toMatchObject({ pins: [] })
   })
 })

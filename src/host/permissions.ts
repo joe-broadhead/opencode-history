@@ -91,16 +91,7 @@ export interface ToolCall {
   readonly messageID: string
   readonly id: string
 }
-/** A script calling through the tools RPC as a session and its agent: no message or tool call stands behind it. */
-export interface ScriptCall {
-  readonly sessionID: string
-  readonly agent: string
-  readonly script: true
-}
-export type Call = ToolCall | ScriptCall
-
-/** The metadata key that marks a script's request. The scripting hook turns an `ask` on a marked request into a deny. */
-export const SCRIPT_MARK = "script"
+export type Call = ToolCall
 
 export interface PermissionRequest {
   readonly sessionID: string
@@ -109,14 +100,11 @@ export interface PermissionRequest {
   readonly resources: string[]
   readonly save: string[]
   readonly metadata: Record<string, unknown>
-  /** Present for a tool call; a script call has no source. */
-  readonly source?: { readonly type: "tool"; readonly messageID: string; readonly id: string }
+  readonly source: { readonly type: "tool"; readonly messageID: string; readonly id: string }
 }
 export type Assert = (request: PermissionRequest) => Promise<void>
 
 /** The assert for one call of `action`, on resource `*`, so "Always" allows the tool for the session. */
 export function permissionRequest(call: Call, action: string, metadata: Record<string, unknown> = {}): PermissionRequest {
-  const base = { sessionID: call.sessionID, agent: call.agent, action, resources: ["*"], save: ["*"] }
-  if ("script" in call) return { ...base, metadata: { ...metadata, [SCRIPT_MARK]: true } }
-  return { ...base, metadata, source: { type: "tool", messageID: call.messageID, id: call.id } }
+  return { sessionID: call.sessionID, agent: call.agent, action, resources: ["*"], save: ["*"], metadata, source: { type: "tool", messageID: call.messageID, id: call.id } }
 }

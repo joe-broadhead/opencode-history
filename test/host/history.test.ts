@@ -12,7 +12,7 @@ import { PLUGIN_ID } from "../../src/domain/contract.js"
 import { HOST_RANGE } from "../../src/domain/hosts.js"
 import { History } from "../../src/rpc.js"
 import { Rpc } from "@opencode/plugin/rpc"
-import { TOOLS_RPC_ID } from "../../src/host/scripting.js"
+import { TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
 import { DEFAULT_RULES, hasDefaultRules } from "../../src/host/permissions.js"
 
 const version = (JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as { version: string }).version

@@ -3,9 +3,9 @@
 // host-provided or build-time code bundled into dist/. Run it after the build; `npm run check` does.
 //
 // Two rules have one documented exception each, the only file allowed to do what the rule forbids:
-//   - the permission evaluate hook, only in src/host/scripting.ts. It turns an ask on this plugin's own script call
-//     (the tools RPC, marked in its metadata) into a deny, because no one is there to answer the prompt. It only
-//     tightens: a further rule allows that file to set an effect to "deny" and nothing else.
+//   - the permission evaluate hook, only in src/host/tools-rpc.ts, the shared tools RPC module. It turns an ask on
+//     that RPC's own call in flight into a deny, because no one is there to answer the prompt. It only tightens: a
+//     further rule allows that file to set an effect to "deny" and nothing else.
 //   - OpenCode's database file, only in src/source/opencode-db.ts. It names the file, opens it read-only and knows its
 //     tables; everything else gets sessions through the Source it returns. Tests are out of scope: their fixtures
 //     build a synthetic database with the same layout.
@@ -59,9 +59,9 @@ const RULES = [
   { pattern: /\bpackages\/(?:ai|client|core|opencode|plugin|protocol|schema|sdk|server|util)\/src\b/, message: "private host source import" },
   { pattern: /opencode-(?:plugin-consumer|plugin-images|granola)-host/, message: "pinned host checkout reference" },
   { pattern: /\bui\s*\??\.\s*slot\b/, message: "ctx.ui.slot: nothing is always visible; status lives in the /history dialog" },
-  { pattern: /\bhook\(\s*["']evaluate["']/, except: ["src/host/scripting.ts"], message: "permission evaluate hook; only src/host/scripting.ts registers one, to refuse a script's ask" },
-  { pattern: /\.effect\s*=(?!=)/, except: ["src/host/scripting.ts"], message: "a hook that changes a permission effect" },
-  { pattern: /\.effect\s*=(?!=)(?!\s*["']deny["'])/, scope: ["src/host/scripting.ts"], message: "the scripting hook may only turn an ask into a deny" },
+  { pattern: /\bhook\(\s*["']evaluate["']/, except: ["src/host/tools-rpc.ts"], message: "permission evaluate hook; only src/host/tools-rpc.ts registers one, to refuse a script's ask" },
+  { pattern: /\.effect\s*=(?!=)/, except: ["src/host/tools-rpc.ts"], message: "a hook that changes a permission effect" },
+  { pattern: /\.effect\s*=(?!=)(?!\s*["']deny["'])/, scope: ["src/host/tools-rpc.ts"], message: "the tools RPC hook may only turn an ask into a deny" },
   { pattern: /\b(?:config|options)\.policy\b|(?:^|[\s{,])policy\s*\??\s*:/, scope: ["src/", "dist/"], message: "plugin permission policy option" },
   { pattern: /\bexperimental\.policies\b|\bresponsePolicy\b/, message: "fork-only policy API" },
   { pattern: /\bmcp\.(?:catalog|attest)\b/, message: "fork-only MCP API" },

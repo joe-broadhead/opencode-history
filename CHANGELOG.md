@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- tools RPC v2: every known tool is scriptable under a prior explicit allow. `history_pin` is a method now, a write,
+  so a script can pin with the session's allow; the shared tools RPC module is copied into `src/host/tools-rpc.ts` and
+  its copy is pinned by `scripts/check-copies.mjs`. Every method carries a class, and `describe` reports it, plus each
+  method's resolved `permission` when it is given a session.
+- A call now resolves the rule before dispatch: only an `allow` runs, an `ask` is refused, and a `deny` is refused,
+  with no tool call and no prompt. A saved "Always allow" no longer authorises an ad-hoc script; its grant is a rule in
+  config, or a Jobs run session.
+- Script asserts now carry the same tool source id as a model call, so an inner `ask` is refused and named instead of
+  waiting for a prompt.
+
 ## [0.0.5] - 2026-11-06
 
 ### Changed

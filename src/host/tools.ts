@@ -65,6 +65,8 @@ export interface ToolDefinition {
   readonly output: z.ZodType
   readonly pinned: boolean
   readonly codemode: boolean
+  /** What a call can do, for the tools RPC's describe and a job's approval: a read, or a write for an action. */
+  readonly class: "read" | "write"
   /** The permission action, `history_<name>`. */
   readonly action: string
   /** What the approval prompt shows about a call, beyond its action. */
@@ -76,7 +78,7 @@ const define = <I extends z.ZodType>(
   name: ToolName, input: I, output: z.ZodType, run: (sources: ToolSources, caller: Caller, input: z.output<I>, signal: AbortSignal) => Promise<ToolResult>,
   metadata?: (input: z.output<I>) => Record<string, unknown>,
 ): ToolDefinition =>
-  ({ name, description: DESCRIPTIONS[name], input, output, pinned: PINNED.has(name), codemode: !ACTIONS.has(name), action: `${NAMESPACE}_${name}`, run, ...metadata ? { metadata } : {} })
+  ({ name, description: DESCRIPTIONS[name], input, output, pinned: PINNED.has(name), codemode: !ACTIONS.has(name), class: ACTIONS.has(name) ? "write" : "read", action: `${NAMESPACE}_${name}`, run, ...metadata ? { metadata } : {} })
 const scoped = <T extends { readonly scope?: Scope | undefined }>(sources: ToolSources, input: T): T & { readonly scope: Scope } => ({ ...input, scope: input.scope ?? sources.defaults.scope })
 
 export const TOOL_DEFINITIONS: readonly ToolDefinition[] = [

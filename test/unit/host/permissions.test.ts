@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from "vitest"
 import { HOST_RANGE } from "../../../src/domain/hosts.js"
 import { formatStatus } from "../../../src/host/format.js"
 import {
-  AGENT_FIX, DEFAULT_RULES, evaluate, hasDefaultRules, insertDefaultRules, KNOWN_READS, permissionRequest, registerDefaultRules, SCRIPT_MARK, unguardedAgents, type Rule,
+  AGENT_FIX, DEFAULT_RULES, evaluate, hasDefaultRules, insertDefaultRules, KNOWN_READS, permissionRequest, registerDefaultRules, unguardedAgents, type Rule,
 } from "../../../src/host/permissions.js"
 import { buildStatus } from "../../../src/host/status.js"
 import { ACTIONS, READS, TOOL_NAMES } from "../../../src/host/tools.js"
@@ -92,12 +92,9 @@ describe("unguarded agents", () => {
 })
 
 describe("permission requests", () => {
-  test("a tool call carries its source; a script call carries the script mark instead", () => {
+  test("a tool call carries its own source", () => {
     expect(permissionRequest({ sessionID: "ses_1", agent: "build", messageID: "msg_1", id: "call_1" }, "history_pin", { pin: "put" })).toEqual({
       sessionID: "ses_1", agent: "build", action: "history_pin", resources: ["*"], save: ["*"], metadata: { pin: "put" }, source: { type: "tool", messageID: "msg_1", id: "call_1" },
-    })
-    expect(permissionRequest({ sessionID: "ses_1", agent: "build", script: true }, "history_sql")).toEqual({
-      sessionID: "ses_1", agent: "build", action: "history_sql", resources: ["*"], save: ["*"], metadata: { [SCRIPT_MARK]: true },
     })
   })
 

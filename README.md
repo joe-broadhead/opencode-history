@@ -69,10 +69,11 @@ In the terminal UI, `/history`, or **History: Status** in the command palette, o
 
 ### Scripts
 
-A script or a cron job can call the same tools with no model, through `opencode api`. It runs as a session and its agent, under that agent's permission rules, and it can read history but never pin:
+A script or a cron job can call the same tools with no model, through `opencode api`. It runs as a session and its agent, under that agent's permission rules. Every tool is a method, `history_pin` included; a write needs a prior explicit `allow` in the session's or the agent's rules, because an `ask` is refused when no one can answer it:
 
 ```sh
 opencode api post /api/rpc/history.sessions.tools/search \
+  -H "x-opencode-directory:$PWD" \
   -d '{"input":{"sessionID":"ses_…","input":{"query":["flaky upload test"],"scope":"all"}}}'
 ```
 

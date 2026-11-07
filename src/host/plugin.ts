@@ -11,11 +11,11 @@ import { checkHost, inRange } from "./compat.js"
 import { registerDefaultRules, type Rule } from "./permissions.js"
 import { followEvents } from "./events.js"
 import { rpcHandlers } from "./rpc-handlers.js"
-import { registerScripting } from "./scripting.js"
 import type { CreateRuntime } from "./runtime.js"
 import { loadSkills, skillTransform } from "./skills.js"
 import { buildStatus, fallbackFailure } from "./status.js"
-import { toolTransform } from "./tools.js"
+import { toolTransform, type ToolSources } from "./tools.js"
+import { registerToolsRpc, scriptMethods } from "./tools-rpc.js"
 
 interface PluginSources {
   readonly createRuntime: CreateRuntime
@@ -50,8 +50,8 @@ export function createPlugin({ createRuntime, packageRoot }: PluginSources): Plu
       const runtime = await createRuntime({ config, session: ctx.session }).catch((error: unknown) => { throw setupFailure(error) })
       if (runtime.fallback) console.warn(formatFailure(fallbackFailure(runtime.fallback)))
       const shutdown = new AbortController()
-      let stopScripting = async () => {}
-      const close = async () => { shutdown.abort(); await stopScripting(); await runtime.close() }
+      let stopToolsRpc = async () => {}
+      const close = async () => { shutdown.abort(); await stopToolsRpc(); await runtime.close() }
       try {
         const location = { projectID: ctx.location.project.id, directory: ctx.location.directory }
         const defaults = { scope: config.defaultScope }
@@ -63,10 +63,11 @@ export function createPlugin({ createRuntime, packageRoot }: PluginSources): Plu
           skills: { listed: listedSkills, own: skills.map(skill => ({ id: skill.id, path: skill.info.path })) },
         })
         const assert = (request: Parameters<typeof ctx.permission.assert>[0]) => ctx.permission.assert(request)
+        const sources: ToolSources = { runtime, session: ctx.session, location, defaults, assert: request => assert(request as never) }
         await registerDefaultRules(ctx.agent)
-        await ctx.tool.transform(toolTransform({ runtime, session: ctx.session, location, defaults, assert: request => assert(request as never) }))
+        await ctx.tool.transform(toolTransform(sources))
         await ctx.rpc.register(History, rpcHandlers({ status }))
-        stopScripting = await registerScripting(ctx, { runtime, session: ctx.session, location, defaults })
+        stopToolsRpc = await registerToolsRpc(ctx, { methods: scriptMethods(sources) })
         await ctx.command.transform(commandTransform({ synthetic: input => ctx.session.synthetic(input), runtime, status }))
         await ctx.skill.transform(skillTransform(skills))
         // Session events keep the index fresh. The loop ends when the plugin unloads.

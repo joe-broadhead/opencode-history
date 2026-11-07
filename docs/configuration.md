@@ -316,7 +316,7 @@ Agents defined only in your config are created after plugins run, so they miss t
 | `/history-reindex rebuild` | Waits for running work, drops the index, and indexes everything again. Posts `Index rebuilt: ...` when done. Any other argument posts the usage. |
 | `/history` (terminal UI) | Opens the status dialog; **History: Status** in the command palette does the same. It shows the `/history-status` text, read from RPC `status`, and posts nothing into the session. `r` refreshes it, and while it is open it also refreshes on `server.connected`, `agent.updated`, `session.created`, `session.deleted` and `session.idle`. A failed refresh keeps the last status and says why. It changes nothing. |
 | RPC `history.sessions` `status` | The status object. |
-| RPC `history.sessions.tools` | Every tool but `history_pin`, for scripts, run as a session and its agent, plus `describe`. See [scripting.md](scripting.md). |
+| RPC `history.sessions.tools` | Every tool, `history_pin` included, for scripts, run as a session and its agent; plus `describe`, which reports each method's class and, given a session, its permission. See [scripting.md](scripting.md). |
 
 The status RPC has the plugin ID, `history.sessions`, and no events. Its contract in `src/rpc.ts` is plain JSON Schema. Both RPCs fail the same way: error `failed`, with the message `CODE: what happened. Next step: What to do.` and data `{ code, next }`. An invalid tool input from a script is `INPUT_INVALID`, naming the fields, never the values.
 
