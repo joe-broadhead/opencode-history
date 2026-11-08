@@ -87,4 +87,4 @@ Cite the session ID and seq of everything you rely on, written out in full each 
 
 ## Pinning
 
-`history_pin` (a direct tool) keeps a brief or a seq range of a past session in this session's instructions, with `sessionID`, and `from` and `to` for a range, for example `"from": 40, "to": 48`. It is not in Code Mode, and it asks the user first. Pins are sent with every request, so pin only when the user wants earlier work kept in view, and remove one with `"action": "remove"` and its `sessionID` when done.
+`history_pin` (a direct tool) keeps a brief or a seq range of a past session in this session's instructions, with `sessionID`, and `from` and `to` for a range, for example `"from": 40, "to": 48`. It is not in Code Mode; every tool is allowed by default, so a pin runs at once, and `access: "ask-changes"` makes it ask (read-only denies it). Pins are sent with every request, so pin only when the user wants earlier work kept in view, and remove one with `"action": "remove"` and its `sessionID` when done.
