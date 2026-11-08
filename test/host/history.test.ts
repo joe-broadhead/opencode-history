@@ -62,7 +62,8 @@ async function conversation(title: string, user: string, assistant: string) {
 
 beforeAll(async () => {
   // The host runs at `ask-changes`, so a change still asks here: that is where the prompt and the refusal are tested.
-  host = await startHost([withOptions(plugin, { database, indexPath, access: "ask-changes" }), observer], database)
+  // `experimental.schedules` turns on Code Mode, where R2 proves the same rules on the `execute` path.
+  host = await startHost([withOptions(plugin, { database, indexPath, access: "ask-changes" }), observer], database, HOST_VERSION, { experimental: { schedules: true } })
   // Plugins set up on the location's first listing, which fails while they are still activating.
   await waitFor(() => host.sdk.agent.list({ location }).then(() => contexts.has(directory), () => false), 30_000, "the plugins to load")
   script = (await host.sdk.session.create({ title: "Script", location, agent: "build" } as never)).id
@@ -71,6 +72,20 @@ afterAll(async () => {
   await host?.sdk.close()
   removeRoot()
 })
+
+/**
+ * Runs a Code Mode program once on the host's `execute` path (a schedule's `if` code) as the session's agent. It must
+ * throw: the message is what the program saw.
+ */
+async function codemode(sessionID: string, code: string): Promise<string> {
+  try {
+    await host.sdk.experimental.schedule.create({ sessionID, when: { in: "6 hours" }, if: { code }, prompt: "unused" } as never)
+  } catch (error) {
+    const detail = (error as { detail?: unknown }).detail
+    return `${error instanceof Error ? error.message : String(error)} ${detail === undefined ? "" : String(detail)}`
+  }
+  throw new Error("the Code Mode program did not throw, so a schedule was created")
+}
 
 describe(`History on @opencode/sdk, host version ${HOST_VERSION}`, () => {
   test("loads with the database and indexPath options, and reports them in its status", async () => {
@@ -185,6 +200,24 @@ describe(`History on @opencode/sdk, host version ${HOST_VERSION}`, () => {
     expect(result.output.rows).toEqual([[1]])
     expect(result.output.index.sessionsTotal).toEqual(expect.any(Number))
     expect(await host.sdk.permission.list({ sessionID: caller.id })).toEqual([])
+  })
+
+  // R2, the Code Mode path: inside `execute` the session's agent and rules decide, with no model and no one to answer
+  // a prompt, so an ask is refused before the read runs.
+  test("runs a read inside a Code Mode program as the session's agent", async () => {
+    const sessionID = (await host.sdk.session.create({ title: "Code reader", location, agent: "build" } as never)).id
+    const seen = await codemode(sessionID, 'const result = await tools.history.search({ query: ["app"] }); throw new Error("SEEN " + JSON.stringify({ results: result.results.length }))')
+    expect(seen).toContain("SEEN ")
+    expect(JSON.parse(/SEEN (\{.*\})/.exec(seen)?.[1] ?? "null")).toEqual({ results: expect.any(Number) })
+  })
+
+  test("refuses an ask, a deny and an unknown name inside a Code Mode program", async () => {
+    const ask = (await host.sdk.session.create({ title: "Code ask", location, agent: "build", permissions: [{ action: "history_search", resource: "*", effect: "ask" }] } as never)).id
+    expect(await codemode(ask, 'await tools.history.search({ query: ["app"] }); throw new Error("ran")')).toMatch(/needs approval|ask/i)
+    const deny = (await host.sdk.session.create({ title: "Code deny", location, agent: "build", permissions: [{ action: "history_*", resource: "*", effect: "deny" }] } as never)).id
+    expect(await codemode(deny, 'await tools.history.search({ query: ["app"] }); throw new Error("ran")')).toMatch(/denied|refus/i)
+    // An unknown name is not a tool: the program fails before it reaches the plugin.
+    expect(await codemode(deny, 'await tools.history.shiny_new_tool({}); throw new Error("ran")')).toMatch(/Unknown Code Mode tool|denied|refus/i)
   })
 })
 
