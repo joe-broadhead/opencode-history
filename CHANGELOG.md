@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `history_events_list`, and the tools RPC method `events_list`: every result names its `source` (`history`) and `account` (this machine), an empty one included, and the input takes `source: "history"`. It lists what changed in this machine's top-level sessions since a cursor, as Memory's normalised events, oldest first, one per session change, with the title, first prompt and last reply (masked, at most 4,096 characters). It never asks, so Memory's collector can run it unattended. The owner is this machine's OS user, and the account its host name.
+- `src/host/events-list.ts`, the shared `events_list` source contract: the event type, the input parser, the cursor helpers, the checks, and the conformance check every source runs in its tests. `scripts/check-copies.mjs` pins it like the other shared copies.
+- The error `ACCOUNT_UNKNOWN`, for an events list asked for another machine's account.
+
 ## [0.0.5] - 2026-11-06
 
 ### Changed

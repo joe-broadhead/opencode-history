@@ -10,7 +10,7 @@ export type FailureCode =
   | "INPUT_INVALID" | "OUTPUT_LIMIT" | "CANCELLED" | "CONTRACT_MISMATCH"
   | "SOURCE_UNAVAILABLE" | "SOURCE_SCHEMA_UNKNOWN"
   | "INDEX_UNAVAILABLE" | "INDEX_PATH_REFUSED" | "INDEX_BUSY" | "INDEX_FAILED" | "INDEX_MISMATCH"
-  | "SESSION_NOT_FOUND" | "MESSAGE_NOT_FOUND" | "CURSOR_INVALID" | "QUERY_INVALID"
+  | "SESSION_NOT_FOUND" | "MESSAGE_NOT_FOUND" | "CURSOR_INVALID" | "QUERY_INVALID" | "ACCOUNT_UNKNOWN"
   | "SQL_REJECTED" | "SQL_FAILED" | "SQL_TIMEOUT"
   | "PIN_TOO_LARGE" | "EVENTS_UNAVAILABLE"
   | "PERMISSION_DENIED" | "SESSION_UNKNOWN" | "SESSION_AGENT_REQUIRED"
@@ -40,6 +40,7 @@ export const FAILURES: { readonly [C in FailureCode]: readonly [message: string,
   MESSAGE_NOT_FOUND: ["That session has no message at that position.", "Call history_read without `at` to see the session's message range."],
   CURSOR_INVALID: ["The cursor is invalid or has expired.", "Repeat the call without cursor."],
   QUERY_INVALID: ["The search query cannot be used.", "Correct the named input and call the tool again."],
+  ACCOUNT_UNKNOWN: ["History lists only this machine's sessions, and that account is another machine's.", "Call history_events_list without account, or with the account its events name."],
   SQL_REJECTED: ["The SQL was refused.", "Rewrite it as one read-only SELECT or WITH statement over the v_* views and the docs_words and docs_sub tables."],
   SQL_FAILED: ["The SQL query failed.", "Check the view and column names in the history_sql description, then retry."],
   SQL_TIMEOUT: [`The SQL query ran longer than 10 seconds and was stopped.`, "Narrow it: filter by time or session, and bound a recursive WITH with a LIMIT or a WHERE on its counter."],

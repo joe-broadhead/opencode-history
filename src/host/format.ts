@@ -1,8 +1,9 @@
 // The text content of each tool result: what the model reads. Search, sessions, files, brief, read and recall results
 // end with the call to make next.
 import {
-  HIDDEN_REASONS, type BriefOutput, type FilesInput, type FilesOutput, type Hidden, type HiddenReason, type IndexState, type ReadInput, type ReadOutput,
-  type RecallInput, type RecallOutput, type SearchInput, type SearchOutput, type SessionSummary, type SessionsOutput, type SqlOutput,
+  HIDDEN_REASONS, type BriefOutput, type EventsListOutput, type FilesInput, type FilesOutput, type Hidden, type HiddenReason, type IndexState,
+  type ReadInput, type ReadOutput, type RecallInput, type RecallOutput, type SearchInput, type SearchOutput, type SessionSummary, type SessionsOutput,
+  type SqlOutput,
 } from "../domain/api.js"
 import { NAMESPACE } from "../domain/contract.js"
 import type { State, StatusView } from "./status.js"
@@ -201,6 +202,15 @@ export function formatSql(result: SqlOutput) {
     indexNotes(result.index),
     result.columns.join(" | "),
     result.rows.map(row => row.map(cell).join(" | ")),
+  )
+}
+
+export function formatEvents(result: EventsListOutput) {
+  return lines(
+    `${plural(result.events.length, "event")} for ${result.owner.label}, oldest first${result.more ? "; more follow" : ""}.`,
+    result.events.map(e => `${when(e.occurred_at)} ${e.external_id} ${JSON.stringify(e.title)}`),
+    `Cursor: ${result.cursor}`,
+    `Next: ${result.more ? call("events_list", { cursor: result.cursor }) : "call it again with this cursor later, for what changes next"}.`,
   )
 }
 

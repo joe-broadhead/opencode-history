@@ -1,5 +1,6 @@
 // Defaults and ranges of the number inputs. The tool schemas declare them and the query layer clamps to them, so the
 // two cannot disagree.
+import { PAGE } from "../host/events-list.js"
 
 /** A number input's default and inclusive range. */
 export interface Bound {
@@ -17,6 +18,8 @@ export const BOUNDS = {
   recall: { sessions: { default: 5, min: 1, max: 10 }, maxChars: { default: 16_000, min: 1000, max: 100_000 } },
   sql: { limit: { default: 100, min: 1, max: 200 } },
   pin: { maxChars: { default: 8000, min: 500, max: 50_000 } },
+  // The events_list contract's page, from the shared module.
+  events_list: { limit: PAGE },
 } as const satisfies Record<string, Record<string, Bound>>
 
 /** Phrasings one search or recall takes. The schemas refuse more; the query layer ignores the rest. */
