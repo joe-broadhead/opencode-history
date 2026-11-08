@@ -6,6 +6,8 @@ exports[`the tarball holds the whitelisted files only, under 1 MB 1`] = `
   "LICENSE",
   "NOTICE",
   "README.md",
+  "assets/icon-128.png",
+  "assets/icon-256.png",
   "assets/icon.svg",
   "dist/index.js",
   "dist/tui.js",
