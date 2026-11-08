@@ -12,7 +12,9 @@ import { eventRouter, type EventRouter } from "./index/events.js"
 import { acquire, type Lease } from "./index/shared.js"
 import { ForeignIndexError, IndexStore } from "./index/store.js"
 import { Indexer } from "./index/sync.js"
+import { localIdentity } from "./host/identity.js"
 import { brief } from "./query/brief.js"
+import { eventsList, eventsRequest } from "./query/events.js"
 import { files } from "./query/files.js"
 import { read } from "./query/read.js"
 import { recall } from "./query/recall.js"
@@ -259,7 +261,7 @@ function indexKey(path: string): string {
  * indexing runs in the background. The first instance's source and extraction options serve every instance. Search,
  * sessions and recall first catch up for at most REFRESH_MS, so they see sessions changed since the last pass.
  */
-export const createRuntime: CreateRuntime = async ({ config, session }) => {
+export const createRuntime: CreateRuntime = async ({ config, session, identity = localIdentity() }) => {
   const opened = await openSource(config.database, session)
   const extract: ExtractOptions = { ...DEFAULT_EXTRACT, ...config.index, redact: config.mask }
   let lease: Lease<SharedIndex>
@@ -324,6 +326,11 @@ export const createRuntime: CreateRuntime = async ({ config, session }) => {
       query("recall", () =>
         fresh(async () => masked(await recall(shared.store.db, shared.source, caller, input, state(), mask))),
       ),
+    // The query masks the text before it cuts and hashes it, so the output is not masked again.
+    eventsList: async (_caller, input) => {
+      const request = eventsRequest(input)
+      return query("events_list", () => fresh(() => eventsList(shared.store.db, request, identity, state(), mask, Date.now())))
+    },
     reindex: mode =>
       run("reindex", async () => {
         await (mode === "rebuild" ? shared.rebuild() : shared.catchUp())

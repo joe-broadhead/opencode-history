@@ -14,7 +14,7 @@ When OpenCode loads it, the plugin:
 
 - opens OpenCode's database read-only and reads its sessions, messages, projects and todos;
 - copies text from them into its own index file, and keeps it in step as sessions change;
-- registers eight `history_*` tools, two commands, the status RPC, the tools RPC for scripts and one skill;
+- registers nine `history_*` tools, two commands, the status RPC, the tools RPC for scripts and one skill;
 - in the terminal UI, adds one status dialog, `/history`, which only reads the `status` RPC method;
 - inserts its default permission block after each agent's base `* * allow` (see [Permissions](#permissions)).
 
@@ -46,6 +46,7 @@ Masking is a safety net for known formats, such as API key prefixes. It is not a
 ### Where data goes
 
 - **To your model provider:** tool descriptions, and every tool result the agent reads: excerpts, briefs, messages, query results and pins. Pinned text is sent with every request of the session that holds it.
+- **To whatever calls `history_events_list`:** each changed session's title, first prompt and last reply, masked and cut to 4,096 characters, with the project folder's last segment and the agent's name. The result names this machine's OS user and host name as the source's owner and account. Memory's collector calls it to copy these events to your private memory space, after you turn History on as a source; the plugin itself sends them nowhere.
 - **Into OpenCode's database, through OpenCode:** pins, as instruction entries on the current session, and the text `/history-status` and `/history-reindex` post into a session. OpenCode stores them like any other session data.
 - **Over the network:** nothing from the plugin itself. It opens no connection. The one process it starts is the short-lived child that runs a `history_sql` statement, OpenCode's own executable, on the local index.
 - **To the server log:** warnings with a code and no input or history text: `HOST_UNTESTED`, `SKILLS_INVALID`, `EVENTS_UNAVAILABLE`, and `SOURCE_UNAVAILABLE` or `SOURCE_SCHEMA_UNKNOWN` when the plugin falls back to the plugin session API. When a call fails unexpectedly and reports only a code, such as `OPERATION_FAILED`, one line with that code, the operation, the error's class, SQLite's result code and the names of the functions it was thrown from; never the error's message, which can repeat a query or text.

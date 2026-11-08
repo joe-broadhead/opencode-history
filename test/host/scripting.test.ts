@@ -63,7 +63,7 @@ const asked = async (session: string) => host.sdk.permission.list({ sessionID: s
 describe(`tools RPC on @opencode/sdk, host version ${HOST_VERSION}`, () => {
   test("describes every tool but history_pin", async () => {
     const description = await tools().describe!({}, { location }) as { methods: { name: string; action: string }[] }
-    expect(description.methods.map(method => method.name)).toEqual(["search", "brief", "read", "sessions", "files", "recall", "sql"])
+    expect(description.methods.map(method => method.name)).toEqual(["search", "brief", "read", "sessions", "files", "recall", "sql", "events_list"])
   })
 
   test("a known read runs as a session whose agent allows it, with no model turn, and returns the tool's output", async () => {
