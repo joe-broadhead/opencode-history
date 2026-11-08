@@ -2,6 +2,7 @@ import * as z from "zod"
 import { BOUNDS, MAX_PHRASINGS, type Bound } from "./bounds.js"
 import { integer, text } from "./common.js"
 import { DOC_KINDS, type DocKind, type FileOp, type MessageKind } from "./contract.js"
+import { EVENT_KINDS, EVENT_LIMITS, SINCE_PATTERN, TRUST } from "../host/events-list.js"
 
 // The one description of every tool's input and output; api.ts derives the types from these. Inputs carry the defaults
 // the model sees, from BOUNDS, which the query layer clamps to as well. The host validates every tool result against
@@ -104,6 +105,16 @@ export const RecallInputSchema = z.strictObject({
   ...filters,
 })
 
+/** events_list's input, as the shared contract (src/host/events-list.ts) defines it; the query checks it again with the contract's parser. */
+export const EventsListInputSchema = z.strictObject({
+  since: z.string().max(40).regex(SINCE_PATTERN, "must be an ISO date, or an ISO date-time with Z or an offset").optional()
+    .describe("Where to start when there is no cursor: an ISO date (a UTC day) or an ISO date-time with Z or an offset. Default: 24 hours ago."),
+  cursor: text(EVENT_LIMITS.cursor).min(1).optional().describe("The cursor of the previous result, to list what changed after it. It wins over since."),
+  limit: ranged(BOUNDS.events_list.limit, "Most events to return"),
+  account: text(EVENT_LIMITS.account).min(1).optional().describe("This machine's account, as its events name it. Default: this machine."),
+  source: z.literal("history").optional().describe("History's one source, history. Default: history."),
+})
+
 // Outputs
 
 const count = integer.min(0)
@@ -184,6 +195,32 @@ export const RecallOutputSchema = z.strictObject({
   evidence: z.array(EvidenceSchema),
   queries: z.array(z.string()),
   index: IndexStateSchema,
+})
+
+/** One event, as the shared contract defines it. */
+export const SourceEventSchema = z.strictObject({
+  source: z.string().max(EVENT_LIMITS.source),
+  account: z.string().max(EVENT_LIMITS.account),
+  external_id: z.string().max(EVENT_LIMITS.externalId),
+  kind: z.enum(EVENT_KINDS),
+  occurred_at: z.string().max(64),
+  thread: z.string().max(EVENT_LIMITS.thread).nullable(),
+  actors: z.array(z.strictObject({ role: z.string().max(EVENT_LIMITS.actorRole), id: z.string().max(EVENT_LIMITS.actorId), name: z.string().max(EVENT_LIMITS.actorName).optional() })).max(EVENT_LIMITS.actors),
+  title: z.string().max(EVENT_LIMITS.title),
+  text: z.string().max(EVENT_LIMITS.text),
+  url: z.string().max(EVENT_LIMITS.url).nullable(),
+  labels: z.array(z.string().max(EVENT_LIMITS.label)).max(EVENT_LIMITS.labels),
+  hash: z.string().max(80),
+})
+
+export const EventsListOutputSchema = z.strictObject({
+  source: z.string().max(EVENT_LIMITS.source),
+  account: z.string().max(EVENT_LIMITS.account),
+  owner: z.strictObject({ id: z.string().max(EVENT_LIMITS.ownerId), label: z.string().max(EVENT_LIMITS.ownerLabel) }),
+  events: z.array(SourceEventSchema),
+  cursor: z.string().max(EVENT_LIMITS.cursor),
+  more: z.boolean(),
+  trust: z.literal(TRUST),
 })
 
 export const StatusSchema = z.strictObject({

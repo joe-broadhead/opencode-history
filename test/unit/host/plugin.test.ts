@@ -87,7 +87,7 @@ describe("setup", () => {
     const h = host({ options: { defaultScope: "all" } }), { cleanup, runtime } = await setup(h)
     const added: { name: string; input: { parse(v: unknown): unknown }; execute(input: unknown, context: object): Promise<{ content: string }> }[] = []
     h.transforms.tool!({ namespace: () => {}, add: (t: never) => { added.push(t) } } as never)
-    expect(added).toHaveLength(8)
+    expect(added).toHaveLength(9)
     const search = added.find(t => t.name === "search")!
     await search.execute(search.input.parse({ query: "x" }), { sessionID: "ses_now", agent: "build", messageID: "msg_1", id: "call_1", signal: new AbortController().signal, progress: async () => {} })
     expect(runtime.calls[0]).toMatchObject({ caller: { sessionID: "ses_now", projectID: "prj_app", directory: "/work/app" }, input: { scope: "all" } })
