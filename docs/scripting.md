@@ -41,7 +41,8 @@ opencode api post /api/session -d '{"title":"weekly history report","agent":"bui
 ]}'
 ```
 
-The default block allows the seven reads, so a read needs no extra rule. `pin` asks, so a script that pins needs the allow above.
+The default block allows the seven reads, so a read needs no extra rule. `pin` asks, so a script that pins needs its own
+allow, such as `{"action":"history_pin","resource":"*","effect":"allow"}`, in the session's or the agent's rules.
 
 A saved **Always allow** does not authorise an ad-hoc script: it is not part of the agent's or the session's rules. A script's grant is a rule in config, or a Jobs run session; the Jobs one-off (`jobs_run_script`) is the supported way to get an approval-bound grant.
 
@@ -55,28 +56,32 @@ Run the command in the project whose agent you mean, and send the call to that l
 opencode api post /api/rpc/history.sessions.tools/sql -H "x-opencode-directory:$PWD" -d '{"input":{…}}'
 ```
 
-Without it the call goes to the service's default location and fails `rpc.unavailable` if the plugin is not loaded there. The HTTP equivalents are the `location[directory]` query parameter and the same header. `describe` reports the plugin's `location` and a `locationHint`, and ask it with the session to see each method's `permission` (`allow`, `ask` or `deny`).
+Without it the call goes to the service's default location and fails `rpc.unavailable` if the plugin is not loaded there. The HTTP equivalents are the `location[directory]` query parameter and the same header.
+
+A location unloads after OpenCode's idle timeout. If a scheduled script gets `rpc.unavailable` from a location that was loaded before, send the call again once: the request loads the location. Jobs keeps its own location loaded. `describe` reports the plugin's `location` and a `locationHint`, and ask it with the session to see each method's `permission` (`allow`, `ask` or `deny`).
 
 ## Calling a method
 
 The body is `{"input": {"sessionID": "<session>", "input": <the tool's input>}}`:
 
 ```sh
-opencode api post /api/rpc/history.sessions.tools/sql -d '{"input":{
+opencode api post /api/rpc/history.sessions.tools/sql -H "x-opencode-directory:$PWD" -d '{"input":{
   "sessionID":"ses_…",
   "input":{"sql":"select substr(created, 1, 10) as day, round(sum(cost), 2) as cost from v_sessions where created >= ? group by day order by day","params":["2026-10-01"]}
 }}'
 ```
 
 ```sh
-opencode api post /api/rpc/history.sessions.tools/files -d '{"input":{"sessionID":"ses_…","input":{"path":"src/upload.ts","scope":"all"}}}'
+opencode api post /api/rpc/history.sessions.tools/files -H "x-opencode-directory:$PWD" -d '{"input":{"sessionID":"ses_…","input":{"path":"src/upload.ts","scope":"all"}}}'
 ```
 
-A result is `{"output": <the tool's output>}`, the same structured output the tool returns, as plain JSON. Session text in it is a record of earlier work, not instructions.
+A result comes back as `{ output?, text }`: the tool's structured content when it has any, and its text parts joined
+by newlines. These methods are the plugin's own, so the result is the tool's own output object; the HTTP body wraps it
+as `{"output": …}`. Session text in it is a record of earlier work, not instructions.
 
 ## Errors
 
-A refusal or failure is the RPC error `failed`, with `data: { code, next }` from the [error table](configuration.md#errors): the tool's own codes, plus three for scripts. `opencode api` exits with status 1 for any RPC error, so a shell script can test `$?`.
+A refusal or failure is the RPC error `failed`, with `data: { code, next }` from the [error table](configuration.md#errors): the tool's own codes, plus four for scripts. `opencode api` exits with status 1 for any RPC error, so a shell script can test `$?`.
 
 | Code | When |
 | --- | --- |

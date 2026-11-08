@@ -144,6 +144,42 @@ There is nothing to sign in to and no client ID to set. `mask` adds patterns tha
 
 Start with `/history-status`. It ends with one next step. Errors read `CODE: what happened. Next step: What to do.`
 
+<!-- generated:codes -->
+
+| Code | What happened | Next step |
+| --- | --- | --- |
+| `CANCELLED` | The call was cancelled. | Call the tool again if you still need the result. |
+| `CLOSED` | The History plugin is shutting down. | Retry after OpenCode has reloaded the plugin. |
+| `CONTRACT_MISMATCH` | The history index returned data this plugin version does not expect. | Reinstall the plugin, and if it persists, report it with the /history-status output. |
+| `CURSOR_INVALID` | The cursor is invalid or has expired. | Repeat the call without cursor. |
+| `EVENTS_UNAVAILABLE` | OpenCode's session events stopped, so the index may lag behind new sessions. | Wait, since the plugin subscribes again by itself, and restart OpenCode if it persists. |
+| `HOST_UNTESTED` | This OpenCode version is outside the range History supports. | Use OpenCode 2.2.3, 2.2.4, 2.2.5 or 2.2.6, or another release inside >=2.2.3 <2.3.0, or set the plugin option allowUntestedHost: true to run anyway. |
+| `INDEX_BUSY` | The history index is locked by another writer, such as a second OpenCode process. | Retry in a moment. |
+| `INDEX_FAILED` | Updating the history index failed. | Run /history-status, and if it persists, delete the index file at indexPath and restart OpenCode. |
+| `INDEX_MISMATCH` | The history index was rebuilt for another version of this plugin, likely by another OpenCode process. | Restart every OpenCode process, so they all run one version of the plugin. |
+| `INDEX_PATH_REFUSED` | The indexPath option names a file the History index must not use. | Set indexPath to a new file outside OpenCode's data folder and your projects, or remove it to use the default, then restart OpenCode. |
+| `INDEX_UNAVAILABLE` | The history index could not be opened. | Check that indexPath is a writable file path, then restart OpenCode. |
+| `INPUT_INVALID` | The tool input is invalid. | Correct the named fields and call the tool again. |
+| `MESSAGE_NOT_FOUND` | That session has no message at that position. | Call history_read without `at` to see the session's message range. |
+| `OPERATION_FAILED` | The tool failed unexpectedly. | Retry, and if it persists, run /history-status. |
+| `OPTIONS_INVALID` | The plugin options are invalid. | Fix the History plugin options in opencode.json (see Configure in the README), then restart OpenCode. |
+| `OUTPUT_LIMIT` | The result is too large to return. | Narrow the request: a lower limit, a smaller maxChars or a shorter range. |
+| `PERMISSION_DENIED` | The session's agent may not use this tool. | Add an allow rule for the tool's action to that agent, or call as a session whose agent allows it. |
+| `PIN_TOO_LARGE` | The text to pin is larger than OpenCode allows for one instruction entry. | Pin a shorter range, or set a lower maxChars. |
+| `QUERY_INVALID` | The search query cannot be used. | Correct the named input and call the tool again. |
+| `SESSION_AGENT_REQUIRED` | That session names no agent, so there are no rules to run the tool under. | Create a session that names an agent, such as POST /api/session with {"agent":"build"}, and pass its id. |
+| `SESSION_NOT_FOUND` | No indexed session has that ID. | Find the session ID with history_search or history_sessions. |
+| `SESSION_UNKNOWN` | OpenCode has no session with that ID. | Create a session that names an agent, such as POST /api/session with {"agent":"build"}, and pass its id. |
+| `SKILLS_INVALID` | A History skill file is missing or malformed, so that skill was skipped. | Reinstall the plugin. |
+| `SOURCE_SCHEMA_UNKNOWN` | OpenCode's database has a layout this plugin version does not know. | Update the plugin, or use the OpenCode version it was tested with. |
+| `SOURCE_UNAVAILABLE` | OpenCode's session history could not be read. | Check that the database option points at OpenCode's opencode.db, then restart OpenCode. |
+| `SQL_FAILED` | The SQL query failed. | Check the view and column names in the history_sql description, then retry. |
+| `SQL_REJECTED` | The SQL was refused. | Rewrite it as one read-only SELECT or WITH statement over the v_* views and the docs_words and docs_sub tables. |
+| `SQL_TIMEOUT` | The SQL query ran longer than 10 seconds and was stopped. | Narrow it: filter by time or session, and bound a recursive WITH with a LIMIT or a WHERE on its counter. |
+| `STATUS_UNAVAILABLE` | History status could not be read. | Run /history-status again, or check the OpenCode server log. |
+
+<!-- /generated:codes -->
+
 | State or code | What to do |
 | --- | --- |
 | `Source: plugin session API (partial)` | Status names the cause. `SOURCE_UNAVAILABLE`: point `database` at OpenCode's `opencode.db`, then restart OpenCode. `SOURCE_SCHEMA_UNKNOWN`: OpenCode's database has a layout this version does not know, so update the plugin or use a tested OpenCode. |
