@@ -112,6 +112,7 @@ export const EventsListInputSchema = z.strictObject({
   cursor: text(EVENT_LIMITS.cursor).min(1).optional().describe("The cursor of the previous result, to list what changed after it. It wins over since."),
   limit: ranged(BOUNDS.events_list.limit, "Most events to return"),
   account: text(EVENT_LIMITS.account).min(1).optional().describe("This machine's account, as its events name it. Default: this machine."),
+  source: z.literal("history").optional().describe("History's one source, history. Default: history."),
 })
 
 // Outputs
@@ -213,6 +214,8 @@ export const SourceEventSchema = z.strictObject({
 })
 
 export const EventsListOutputSchema = z.strictObject({
+  source: z.string().max(EVENT_LIMITS.source),
+  account: z.string().max(EVENT_LIMITS.account),
   owner: z.strictObject({ id: z.string().max(EVENT_LIMITS.ownerId), label: z.string().max(EVENT_LIMITS.ownerLabel) }),
   events: z.array(SourceEventSchema),
   cursor: z.string().max(EVENT_LIMITS.cursor),

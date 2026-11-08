@@ -61,7 +61,7 @@ export const SAMPLES = {
     index: INDEX,
   },
   eventsList: eventsListResult(
-    { id: "os-user:sam@studio-mac", label: "sam on studio-mac" },
+    { source: "history", account: "studio-mac", owner: { id: "os-user:sam@studio-mac", label: "sam on studio-mac" } },
     [makeEvent({
       source: "history", account: "studio-mac", external_id: `ses_login1@${SESSION.updated}`, kind: "session", occurred_at: SESSION.updated,
       thread: "history-session:ses_login1", actors: [{ role: "agent", id: "opencode-agent:build", name: "build" }], title: SESSION.title,

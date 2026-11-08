@@ -269,8 +269,9 @@ Times are UTC text `YYYY-MM-DD HH:MM:SS`, such as `2026-10-12 09:30:00`, with a 
 | `cursor` | unset | The `cursor` of the previous result. It wins over `since`. A cursor History did not issue for this machine is `CURSOR_INVALID`. |
 | `limit` | `100` | Events, 1–500. |
 | `account` | this machine | This machine's account, as its events name it; any other is `ACCOUNT_UNKNOWN`. |
+| `source` | `history` | History's one source; any other is `INPUT_INVALID`. |
 
-The result is `{ owner, events, cursor, more, trust: "untrusted" }`. There is one event per top-level session each time it changes, oldest first by the time it changed; subagent sessions are part of their parent's work and are not listed. Each event has:
+The result is `{ source, account, owner, events, cursor, more, trust: "untrusted" }`. `source` is `history` and `account` this machine on every result, an empty one included, so Memory can bind the source before it has anything to list. There is one event per top-level session each time it changes, oldest first by the time it changed; subagent sessions are part of their parent's work and are not listed. Each event has:
 
 | Field | Value |
 | --- | --- |
