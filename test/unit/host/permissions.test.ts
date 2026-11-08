@@ -36,6 +36,8 @@ describe("the default rules", () => {
       const rules = [BASE, ...block]
       for (const name of ["search", "read", "brief", "sessions", "files", "recall", "sql"]) expect(evaluate(rules, `history_${name}`), `${access} ${name}`).toBe("allow")
       expect(evaluate(rules, "history_export"), access).toBe(effect)
+      // A tool a later version adds is not in the block's exact names, so the namespace rule alone decides it.
+      expect(evaluate(rules, "history_new_tool"), access).toBe(effect)
       // Every rule is either a read allowed or a change at the value.
       expect(block.filter(rule => rule.effect !== "allow").map(rule => rule.action), access).toEqual([NAMESPACE_ACTION, "history_pin"])
     }
