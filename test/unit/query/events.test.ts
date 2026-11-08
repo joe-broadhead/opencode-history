@@ -68,7 +68,7 @@ describe("history_events_list", () => {
     session(s.db, { id: "ses_a", title: "Fix the\ninvoice rounding", updated: NOW - HOUR, agent: "build", firstPrompt: "Round half to even", lastReply: "Done: banker's rounding.", archived: NOW - HOUR })
     const result = await lister(s)({})
     expect(resultProblems(result)).toEqual([])
-    expect(result.owner).toEqual({ id: "os-user:sam@studio-mac", label: "sam on studio-mac" })
+    expect(result).toMatchObject({ source: "history", account: "studio-mac", owner: { id: "os-user:sam@studio-mac", label: "sam on studio-mac" } })
     expect(result.trust).toBe("untrusted")
     expect(result.events).toEqual([
       expect.objectContaining({
@@ -122,7 +122,7 @@ describe("history_events_list", () => {
     const s = index()
     history(s)
     const building = await lister(s, { state: { ...STATE, ready: false } })({ limit: 2 })
-    expect(building).toMatchObject({ events: [], more: false })
+    expect(building).toMatchObject({ source: "history", account: "studio-mac", events: [], more: false })
     const ready = await lister(s)({ cursor: building.cursor, limit: 2 })
     expect(ready.events.map(event => event.external_id.split("@")[0])).toEqual(["ses_a", "ses_b"])
   })
@@ -142,7 +142,7 @@ describe("history_events_list", () => {
     expect(rest.more).toBe(false)
   })
 
-  it("refuses another machine's account and cursor, and a malformed since", async () => {
+  it("refuses another machine's account and cursor, another source, and a malformed since", async () => {
     const s = index()
     history(s)
     await expect(lister(s)({ account: "other-mac" })).rejects.toMatchObject({ code: "ACCOUNT_UNKNOWN" })
@@ -150,6 +150,10 @@ describe("history_events_list", () => {
     await expect(lister(s)({ since: "2026-13-45" })).rejects.toMatchObject({ code: "INPUT_INVALID" })
     await expect(lister(s)({ since: "2026-11-01T10:00" })).rejects.toMatchObject({ code: "INPUT_INVALID" })
     expect((await lister(s)({ account: IDENTITY.account })).events.length).toBe(5)
+    expect((await lister(s)({ source: "history" })).events.length).toBe(5)
+    await expect(lister(s)({ source: "gmail" })).rejects.toMatchObject({ code: "INPUT_INVALID" })
+    // Called past the tool's schema, the query refuses another source too.
+    expect(() => eventsList(s.db, { limit: 10, source: "gmail" }, IDENTITY, STATE, NO_MASK, NOW)).toThrow(/"source" must be "history"/)
   })
 
   it("takes its limit's default and range from the contract", () => {

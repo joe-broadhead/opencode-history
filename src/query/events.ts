@@ -94,9 +94,13 @@ function toEvent(row: Row, account: string, mask: Mask): SourceEvent {
  */
 export function eventsList(db: Db, request: EventsListRequest, identity: LocalIdentity, state: IndexState, mask: Mask, now: number): EventsListResult {
   const { account, owner } = identity
+  const whose = { source: EVENTS_SOURCE, account, owner }
+  if (request.source !== undefined && request.source !== EVENTS_SOURCE) {
+    return fail("INPUT_INVALID", { message: `The tool input is invalid. "source" must be "${EVENTS_SOURCE}", History's only source.` })
+  }
   if (request.account !== undefined && request.account !== account) return fail("ACCOUNT_UNKNOWN")
   const from = request.cursor === undefined ? { updated: startTime(request, now), id: "" } : position(request.cursor, account)
-  if (!state.ready) return eventsListResult(owner, [], cursorAt(from, account), false)
+  if (!state.ready) return eventsListResult(whose, [], cursorAt(from, account), false)
   const rows = db.all<Row>(
     `select s.id as id, s.root_id as rootID, s.title as title, s.agent as agent, s.first_prompt as firstPrompt, s.last_reply as lastReply,
         s.updated as updated, s.archived as archived, p.worktree as worktree
@@ -112,5 +116,5 @@ export function eventsList(db: Db, request: EventsListRequest, identity: LocalId
   const events = rows.slice(0, request.limit).map(row => toEvent(row, account, mask))
   const kept = fitPage(events, request.limit)
   const last = rows[kept - 1]
-  return eventsListResult(owner, events.slice(0, kept), cursorAt(last ? { updated: last.updated, id: last.id } : from, account), rows.length > kept)
+  return eventsListResult(whose, events.slice(0, kept), cursorAt(last ? { updated: last.updated, id: last.id } : from, account), rows.length > kept)
 }
