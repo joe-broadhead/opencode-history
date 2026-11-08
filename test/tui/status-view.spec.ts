@@ -20,6 +20,7 @@ interface Deferred { resolve(view: unknown): void; reject(error: Error): void; s
 const BUILDING = "The index is still being built (40 of 42 sessions), and results cover only the indexed sessions. Wait for it to finish."
 const view = (version: string, overrides: Partial<StatusView> = {}): StatusView => ({
   version,
+  access: "all",
   host: { version: "2.2.3", range: ">=2.2.3 <2.3.0", tested: true },
   state: "connecting",
   tools: { visible: 9, unknown: [] },

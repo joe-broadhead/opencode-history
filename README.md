@@ -69,7 +69,7 @@ In the terminal UI, `/history`, or **History: Status** in the command palette, o
 
 ### Scripts
 
-A script or a cron job can call the same tools with no model, through `opencode api`. It runs as a session and its agent, under that agent's permission rules. Every tool is a method, `history_pin` included; a write needs a prior explicit `allow` in the session's or the agent's rules, because an `ask` is refused when no one can answer it:
+A script or a cron job can call the same tools with no model, through `opencode api`. It runs as a session and its agent, under that agent's permission rules. Every tool is a method, `history_pin` included, and a script gets the same default as the model: at `access: "all"` it runs everything, while a rule that resolves to `ask` is refused, because no one can answer it, and a `deny` is refused:
 
 ```sh
 opencode api post /api/rpc/history.sessions.tools/search \
@@ -81,15 +81,95 @@ See [Scripting](https://github.com/joe-broadhead/opencode-history/blob/HEAD/docs
 
 ## Permissions
 
-The plugin puts a default block after each agent's base `* * allow` rule:
+**Every tool is allowed by default.** An agent can read any indexed session in any project, and `history_pin` writes a past session's brief into the current session's instructions, without asking. Restrict it in any of these three ways:
 
-| Tool | Default |
-|---|---|
-| `history_search`, `history_read`, `history_brief`, `history_sessions`, `history_files`, `history_recall`, `history_sql` | allow |
-| `history_pin`, which changes the current session's instructions | ask |
-| any other `history_*` tool | ask |
+1. **The `access` option**, which drives the rules the plugin inserts directly after each agent's base `{ "action": "*", "resource": "*", "effect": "allow" }` rule. Agents without that base rule are left alone, and a later rule still wins.
 
-Your own rules come later, so they win. `scope` chooses what is relevant; it is not access control. An agent that has these tools can read any indexed session in any project, and `history_sql` always covers every project. To keep an agent out of your history, deny the tools. A deny hides the matching tools:
+   | Value | What runs | What asks |
+   | --- | --- | --- |
+   | `"all"` (the default) | every tool, and one a later version adds | nothing |
+   | `"ask-changes"` | the reads | `history_pin`, and a tool a later version adds |
+   | `"read-only"` | the reads | nothing: `history_pin` and new tools are **denied** |
+
+   ```json
+   { "plugins": [{ "package": "@joe-broadhead/opencode-history", "options": { "access": "read-only" } }] }
+   ```
+
+2. **An agent that is read-only or asks**, with rules of its own, later than the plugin's:
+
+   ```json
+   { "agents": { "reader": { "permissions": [
+     { "action": "history_*", "resource": "*", "effect": "ask" },
+     { "action": "history_search", "resource": "*", "effect": "allow" }
+   ] } } }
+   ```
+
+3. **A rule per tool**, with the exact names: `history_` and the tool's name, such as `history_sql` or `history_pin`.
+
+   ```json
+   { "permissions": [
+     { "action": "history_pin", "resource": "*", "effect": "deny" },
+     { "action": "history_sql", "resource": "*", "effect": "ask" }
+   ] }
+   ```
+
+The block for each value, generated from `defaultRules(access)` in `src/host/permissions.ts`:
+
+<!-- generated:rules-all -->
+
+`access: "all"`
+
+| Action | Resource | Effect |
+| --- | --- | --- |
+| `history_*` | `*` | `allow` |
+| `history_search` | `*` | `allow` |
+| `history_read` | `*` | `allow` |
+| `history_brief` | `*` | `allow` |
+| `history_sessions` | `*` | `allow` |
+| `history_files` | `*` | `allow` |
+| `history_recall` | `*` | `allow` |
+| `history_sql` | `*` | `allow` |
+| `history_pin` | `*` | `allow` |
+
+<!-- /generated:rules-all -->
+
+<!-- generated:rules-ask-changes -->
+
+`access: "ask-changes"`
+
+| Action | Resource | Effect |
+| --- | --- | --- |
+| `history_*` | `*` | `ask` |
+| `history_search` | `*` | `allow` |
+| `history_read` | `*` | `allow` |
+| `history_brief` | `*` | `allow` |
+| `history_sessions` | `*` | `allow` |
+| `history_files` | `*` | `allow` |
+| `history_recall` | `*` | `allow` |
+| `history_sql` | `*` | `allow` |
+| `history_pin` | `*` | `ask` |
+
+<!-- /generated:rules-ask-changes -->
+
+<!-- generated:rules-read-only -->
+
+`access: "read-only"`
+
+| Action | Resource | Effect |
+| --- | --- | --- |
+| `history_*` | `*` | `deny` |
+| `history_search` | `*` | `allow` |
+| `history_read` | `*` | `allow` |
+| `history_brief` | `*` | `allow` |
+| `history_sessions` | `*` | `allow` |
+| `history_files` | `*` | `allow` |
+| `history_recall` | `*` | `allow` |
+| `history_sql` | `*` | `allow` |
+| `history_pin` | `*` | `deny` |
+
+<!-- /generated:rules-read-only -->
+
+A `deny` also hides the matching tools. `scope` chooses what is relevant; it is not access control. An agent that has these tools can read any indexed session in any project, and `history_sql` always covers every project. To keep an agent out of your history, deny the tools:
 
 ```jsonc
 {
@@ -103,7 +183,7 @@ Your own rules come later, so they win. `scope` chooses what is relevant; it is 
 }
 ```
 
-Put the same rule in the top-level `permissions` to remove the tools from every agent, or name single tools such as `history_sql` or `history_pin`. Every rule needs `"resource"`. OpenCode skips a rule without it. Agents defined only in your config miss the default block; `/history-status` names them and gives the block to put first in their own `permissions`. The full rules are in [docs/configuration.md](https://github.com/joe-broadhead/opencode-history/blob/HEAD/docs/configuration.md#permissions).
+Put the same rule in the top-level `permissions` to remove the tools from every agent. Every rule needs `"resource"`. OpenCode skips a rule without it. Agents defined only in your config miss the default block; at `"ask-changes"` or `"read-only"`, `/history-status` names them and gives the block to put first in their own `permissions`. The full rules are in [docs/configuration.md](https://github.com/joe-broadhead/opencode-history/blob/HEAD/docs/configuration.md#permissions).
 
 ## Configure
 

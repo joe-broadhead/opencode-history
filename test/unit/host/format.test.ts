@@ -131,7 +131,7 @@ describe("result text", () => {
   })
 
   test("status rows end with exactly one next step", () => {
-    const view = { version: "0.1.0", host: { version: "2.3.0", range: HOST_RANGE, tested: false }, state: "ready" as const, tools: { visible: 9, unknown: [] as string[] }, index: { ...INDEX, lagSeconds: 3.4 }, database: "/d/opencode.db", indexPath: "/d/index.db", indexBytes: 535_822_336, masksChanged: false, defaultScope: "project" as const, shadowedSkills: [], unguardedAgents: [] as string[], nextStep: "Use 2.2.x." }
+    const view = { version: "0.1.0", access: "ask-changes" as const, host: { version: "2.3.0", range: HOST_RANGE, tested: false }, state: "ready" as const, tools: { visible: 9, unknown: [] as string[] }, index: { ...INDEX, lagSeconds: 3.4 }, database: "/d/opencode.db", indexPath: "/d/index.db", indexBytes: 535_822_336, masksChanged: false, defaultScope: "project" as const, shadowedSkills: [], unguardedAgents: [] as string[], nextStep: "Use 2.2.x." }
     expect(formatStatus(view).split("\n")).toEqual([
       "History status",
       "Connection: connected",
@@ -155,6 +155,12 @@ describe("result text", () => {
     expect(tested).toContain("Connection: connected")
     expect(tested).toContain("Index file: /d/index.db")
     expect(tested).toContain("OpenCode: 2.2.5 (tested). History 0.1.0")
+    // The Access and Tools rows follow the access value.
+    expect(formatStatus({ ...view, access: "all" }).split("\n")[3]).toBe("Access: reads OpenCode's database read-only and writes only its own index; every tool runs, so history_pin changes this session's instructions without asking")
+    expect(formatStatus({ ...view, access: "read-only" }).split("\n")[3]).toBe("Access: reads OpenCode's database read-only and writes only its own index; history_pin is denied, so it never changes a session")
+    const unknown = formatStatus({ ...view, access: "all", tools: { visible: 9, unknown: ["export"] } }).split("\n")
+    expect(unknown).toContain("Tools: 9 available, 1 unknown (new tools run too): export")
+    expect(formatStatus({ ...view, tools: { visible: 9, unknown: ["export"] } }).split("\n")).toContain("Tools: 9 available, 1 unknown (they ask first): export")
     const masks = formatStatus({ ...view, masksChanged: true }).split("\n")
     expect(masks.slice(7, 9)).toEqual(["Index file: /d/index.db (511 MB)", "Masks: changed since text was indexed, so the index file holds that text masked the old way until /history-reindex rebuild"])
   })

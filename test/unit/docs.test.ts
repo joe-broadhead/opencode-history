@@ -4,6 +4,8 @@ import { describe, expect, test } from "vitest"
 import { readdirSync, readFileSync, writeFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { FAILURES } from "../../src/domain/common.js"
+import { ACCESS_VALUES } from "../../src/domain/contract.js"
+import { defaultRules } from "../../src/host/permissions.js"
 import { NEXT_STEPS, TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
 import { TOOL_DEFINITIONS } from "../../src/host/tools.js"
 
@@ -35,6 +37,48 @@ const storyOf = (code: string): readonly [string, string] =>
   Object.hasOwn(FAILURES, code)
     ? [FAILURES[code as keyof typeof FAILURES][0], FAILURES[code as keyof typeof FAILURES][1] ?? "Nothing further."]
     : ["The tools RPC refused the call.", NEXT_STEPS[code as keyof typeof NEXT_STEPS]!]
+
+/** Replace a generated block with `body`, or compare it when nothing is being regenerated. */
+function checkBlock(file: string, name: string, body: string) {
+  const open = `<!-- generated:${name} -->`
+  const close = `<!-- /generated:${name} -->`
+  const text = read(file)
+  const start = text.indexOf(open)
+  const end = text.indexOf(close)
+  expect({ file, name, markers: start !== -1 && end > start }).toEqual({ file, name, markers: true })
+  const expected = `${text.slice(0, start + open.length)}\n\n${body}\n\n${text.slice(end)}`
+  if (UPDATE) {
+    if (expected !== text) writeFileSync(`${ROOT}${file}`, expected)
+    return
+  }
+  expect(text, `${file}: the ${name} block is stale; run UPDATE_DOCS=1 npm test`).toBe(expected)
+}
+
+/** The block for one access value: one row per rule, in the order the transform inserts them. */
+const rulesBody = (access: (typeof ACCESS_VALUES)[number]) => () =>
+  [
+    `\`access: "${access}"\``,
+    "",
+    "| Action | Resource | Effect |",
+    "| --- | --- | --- |",
+    ...defaultRules(access).map(rule => `| \`${rule.action}\` | \`${rule.resource}\` | \`${rule.effect}\` |`),
+  ].join("\n")
+
+describe("the generated blocks", () => {
+  test("each access value's block is the block the plugin inserts after each agent's base allow", () => {
+    for (const access of ACCESS_VALUES) checkBlock("README.md", `rules-${access}`, rulesBody(access)())
+    // The configuration docs print the block that is actually inserted, at the default value.
+    checkBlock("docs/configuration.md", "rules-all", rulesBody("all")())
+    // At the default value every rule allows, and the namespace rule comes first, so the value decides the rest.
+    expect(defaultRules("all").every(rule => rule.effect === "allow")).toBe(true)
+    expect(defaultRules("all")[0]).toEqual({ action: "history_*", resource: "*", effect: "allow" })
+    for (const access of ["ask-changes", "read-only"] as const) {
+      const block = defaultRules(access), effect = access === "ask-changes" ? "ask" : "deny"
+      expect(block[0]).toEqual({ action: "history_*", resource: "*", effect })
+      expect(block.filter(rule => rule.effect !== "allow").map(rule => rule.action)).toEqual(["history_*", "history_pin"])
+    }
+  })
+})
 
 test("the README's code table is the code table: every code, in both directions", () => {
   const open = "<!-- generated:codes -->"

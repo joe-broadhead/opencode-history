@@ -64,7 +64,7 @@ export function createPlugin({ createRuntime, packageRoot }: PluginSources): Plu
         })
         const assert = (request: Parameters<typeof ctx.permission.assert>[0]) => ctx.permission.assert(request)
         const sources: ToolSources = { runtime, session: ctx.session, location, defaults, assert: request => assert(request as never) }
-        await registerDefaultRules(ctx.agent)
+        await registerDefaultRules(ctx.agent, config.access)
         await ctx.tool.transform(toolTransform(sources))
         await ctx.rpc.register(History, rpcHandlers({ status }))
         stopToolsRpc = await registerToolsRpc(ctx, { methods: scriptMethods(sources) })

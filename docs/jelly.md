@@ -19,11 +19,13 @@ writes each declared `ask` or `deny` as that tool's default instead (the person'
 replaces it), and denies a read-only helper every tool not marked `readOnly`. A declared `allow`
 changes nothing in Jelly.
 
-- Ask: `history.pin`, which pins a past session's brief or messages into the current session's
-  instructions.
+- Ask: none. Every declared tool is allowed, as the plugin's own default rules allow it at `access: "all"`.
 - Off: none.
-- Everything else runs, as the plugin's own rules let it: search, brief, read, sessions, files,
-  recall and SQL, which only read the history index and OpenCode's database.
+
+The declared tools are search, brief, read, sessions, files, recall and SQL, which only read the history index and
+OpenCode's database, and `history.pin`, which pins a past session's brief or messages into the current session's
+instructions. To make `pin` ask in Jelly too, set `access: "ask-changes"` in the plugin options; `"read-only"` denies
+it there.
 
 Keep `jelly.tools` in step with the plugin's tools and default rules; `test/**/jelly.test.ts`
 checks each declared tool and effect against them.

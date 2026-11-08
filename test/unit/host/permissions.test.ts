@@ -2,8 +2,9 @@ import { describe, expect, test, vi } from "vitest"
 import { HOST_RANGE } from "../../../src/domain/hosts.js"
 import { formatStatus } from "../../../src/host/format.js"
 import {
-  AGENT_FIX, DEFAULT_RULES, evaluate, hasDefaultRules, insertDefaultRules, KNOWN_READS, permissionRequest, registerDefaultRules, unguardedAgents, type Rule,
+  AGENT_FIX, CHANGING_ACTIONS, DEFAULT_RULES, defaultRules, evaluate, hasDefaultRules, insertDefaultRules, KNOWN_READS, NAMESPACE_ACTION, permissionRequest, registerDefaultRules, unguardedAgents, type Rule,
 } from "../../../src/host/permissions.js"
+import { ACCESS_VALUES } from "../../../src/domain/contract.js"
 import { buildStatus } from "../../../src/host/status.js"
 import { ACTIONS, READS, TOOL_NAMES } from "../../../src/host/tools.js"
 import { fakeRuntime } from "../../host/runtime.js"
@@ -12,12 +13,32 @@ const BASE: Rule = { action: "*", resource: "*", effect: "allow" }
 const rule = (action: string, effect: Rule["effect"]): Rule => ({ action, resource: "*", effect })
 
 describe("the default rules", () => {
-  test("allow the known reads, ask for history_pin and any unknown history tool", () => {
+  test("allow every tool and the namespace at the default access, so a tool a later version adds runs too", () => {
     const rules = [BASE, ...DEFAULT_RULES]
     for (const name of ["search", "read", "brief", "sessions", "files", "recall", "sql"]) expect(evaluate(rules, `history_${name}`), name).toBe("allow")
-    expect(evaluate(rules, "history_pin")).toBe("ask")
-    expect(evaluate(rules, "history_export")).toBe("ask")
+    expect(evaluate(rules, "history_pin")).toBe("allow")
+    expect(evaluate(rules, "history_export")).toBe("allow")
     expect(evaluate(rules, "other_tool")).toBe("allow")
+    // Broad first, narrow last, and every rule of the default value allows.
+    expect(NAMESPACE_ACTION).toBe("history_*")
+    expect(DEFAULT_RULES[0]).toEqual({ action: NAMESPACE_ACTION, resource: "*", effect: "allow" })
+    expect(new Set(DEFAULT_RULES.map(rule => rule.effect))).toEqual(new Set(["allow"]))
+    expect(defaultRules()).toEqual(DEFAULT_RULES)
+  })
+
+  test("follow the value at ask-changes and read-only, from the tool classes", () => {
+    expect(ACCESS_VALUES).toEqual(["all", "ask-changes", "read-only"])
+    expect([...CHANGING_ACTIONS]).toEqual(["history_pin"])
+    for (const [access, effect] of [["ask-changes", "ask"], ["read-only", "deny"]] as const) {
+      const block = defaultRules(access)
+      expect(block[0], access).toEqual({ action: NAMESPACE_ACTION, resource: "*", effect })
+      expect(block.at(-1), access).toEqual({ action: "history_pin", resource: "*", effect })
+      const rules = [BASE, ...block]
+      for (const name of ["search", "read", "brief", "sessions", "files", "recall", "sql"]) expect(evaluate(rules, `history_${name}`), `${access} ${name}`).toBe("allow")
+      expect(evaluate(rules, "history_export"), access).toBe(effect)
+      // Every rule is either a read allowed or a change at the value.
+      expect(block.filter(rule => rule.effect !== "allow").map(rule => rule.action), access).toEqual([NAMESPACE_ACTION, "history_pin"])
+    }
   })
 
   test("cover every tool: the reads are allowed and every other tool is an action that asks", () => {
@@ -53,21 +74,24 @@ describe("the default rules", () => {
   test("are inserted for every agent by the agent transform", async () => {
     const agents = new Map<string, { permissions: Rule[] }>([["build", { permissions: [BASE] }], ["explore", { permissions: [rule("*", "deny")] }]])
     let callback: ((editor: never) => void) | undefined
-    await registerDefaultRules({ transform: (async (fn: (editor: never) => void) => { callback = fn; return { dispose: async () => {} } }) as never })
+    await registerDefaultRules({ transform: (async (fn: (editor: never) => void) => { callback = fn; return { dispose: async () => {} } }) as never }, "read-only")
     callback!({ list: () => [...agents.keys()].map(id => ({ id })), update: (id: string, fn: (info: { permissions: Rule[] }) => void) => fn(agents.get(id)!) } as never)
-    expect(agents.get("build")!.permissions).toEqual([BASE, ...DEFAULT_RULES])
+    expect(agents.get("build")!.permissions).toEqual([BASE, ...defaultRules("read-only")])
     expect(agents.get("explore")!.permissions).toEqual([rule("*", "deny")])
   })
 })
 
 describe("unguarded agents", () => {
-  test("are the agents without the block that would run an unknown history tool without asking", () => {
+  test("are the agents without the block that would run an unknown history tool without asking, at a restricting value", () => {
+    const block = defaultRules("ask-changes")
     expect(unguardedAgents([
-      { id: "build", permissions: [BASE, ...DEFAULT_RULES] },
+      { id: "build", permissions: [BASE, ...block] },
       { id: "custom", permissions: [BASE] },
       { id: "explore", permissions: [rule("*", "deny")] },
       { id: "careful", permissions: [BASE, rule("history_*", "ask")] },
-    ])).toEqual(["custom"])
+    ], "ask-changes")).toEqual(["custom"])
+    // At `all` nothing is held back, so no agent needs the fix.
+    expect(unguardedAgents([{ id: "custom", permissions: [BASE] }])).toEqual([])
   })
 
   test("leave out an agent whose own rules end by asking or denying everything, as QA's probe agents do (LIVE-1)", () => {
@@ -75,16 +99,17 @@ describe("unguarded agents", () => {
       { id: "probe", permissions: [BASE, rule("*", "ask")] },
       { id: "closed", permissions: [BASE, rule("*", "deny")] },
       { id: "smoke-bot", permissions: [BASE, rule("*", "allow")] },
-    ])).toEqual(["smoke-bot"])
+    ], "read-only")).toEqual(["smoke-bot"])
   })
 
-  test("are named in status with the block and the fix", async () => {
+  test("are named in status with the block and the fix, at a restricting value", async () => {
+    const block = defaultRules("ask-changes")
     const view = await buildStatus({
       version: "0.0.0", host: { version: "2.2.3", range: HOST_RANGE, tested: true },
-      config: { database: "/d", indexPath: "/i", defaultScope: "project" }, runtime: fakeRuntime(),
-      agents: async () => [{ id: "build", permissions: [BASE, ...DEFAULT_RULES] }, { id: "reviewer", permissions: [BASE] }],
+      config: { database: "/d", indexPath: "/i", defaultScope: "project", access: "ask-changes" }, runtime: fakeRuntime(),
+      agents: async () => [{ id: "build", permissions: [BASE, ...block] }, { id: "reviewer", permissions: [BASE] }],
     })
-    expect(view).toMatchObject({ unguardedAgents: ["reviewer"], permissionsBlock: DEFAULT_RULES, nextStep: AGENT_FIX })
+    expect(view).toMatchObject({ access: "ask-changes", unguardedAgents: ["reviewer"], permissionsBlock: block, nextStep: AGENT_FIX })
     const text = formatStatus(view)
     expect(text).toContain("\nAgents without default rules: reviewer\n  [\n    {\"action\":\"history_*\",\"resource\":\"*\",\"effect\":\"ask\"},\n")
     expect(text.split("\n").at(-1)).toBe("Next step: Put the default rules shown by /history-status first in each listed agent's own permissions, in opencode.json or the agent's Markdown file, followed by your top-level rules for History tools.")

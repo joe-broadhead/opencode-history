@@ -13,7 +13,7 @@ import { HOST_RANGE } from "../../src/domain/hosts.js"
 import { History } from "../../src/rpc.js"
 import { Rpc } from "@opencode/plugin/rpc"
 import { TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
-import { DEFAULT_RULES, hasDefaultRules } from "../../src/host/permissions.js"
+import { defaultRules, hasDefaultRules } from "../../src/host/permissions.js"
 
 const version = (JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as { version: string }).version
 const database = join(root, "opencode.db")
@@ -61,7 +61,8 @@ async function conversation(title: string, user: string, assistant: string) {
 }
 
 beforeAll(async () => {
-  host = await startHost([withOptions(plugin, { database, indexPath }), observer], database)
+  // The host runs at `ask-changes`, so a change still asks here: that is where the prompt and the refusal are tested.
+  host = await startHost([withOptions(plugin, { database, indexPath, access: "ask-changes" }), observer], database)
   // Plugins set up on the location's first listing, which fails while they are still activating.
   await waitFor(() => host.sdk.agent.list({ location }).then(() => contexts.has(directory), () => false), 30_000, "the plugins to load")
   script = (await host.sdk.session.create({ title: "Script", location, agent: "build" } as never)).id
@@ -151,11 +152,12 @@ describe(`History on @opencode/sdk, host version ${HOST_VERSION}`, () => {
     const agents = (await host.sdk.agent.list({ location })).data as { id: string; permissions: { action: string; resource: string; effect: string }[] }[]
     const based = agents.filter(agent => agent.permissions.some(rule => rule.action === "*" && rule.resource === "*" && rule.effect === "allow"))
     expect(based.map(agent => agent.id)).toContain("build")
-    for (const agent of based) expect(hasDefaultRules(agent.permissions as never), agent.id).toBe(true)
+    for (const agent of based) expect(hasDefaultRules(agent.permissions as never, "ask-changes"), agent.id).toBe(true)
     const build = agents.find(agent => agent.id === "build")!
     const at = build.permissions.findIndex(rule => rule.action === "history_*")
-    expect(build.permissions.slice(at, at + DEFAULT_RULES.length)).toEqual(DEFAULT_RULES)
-    expect((await rpc().status({}, { location })).unguardedAgents).toEqual([])
+    expect(build.permissions.slice(at, at + defaultRules("ask-changes").length)).toEqual(defaultRules("ask-changes"))
+    const status = await rpc().status({}, { location })
+    expect(status).toMatchObject({ access: "ask-changes", unguardedAgents: [] })
   })
 
   test("history_pin asks before it changes the session, and a rejection pins nothing", async () => {

@@ -237,8 +237,12 @@ function agentsRow(view: StatusView) {
 }
 /** The Account row: History has no accounts. */
 const ACCOUNT_TEXT = "none; History needs no sign-in"
-/** The Access row: what the plugin can do. */
-const ACCESS_TEXT = "reads OpenCode's database read-only and writes only its own index; history_pin asks before it changes a session"
+/** The Access row: what the plugin can do, per `access` value. */
+const ACCESS_TEXT = {
+  all: "reads OpenCode's database read-only and writes only its own index; every tool runs, so history_pin changes this session's instructions without asking",
+  "ask-changes": "reads OpenCode's database read-only and writes only its own index; history_pin asks before it changes a session",
+  "read-only": "reads OpenCode's database read-only and writes only its own index; history_pin is denied, so it never changes a session",
+} as const
 const FALLBACK_TEXT = { SOURCE_UNAVAILABLE: "OpenCode's database could not be read", SOURCE_SCHEMA_UNKNOWN: "OpenCode's database has an unknown layout" } as const
 /** The Connection row's words for each state: the S9 labels. */
 const CONNECTION_WORDS: { readonly [S in State]: string } = { ready: "connected", connecting: "connecting", failed: "failed" }
@@ -255,8 +259,9 @@ function hostText({ host, version }: StatusView) {
   const note = host.tested ? "tested" : `untested; supported range ${host.range}`
   return `${host.version ?? "unknown version"} (${note}). History ${version}`
 }
-function toolsText({ tools }: StatusView) {
-  const unknown = tools.unknown.length ? `, ${tools.unknown.length} unknown (they ask first): ${tools.unknown.join(", ")}` : ""
+function toolsText({ tools, access }: StatusView) {
+  const posture = access === "all" ? "new tools run too" : access === "read-only" ? "they are denied" : "they ask first"
+  const unknown = tools.unknown.length ? `, ${tools.unknown.length} unknown (${posture}): ${tools.unknown.join(", ")}` : ""
   return `${tools.visible} available${unknown}`
 }
 export function formatStatus(view: StatusView) {
@@ -265,7 +270,7 @@ export function formatStatus(view: StatusView) {
     "History status",
     `Connection: ${CONNECTION_WORDS[view.state]}`,
     `Account: ${ACCOUNT_TEXT}`,
-    `Access: ${ACCESS_TEXT}`,
+    `Access: ${ACCESS_TEXT[view.access]}`,
     `Index: ${index.ready ? "ready" : "building"}, ${index.sessionsIndexed} of ${index.sessionsTotal} sessions${index.lagSeconds ? `, ${Math.round(index.lagSeconds)} s behind` : ""}`,
     `Source: ${SOURCE_TEXT[index.source]}${index.complete ? "" : ", incomplete"}${view.fallback ? ` (${FALLBACK_TEXT[view.fallback]})` : ""}`,
     `Database: ${view.database}`,

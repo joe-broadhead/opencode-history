@@ -33,8 +33,9 @@ describe("the jelly declaration", () => {
     expect(jelly.tools.map(tool => tool.permission)).toEqual(TOOL_NAMES.map(name => `${NAMESPACE}_${name}`))
   })
 
-  test("asks for exactly the plugin's actions", () => {
-    expect(jelly.tools.filter(tool => tool.effect === "ask").map(tool => tool.permission)).toEqual([...ACTIONS].map(name => `${NAMESPACE}_${name}`))
+  test("allows every declared tool, the action included, as the default access does", () => {
+    expect(jelly.tools.filter(tool => tool.effect !== "allow")).toEqual([])
+    for (const name of ACTIONS) expect(jelly.tools.find(tool => tool.permission === `${NAMESPACE}_${name}`)).toMatchObject({ effect: "allow", readOnly: false })
   })
 
   test("marks exactly the known reads read-only", () => {
@@ -47,7 +48,8 @@ describe("docs/jelly.md", () => {
     expect(docProblems(ROOT)).toEqual([])
   })
 
-  test("names the asking tools", () => {
-    for (const tool of jelly.tools.filter(tool => tool.effect === "ask")) expect(doc).toContain(`\`${tool.name}\``)
+  test("names the action tool and the option that makes it ask", () => {
+    expect(doc).toContain("`history.pin`")
+    expect(doc).toContain('`access: "ask-changes"`')
   })
 })

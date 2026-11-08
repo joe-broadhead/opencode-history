@@ -7,7 +7,7 @@ import { buildStatus, type StatusView } from "../../../src/host/status.js"
 import { failure, fakeRuntime } from "../../host/runtime.js"
 import { INDEX } from "../../host/samples.js"
 
-const VIEW: StatusView = { version: "1.0.0", host: { version: "2.2.3", range: HOST_RANGE, tested: true }, state: "ready", tools: { visible: 9, unknown: [] }, index: INDEX, database: "/d", indexPath: "/i", indexBytes: 1_536_000, masksChanged: false, defaultScope: "project", shadowedSkills: [], unguardedAgents: [], nextStep: "Nothing to do." }
+const VIEW: StatusView = { version: "1.0.0", access: "all", host: { version: "2.2.3", range: HOST_RANGE, tested: true }, state: "ready", tools: { visible: 9, unknown: [] }, index: INDEX, database: "/d", indexPath: "/i", indexBytes: 1_536_000, masksChanged: false, defaultScope: "project", shadowedSkills: [], unguardedAgents: [], nextStep: "Nothing to do." }
 
 function setup(overrides: Partial<CommandSources> = {}) {
   const runtime = fakeRuntime(), posts: Record<string, unknown>[] = []
@@ -29,7 +29,7 @@ describe("commands", () => {
   test("/history-status shows an index file at another schema, with the INDEX_MISMATCH next step", async () => {
     const runtime = fakeRuntime()
     runtime.indexSchema = { file: "1", build: "3" }
-    const t = setup({ status: () => buildStatus({ version: "1.0.0", host: VIEW.host, config: { database: "/d", indexPath: "/i", defaultScope: "project" }, runtime, agents: async () => [] }) })
+    const t = setup({ status: () => buildStatus({ version: "1.0.0", host: VIEW.host, config: { database: "/d", indexPath: "/i", defaultScope: "project", access: "all" }, runtime, agents: async () => [] }) })
     await t.run("history-status")
     const lines = String(t.posts[0]!.text).split("\n")
     expect(lines.slice(7, 9)).toEqual(["Index file: /i (1.5 MB)", "Index schema: version 1 in the file, but this build uses version 3, so every query fails (INDEX_MISMATCH)"])

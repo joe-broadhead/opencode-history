@@ -1,7 +1,7 @@
 import * as z from "zod"
 import { BOUNDS, MAX_PHRASINGS, type Bound } from "./bounds.js"
 import { integer, text } from "./common.js"
-import { DOC_KINDS, type DocKind, type FileOp, type MessageKind } from "./contract.js"
+import { ACCESS_VALUES, DOC_KINDS, type DocKind, type FileOp, type MessageKind } from "./contract.js"
 
 // The one description of every tool's input and output; api.ts derives the types from these. Inputs carry the defaults
 // the model sees, from BOUNDS, which the query layer clamps to as well. The host validates every tool result against
@@ -188,6 +188,8 @@ export const RecallOutputSchema = z.strictObject({
 
 export const StatusSchema = z.strictObject({
   version: z.string().max(64),
+  /** What the generated default rules allow: `all`, `ask-changes` or `read-only`. */
+  access: z.enum(ACCESS_VALUES),
   host: z.strictObject({ version: z.string().max(64).nullable(), range: z.string().max(64), tested: z.boolean() }),
   state: z.enum(["ready", "connecting", "failed"]),
   index: IndexStateSchema,

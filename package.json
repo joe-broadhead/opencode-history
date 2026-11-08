@@ -111,7 +111,7 @@
       {
         "name": "history.pin",
         "permission": "history_pin",
-        "effect": "ask",
+        "effect": "allow",
         "readOnly": false
       }
     ],

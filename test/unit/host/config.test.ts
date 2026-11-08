@@ -42,6 +42,7 @@ describe("plugin options", () => {
       index: { reasoning: false, toolResults: true, maxDocChars: 8000 },
       mask: DEFAULT_MASK,
       allowUntestedHost: false,
+      access: "all",
     })
     expect(loadConfig({}, { XDG_DATA_HOME: "relative/data" })).toMatchObject({
       database: join(homedir(), ".local/share/opencode/opencode.db"),
@@ -56,12 +57,14 @@ describe("plugin options", () => {
       mask: ["sk-[A-Za-z0-9]{20,}", "password=\\S+"],
       maskDefaults: false,
       allowUntestedHost: true,
+      access: "read-only",
     }, env)
     expect(config).toEqual({
       database: "/db/opencode.db", indexPath: "/idx/history.db", defaultScope: "all",
       index: { reasoning: true, toolResults: false, maxDocChars: 2000 },
       mask: [/sk-[A-Za-z0-9]{20,}/g, /password=\S+/g],
       allowUntestedHost: true,
+      access: "read-only",
     })
     expect("key sk-abcdefghijklmnopqrstuvwx end".replace(config.mask[0]!, "[masked]")).toBe("key [masked] end")
     expect(loadConfig({ index: { reasoning: true } }, env).index).toEqual({ reasoning: true, toolResults: true, maxDocChars: 8000 })
@@ -72,6 +75,8 @@ describe("plugin options", () => {
     expect(loadConfig({ maskDefaults: true }, env).mask).toEqual(DEFAULT_MASK)
     expect(loadConfig({ maskDefaults: false }, env).mask).toEqual([])
     expect(() => loadConfig({ maskDefaults: "no" }, env)).toThrow(/options\.maskDefaults/)
+    expect(loadConfig({ access: "ask-changes" }, env).access).toBe("ask-changes")
+    expect(() => loadConfig({ access: "write" }, env)).toThrow(/options\.access/)
   })
 
   test("every invalid key is named, and no value is echoed", () => {

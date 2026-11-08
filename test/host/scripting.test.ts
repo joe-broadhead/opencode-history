@@ -6,8 +6,10 @@ import { join } from "node:path"
 import { Rpc } from "@opencode/plugin/rpc"
 import type { Plugin } from "@opencode/plugin"
 import plugin from "../../src/index.js"
+import { History } from "../../src/rpc.js"
 import { TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
 import { TOOL_NAMES } from "../../src/host/tools.js"
+import { defaultRules } from "../../src/host/permissions.js"
 
 const database = join(root, "opencode.db")
 const indexPath = join(root, "history", "index.db")
@@ -28,7 +30,8 @@ const observer: Plugin.Plugin = { id: "test.observer", setup(ctx) { loaded.add(c
 const sessions: Record<string, string> = {}
 
 beforeAll(async () => {
-  host = await startHost([withOptions(plugin, { database, indexPath }), observer], database, HOST_VERSION, {
+  // The host runs at `ask-changes`, so a write is still refused here: that is where the refusal is tested.
+  host = await startHost([withOptions(plugin, { database, indexPath, access: "ask-changes" }), observer], database, HOST_VERSION, {
     agents: {
       locked: { permissions: [{ action: "*", resource: "*", effect: "allow" }, { action: "history_*", resource: "*", effect: "deny" }] },
       careful: { permissions: [{ action: "*", resource: "*", effect: "allow" }, { action: "history_sql", resource: "*", effect: "ask" }] },
@@ -154,4 +157,49 @@ describe(`tools RPC on @opencode/sdk, host version ${HOST_VERSION}`, () => {
     const pinned = await run("pin", allowed.id, { action: "list" })
     expect(pinned.value, pinned.message).toMatchObject({ pins: [] })
   })
+})
+
+/**
+ * One host per `access` value, on the tools RPC path. `ask-changes` is the suite above, where `pin` is refused; here
+ * `all` runs it with no prompt and `read-only` denies it, with no prompt and nothing written either way.
+ */
+describe(`access on the tools RPC, host version ${HOST_VERSION}`, () => {
+  for (const [access, effect] of [["all", "allow"], ["read-only", "deny"]] as const) {
+    let target: Awaited<ReturnType<typeof startHost>>
+    beforeAll(async () => {
+      // Each value gets its own host database and index, so its status reads a complete source.
+      const db = join(root, `access-${access}.db`)
+      target = await startHost([withOptions(plugin, { database: db, indexPath: join(root, `access-${access}`, "index.db"), access })], db)
+      await waitFor(() => target.sdk.agent.list({ location }).then(() => true, () => false), 30_000, "the plugin to load")
+    })
+    afterAll(async () => { await target?.sdk.close() })
+
+    test(`${access}: inserts its block, and a read still runs`, async () => {
+      const open = {}
+      const Tools = Rpc.define({ id: TOOLS_RPC_ID, methods: { describe: { input: open, output: open, errors: { failed: open } }, sessions: { input: open, output: open, errors: { failed: open } } }, events: {} })
+      const rpc = target.sdk.rpc(Tools) as unknown as Record<string, (input: unknown, options: unknown) => Promise<unknown>>
+      const session = (await target.sdk.session.create({ location, title: "Access", agent: "build" } as never)).id
+      const agents = (await target.sdk.agent.list({ location })).data as { id: string; permissions: { action: string; resource: string; effect: string }[] }[]
+      const build = agents.find(agent => agent.id === "build")!
+      expect(build.permissions.slice(1, 1 + defaultRules(access).length)).toEqual(defaultRules(access))
+      expect(await rpc.sessions!({ sessionID: session, input: {} }, { location })).toMatchObject({ sessions: expect.any(Array) })
+      expect(await target.sdk.permission.list({ sessionID: session })).toEqual([])
+      const status = (await target.sdk.rpc(History).status({}, { location })) as { access: string }
+      expect(status.access).toBe(access)
+    })
+
+    test(`${access}: ${effect === "deny" ? "denies" : "runs"} pin, with no prompt`, async () => {
+      const open = {}
+      const Tools = Rpc.define({ id: TOOLS_RPC_ID, methods: { pin: { input: open, output: open, errors: { failed: open } } }, events: {} })
+      const rpc = target.sdk.rpc(Tools) as unknown as Record<string, (input: unknown, options: unknown) => Promise<unknown>>
+      const session = (await target.sdk.session.create({ location, title: "Pin", agent: "build" } as never)).id
+      const answer = await rpc.pin!({ sessionID: session, input: { action: "list" } }, { location }).then(
+        value => ({ value }),
+        (error: { data?: { code?: string } }) => ({ code: error.data?.code }),
+      )
+      if (effect === "deny") expect(answer).toMatchObject({ code: "PERMISSION_DENIED" })
+      else expect(answer).toMatchObject({ value: { pins: [] } })
+      expect(await target.sdk.permission.list({ sessionID: session })).toEqual([])
+    })
+  }
 })

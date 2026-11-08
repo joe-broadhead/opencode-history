@@ -4,8 +4,20 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- The `access` option restricts what the generated default rules allow: `"all"` (the default), `"ask-changes"` and
+  `"read-only"`. The block is generated from the tool classes, with the `history_*` namespace rule first, so a tool a
+  later version adds follows the same value. `/history-status` and the status RPC report the value and the block.
+
 ### Changed
 
+- **Every tool is allowed by default.** The plugin inserts an allow for each tool it registers and for the `history_*`
+  namespace: the seven reads, and `history_pin`, which writes a past session's brief into the current session's
+  instructions. An agent runs them without asking, and nothing is held back. `"ask-changes"` makes `history_pin` and a
+  new tool ask, and `"read-only"` denies them; the reads always run. At `"all"` no agent needs the per-agent fix, so
+  status names none.
+- scripts get the same default: every method runs unless `access` or the session's rules restrict it.
 - tools RPC v2: every known tool is scriptable under a prior explicit allow. `history_pin` is a method now, a write,
   so a script can pin with the session's allow; the shared tools RPC module is copied into `src/host/tools-rpc.ts` and
   its copy is pinned by `scripts/check-copies.mjs`. Every method carries a class, and `describe` reports it, plus each

@@ -285,7 +285,8 @@ async function serve(version: string, binary: string) {
   const root = join(temp, `host-${version}`)
   const home = join(root, "home"), directory = join(root, "project"), tmp = join(root, "tmp")
   for (const dir of [join(home, ".config"), join(home, ".local/share"), join(home, ".cache"), join(home, ".local/state"), directory, tmp]) mkdirSync(dir, { recursive: true })
-  writeFileSync(join(directory, "opencode.json"), JSON.stringify({ plugins: [installed] }))
+  // `access: "ask-changes"` exercises the option end to end on the installed package: its block asks for `pin`.
+  writeFileSync(join(directory, "opencode.json"), JSON.stringify({ plugins: [{ package: installed, options: { access: "ask-changes" } }] }))
   const password = randomBytes(18).toString("base64url"), port = await freePort()
   const env = {
     HOME: home, OPENCODE_TEST_HOME: home, TMPDIR: tmp,

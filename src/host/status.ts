@@ -2,9 +2,10 @@ import type * as z from "zod"
 import type { StatusSchema } from "../domain/schemas.js"
 import { FAILURES, type HistoryFailure } from "../domain/common.js"
 import type { ResolvedConfig } from "../domain/config.js"
+import type { Access } from "../domain/contract.js"
 import type { HostCheck } from "./compat.js"
 import { NOTHING_TO_DO } from "./format.js"
-import { AGENT_FIX, DEFAULT_RULES, unguardedAgents, type Rule } from "./permissions.js"
+import { AGENT_FIX, defaultRules, unguardedAgents, type Rule } from "./permissions.js"
 import { TOOL_NAMES } from "./tools.js"
 import type { HistoryRuntime, SourceFallback } from "./runtime.js"
 
@@ -56,7 +57,7 @@ function stateOf(view: Pick<StatusView, "index" | "mismatch">): State {
 interface StatusSources {
   readonly version: string
   readonly host: HostCheck
-  readonly config: Pick<ResolvedConfig, "database" | "indexPath" | "defaultScope">
+  readonly config: Pick<ResolvedConfig, "database" | "indexPath" | "defaultScope" | "access">
   readonly runtime: Pick<HistoryRuntime, "status" | "schema" | "indexFile" | "fallback">
   /** The agents of the plugin's location, with their rules. */
   readonly agents: () => Promise<readonly { readonly id: string; readonly permissions: readonly Rule[] }[]>
@@ -74,14 +75,16 @@ export async function buildStatus({ version, host, config, runtime, agents, tool
   const [index, schema, file, listed, ids] = await Promise.all([
     runtime.status(), runtime.schema(), runtime.indexFile(), agents(), tools ? tools().then(list => list.map(tool => tool.id)) : Promise.resolve([...known]),
   ])
-  const unguarded = unguardedAgents(listed)
+  // At `all` nothing is held back, so no agent needs the fix.
+  const block = defaultRules(config.access)
+  const unguarded = unguardedAgents(listed, config.access)
   // A listing that fails says nothing about shadowing, so it shows none rather than failing the status.
   const loaded = skills ? await skills.listed().catch(() => []) : []
   const shadowedSkills = (skills?.own ?? []).flatMap(own => loaded.filter(skill => skill.id === own.id && skill.path !== own.path).map(skill => ({ id: skill.id, path: skill.path }))).slice(0, 10)
   const ours = ids.filter(id => id.startsWith("history_"))
   const base = { index, ...schema.file !== schema.build ? { mismatch: schema } : {} }
   const view = {
-    version, host: { version: host.version, range: host.range, tested: host.tested }, state: stateOf(base), index,
+    version, access: config.access, host: { version: host.version, range: host.range, tested: host.tested }, state: stateOf(base), index,
     ...index.source === "context" ? { fallback: runtime.fallback ?? "SOURCE_UNAVAILABLE" as const } : {},
     tools: { visible: ours.length, unknown: ours.filter(id => !known.has(id)).filter(id => SAFE_NAME.test(id)).slice(0, 20) },
     database: config.database,
@@ -91,7 +94,7 @@ export async function buildStatus({ version, host, config, runtime, agents, tool
     defaultScope: config.defaultScope,
     shadowedSkills,
     unguardedAgents: unguarded,
-    ...unguarded.length ? { permissionsBlock: DEFAULT_RULES.map(rule => ({ ...rule })) } : {},
+    ...unguarded.length ? { permissionsBlock: block.map(rule => ({ ...rule })) } : {},
     ...schema.file !== schema.build ? { mismatch: schema } : {},
   }
   return { ...view, nextStep: nextStep(host, view, runtime.fallback) }

@@ -17,6 +17,7 @@ const INDEX = object({ ready: boolean, sessionsIndexed: integer, sessionsTotal: 
   ["ready", "sessionsIndexed", "sessionsTotal", "lagSeconds", "source", "complete"])
 export const STATUS_OUTPUT = object({
   version: string,
+  access: choice(["all", "ask-changes", "read-only"]),
   host: object({ version: nullable(string), range: string, tested: boolean }, ["version", "range", "tested"]),
   state: choice(["ready", "connecting", "failed"]),
   index: INDEX,
@@ -28,7 +29,7 @@ export const STATUS_OUTPUT = object({
   permissionsBlock: list(object({ action: string, resource: string, effect: choice(["allow", "deny", "ask"]) }, ["action", "resource", "effect"])),
   mismatch: object({ file: nullable(string), build: string }, ["file", "build"]),
   nextStep: string,
-}, ["version", "host", "state", "index", "tools", "database", "indexPath", "indexBytes", "masksChanged", "defaultScope", "shadowedSkills", "unguardedAgents", "nextStep"])
+}, ["version", "access", "host", "state", "index", "tools", "database", "indexPath", "indexBytes", "masksChanged", "defaultScope", "shadowedSkills", "unguardedAgents", "nextStep"])
 
 /** A failure: the code, the full `CODE: ... Next step: ...` text as the message, and the next step. */
 const errors = { failed: object({ code: string, next: string }, ["code", "next"]) }

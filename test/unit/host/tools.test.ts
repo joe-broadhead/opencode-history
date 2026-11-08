@@ -31,7 +31,7 @@ function register(overrides: Partial<ToolSources> = {}) {
   const run = (name: ToolName, input: unknown, ctx: object = context()) => tool(name).execute(tool(name).input.parse(input), ctx)
   return { runtime, session, added, namespaces, tool, run, asserts, assert }
 }
-const CONFIG = { database: "/data/opencode/opencode.db", indexPath: "/data/opencode-history/index.db", defaultScope: "project" } as const
+const CONFIG = { database: "/data/opencode/opencode.db", indexPath: "/data/opencode-history/index.db", defaultScope: "project", access: "all" } as const
 const context = (signal = new AbortController().signal) => ({ sessionID: "ses_now", agent: "build", messageID: "msg_1", id: "call_1", signal, progress: async () => {} })
 const CALLER = { sessionID: "ses_now", projectID: "prj_app", directory: "/work/app" }
 
@@ -290,7 +290,7 @@ describe("status", () => {
   test("the view shows the options in effect", async () => {
     const runtime = fakeRuntime()
     expect(await buildStatus({ version: "1.2.3", host, config: CONFIG, runtime, agents: async () => [] })).toEqual({
-      version: "1.2.3", host, state: "ready", index: INDEX, tools: { visible: 8, unknown: [] }, database: CONFIG.database, indexPath: CONFIG.indexPath, indexBytes: 1_536_000, masksChanged: false,
+      version: "1.2.3", access: "all", host, state: "ready", index: INDEX, tools: { visible: 8, unknown: [] }, database: CONFIG.database, indexPath: CONFIG.indexPath, indexBytes: 1_536_000, masksChanged: false,
       defaultScope: "project", shadowedSkills: [], unguardedAgents: [], nextStep: "Nothing to do.",
     })
   })
@@ -323,8 +323,11 @@ describe("status", () => {
   test("changed masks ask for a rebuild, after a partial source and before unguarded agents", async () => {
     const runtime = fakeRuntime()
     runtime.file = { bytes: 10, masksChanged: true }
+    // At the default access nothing is held back, so no agent is unguarded: the masks step is the one that applies.
     const view = await buildStatus({ version: "1.2.3", host, config: CONFIG, runtime, agents: async () => [{ id: "loose", permissions: [{ action: "*", resource: "*", effect: "allow" }] }] })
-    expect(view).toMatchObject({ masksChanged: true, unguardedAgents: ["loose"], nextStep: MASKS_CHANGED })
+    expect(view).toMatchObject({ masksChanged: true, unguardedAgents: [], nextStep: MASKS_CHANGED })
+    const restricted = await buildStatus({ version: "1.2.3", host, config: { ...CONFIG, access: "ask-changes" }, runtime, agents: async () => [{ id: "loose", permissions: [{ action: "*", resource: "*", effect: "allow" }] }] })
+    expect(restricted).toMatchObject({ access: "ask-changes", unguardedAgents: ["loose"], nextStep: MASKS_CHANGED })
     expect(nextStep(host, { index: { ...INDEX, source: "context" }, unguardedAgents: [], masksChanged: true })).toBe(FAILURES.SOURCE_UNAVAILABLE[1])
   })
   test("the next step goes from the host, to a partial source, to an index still building", () => {

@@ -5,6 +5,10 @@ export const TUI_ID = "history.sessions.tui"
 export const NAMESPACE = "history"
 export const INDEX_SCHEMA_VERSION = 3
 
+/** How much the generated default rules allow. `all` is the default; the other two are how a user restricts the plugin. */
+export const ACCESS_VALUES = ["all", "ask-changes", "read-only"] as const
+export type Access = (typeof ACCESS_VALUES)[number]
+
 /** Kinds of searchable text taken from a session. */
 export type DocKind = "title" | "user" | "assistant" | "summary" | "reasoning" | "synthetic" | "tool_call" | "tool_result"
 

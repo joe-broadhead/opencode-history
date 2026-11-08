@@ -54,7 +54,7 @@ describe("RPC handlers", () => {
   const setup = (overrides: Partial<RpcSources> = {}) => {
     const runtime = fakeRuntime()
     const sources: RpcSources = {
-      status: () => buildStatus({ version: "1.0.0", host: { version: "2.2.3", range: HOST_RANGE, tested: true }, config: { database: "/d", indexPath: "/i", defaultScope: "directory" }, runtime, agents: async () => [] }),
+      status: () => buildStatus({ version: "1.0.0", host: { version: "2.2.3", range: HOST_RANGE, tested: true }, config: { database: "/d", indexPath: "/i", defaultScope: "directory", access: "all" }, runtime, agents: async () => [] }),
       ...overrides,
     }
     return { runtime, handlers: rpcHandlers(sources) }

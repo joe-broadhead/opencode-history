@@ -24,7 +24,7 @@ The class says the worst thing a method can do. It never decides whether a call 
 
 Every call names a session, and the session must name an agent. The script runs as that agent: each call resolves the tool's action, `history_<name>` on `*`, against the agent's permission rules and then the session's, with the host's order (the last matching rule wins), and then the tool asserts it. So a script gets exactly what the agent's model would get.
 
-**Only a resolved `allow` runs.** An `ask` is refused, because no one is there to answer the prompt, and a `deny` is refused. Both cost nothing: no tool call and no prompt left waiting. That is why `history_pin` needs a prior explicit allow: the default block asks for it.
+**Only a resolved `allow` runs.** An `ask` is refused, because no one is there to answer the prompt, and a `deny` is refused. Both cost nothing: no tool call and no prompt left waiting. A script gets the same default as the model: at `access: "all"` the default block allows every method. At `"ask-changes"` an `ask` stops a write, so `history_pin` then needs a prior explicit allow; at `"read-only"` it is denied.
 
 Create the session once, with the agent the script should run as, and keep its ID (`data.id`). A script, and a test of one, uses a session created for it. Never borrow an existing session found through `history_sessions` or another list: the script would run as that session's agent, under its rules.
 
@@ -41,8 +41,9 @@ opencode api post /api/session -d '{"title":"weekly history report","agent":"bui
 ]}'
 ```
 
-The default block allows the seven reads, so a read needs no extra rule. `pin` asks, so a script that pins needs its own
-allow, such as `{"action":"history_pin","resource":"*","effect":"allow"}`, in the session's or the agent's rules.
+The default block allows the seven reads and, at `access: "all"`, `pin` too, so neither needs an extra rule. If you set
+`access` to `"ask-changes"`, a script that pins needs its own allow, such as
+`{"action":"history_pin","resource":"*","effect":"allow"}`, in the session's or the agent's rules.
 
 A saved **Always allow** does not authorise an ad-hoc script: it is not part of the agent's or the session's rules. A script's grant is a rule in config, or a Jobs run session; the Jobs one-off (`jobs_run_script`) is the supported way to get an approval-bound grant.
 

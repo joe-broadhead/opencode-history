@@ -35,6 +35,7 @@ Every key is optional. There is no permission option. Permissions are OpenCode r
 | `mask` | array of at most 64 regular expressions, each 1–1,024 characters | `[]` | Every match is replaced with `[masked]`, in addition to the built-in patterns. See [Masking](#masking). |
 | `maskDefaults` | boolean | `true` | Mask common credential formats with the [built-in patterns](#built-in-patterns). `false` leaves only your `mask` patterns. |
 | `allowUntestedHost` | boolean | `false` | When `true`, an untested OpenCode version loads, with a warning. See [Host check](#host-check). |
+| `access` | `all`, `ask-changes` or `read-only` | `all` | What the generated default rules allow: everything, `history_pin` asks, or `history_pin` is denied. See [Permissions](#permissions). |
 
 Unknown keys are rejected. A relative path is rejected. `XDG_DATA_HOME` is used only when it is an absolute path.
 
@@ -271,41 +272,62 @@ A pin is an OpenCode instruction entry on the current session, keyed `history.<s
 
 ## Permissions
 
-Each tool's action is its effective name, `history_<name>`, on resource `*`. At setup the plugin inserts this block into every agent, directly after the agent's base `* * allow` rule:
+**Every tool is allowed by default.** An agent can read any indexed session in any project, and `history_pin` writes a past session's brief into the current session's instructions, without asking. Three ways to restrict it: the `access` option, an agent whose own rules are read-only or ask, and a rule per tool.
+
+### The `access` option
+
+Each tool's action is its effective name, `history_<name>`, on resource `*`. At setup the plugin inserts a block into every agent, directly after the agent's base `* * allow` rule, generated from the tool classes: the seven reads, and `history_pin`, which is the one write.
+
+| Value | What runs | What asks |
+| --- | --- | --- |
+| `"all"` (the default) | every tool, and one a later version adds | nothing |
+| `"ask-changes"` | the reads | `history_pin`, and a new tool |
+| `"read-only"` | the reads | nothing: `history_pin` and new tools are **denied** |
 
 ```json
-[
-  { "action": "history_*", "resource": "*", "effect": "ask" },
-  { "action": "history_search", "resource": "*", "effect": "allow" },
-  { "action": "history_read", "resource": "*", "effect": "allow" },
-  { "action": "history_brief", "resource": "*", "effect": "allow" },
-  { "action": "history_sessions", "resource": "*", "effect": "allow" },
-  { "action": "history_files", "resource": "*", "effect": "allow" },
-  { "action": "history_recall", "resource": "*", "effect": "allow" },
-  { "action": "history_sql", "resource": "*", "effect": "allow" }
-]
+{ "plugins": [{ "package": "@joe-broadhead/opencode-history", "options": { "access": "ask-changes" } }] }
 ```
 
-| Tool | Default |
+The default block, generated from `defaultRules(access)`:
+
+<!-- generated:rules-all -->
+
+`access: "all"`
+
+| Action | Resource | Effect |
+| --- | --- | --- |
+| `history_*` | `*` | `allow` |
+| `history_search` | `*` | `allow` |
+| `history_read` | `*` | `allow` |
+| `history_brief` | `*` | `allow` |
+| `history_sessions` | `*` | `allow` |
+| `history_files` | `*` | `allow` |
+| `history_recall` | `*` | `allow` |
+| `history_sql` | `*` | `allow` |
+| `history_pin` | `*` | `allow` |
+
+<!-- /generated:rules-all -->
+
+| Tool | Default at `"all"` |
 |---|---|
 | `history_search`, `history_read`, `history_brief`, `history_sessions`, `history_files`, `history_recall`, `history_sql` | allow |
-| `history_pin` | ask |
-| any other `history_*` tool | ask |
+| `history_pin`, which changes the current session's instructions | allow |
+| any other `history_*` tool | allow |
 
-Every tool asserts its action on each call, so an `ask` rule prompts; OpenCode itself only hides a plugin tool on a deny. "Always" allows that tool for the session. An agent without a base allow, such as Explore, gets no rules: there, unlisted tools are already not allowed, and an `ask` would loosen its default deny. Later rules still win, because the last matching rule wins, so your own rules decide. A deny hides the tool, for every agent at the top level or for one agent in its own `permissions`:
+Every tool asserts its action on each call, so an `ask` rule prompts; OpenCode itself only hides a plugin tool on a deny. "Always" allows that tool for the session. An agent without a base allow, such as Explore, gets no rules: there, unlisted tools are already not allowed, and the block would loosen its default deny. Later rules still win, because the last matching rule wins, so your own rules decide. A deny hides the tool, for every agent at the top level or for one agent in its own `permissions`:
 
 ```jsonc
 {
   "permissions": [
     { "action": "history_sql", "resource": "*", "effect": "deny" },
-    { "action": "history_pin", "resource": "*", "effect": "allow" }
+    { "action": "history_pin", "resource": "*", "effect": "ask" }
   ]
 }
 ```
 
 `history_*` matches every tool. Every rule needs `"resource"`. Without it, OpenCode skips the rule. For a Markdown agent, the same array goes in the `permissions` front matter.
 
-Agents defined only in your config are created after plugins run, so they miss the block. Status names every agent that misses it and would run an unknown `history_*` tool without asking, under **Agents without default rules**, with the block. The next step reads: "Put the default rules shown by /history-status first in each listed agent's own permissions, in opencode.json or the agent's Markdown file, followed by your top-level rules for History tools." Do not put it in the top-level `permissions`: top-level rules come after every agent's own, so they would loosen Explore.
+Agents defined only in your config are created after plugins run, so they miss the block. At `"all"` nothing is held back, so `/history-status` names no agent. At `"ask-changes"` or `"read-only"`, status names every agent that misses the block and would run an unknown `history_*` tool without asking, under **Agents without default rules**, with the block. The next step reads: "Put the default rules shown by /history-status first in each listed agent's own permissions, in opencode.json or the agent's Markdown file, followed by your top-level rules for History tools." Do not put it in the top-level `permissions`: top-level rules come after every agent's own, so they would loosen Explore.
 
 ## Commands and RPC
 

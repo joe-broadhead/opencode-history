@@ -4,7 +4,7 @@ import { isAbsolute, join } from "node:path"
 import { DEFAULT_MASK } from "../extract/index.js"
 import { defaultDatabasePath } from "../source/opencode-db.js"
 import { formatFailure, HistoryError } from "./common.js"
-import { DEFAULT_EXTRACT } from "./contract.js"
+import { ACCESS_VALUES, DEFAULT_EXTRACT, type Access } from "./contract.js"
 
 import { SCOPES } from "./schemas.js"
 
@@ -27,6 +27,7 @@ const ConfigSchema = z.strictObject({
   mask: z.array(pattern).max(64).optional(),
   maskDefaults: z.boolean().optional(),
   allowUntestedHost: z.boolean().optional(),
+  access: z.enum(ACCESS_VALUES).optional(),
 })
 export type Config = z.input<typeof ConfigSchema>
 
@@ -40,6 +41,8 @@ export interface ResolvedConfig {
   /** The built-in patterns unless `maskDefaults` is false, then the compiled `mask` patterns; their matches are replaced before storage and output. */
   readonly mask: readonly RegExp[]
   readonly allowUntestedHost: boolean
+  /** What the generated default rules allow: everything, changes ask, or read-only. */
+  readonly access: Access
 }
 
 /** Validates the plugin options. An invalid option fails setup with every offending key named, never its value. */
@@ -65,5 +68,6 @@ export function loadConfig(options: unknown, env: Readonly<Record<string, string
     },
     mask: [...(value.maskDefaults === false ? [] : DEFAULT_MASK), ...(value.mask ?? []).map(source => new RegExp(source, "g"))],
     allowUntestedHost: value.allowUntestedHost ?? false,
+    access: value.access ?? "all",
   }
 }
