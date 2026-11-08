@@ -83,7 +83,7 @@ describe(`History on @opencode/sdk, host version ${HOST_VERSION}`, () => {
 
   test("registers its tools, commands and skill", async () => {
     const tools = (await contexts.get(directory)!.tool.list()).filter(tool => tool.id.startsWith("history_")).map(tool => tool.id).sort()
-    expect(tools).toEqual(["history_brief", "history_files", "history_pin", "history_read", "history_recall", "history_search", "history_sessions", "history_sql"])
+    expect(tools).toEqual(["history_brief", "history_events_list", "history_files", "history_pin", "history_read", "history_recall", "history_search", "history_sessions", "history_sql"])
     const commands = await host.sdk.command.list({ location })
     expect(commands.data.map((c: { name: string }) => c.name).filter((name: string) => name.startsWith("history-")).sort()).toEqual(["history-reindex", "history-status"])
     const skills = await host.sdk.skill.list({ location })

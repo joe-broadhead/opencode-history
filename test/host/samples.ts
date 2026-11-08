@@ -1,5 +1,6 @@
 // One sample output per query method, typed against api.ts. A unit test checks each against its tool output schema.
-import type { BriefOutput, FilesOutput, IndexState, ReadOutput, RecallOutput, SearchOutput, SessionSummary, SessionsOutput, SqlOutput } from "../../src/domain/api.js"
+import type { BriefOutput, EventsListOutput, FilesOutput, IndexState, ReadOutput, RecallOutput, SearchOutput, SessionSummary, SessionsOutput, SqlOutput } from "../../src/domain/api.js"
+import { encodeCursor, eventsListResult, makeEvent } from "../../src/host/events-list.js"
 
 export const INDEX: IndexState = { ready: true, sessionsIndexed: 42, sessionsTotal: 42, lagSeconds: 0, source: "opencode-db", complete: true }
 
@@ -59,6 +60,17 @@ export const SAMPLES = {
     queries: ["login redirect loop", "state cookie samesite"],
     index: INDEX,
   },
+  eventsList: eventsListResult(
+    { id: "os-user:sam@studio-mac", label: "sam on studio-mac" },
+    [makeEvent({
+      source: "history", account: "studio-mac", external_id: `ses_login1@${SESSION.updated}`, kind: "session", occurred_at: SESSION.updated,
+      thread: "history-session:ses_login1", actors: [{ role: "agent", id: "opencode-agent:build", name: "build" }], title: SESSION.title,
+      text: "Prompt: The login page keeps redirecting back to itself after OAuth.\n\nReply: Fixed: the state cookie was dropped.", labels: ["project:app"],
+    })],
+    encodeCursor("history", { a: "studio-mac", u: Date.parse(SESSION.updated), i: "ses_login1" }),
+    false,
+  ),
 } satisfies {
   search: SearchOutput; sessions: SessionsOutput; files: FilesOutput; read: ReadOutput; brief: BriefOutput; sql: SqlOutput; recall: RecallOutput
+  eventsList: EventsListOutput
 }

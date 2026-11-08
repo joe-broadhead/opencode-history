@@ -45,6 +45,7 @@ export function fakeRuntime(): FakeRuntime {
     brief: answer("brief"),
     sql: answer("sql"),
     recall: answer("recall"),
+    eventsList: answer("eventsList"),
     async reindex(mode) { runtime.reindexed.push(mode); return runtime.index },
     onEvent(event) { runtime.events.push(event) },
     async close() { runtime.closed = true },

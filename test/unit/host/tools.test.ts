@@ -36,10 +36,10 @@ const context = (signal = new AbortController().signal) => ({ sessionID: "ses_no
 const CALLER = { sessionID: "ses_now", projectID: "prj_app", directory: "/work/app" }
 
 describe("registration", () => {
-  test("eight tools in the history namespace, each with its effective name as permission; search, brief and read are pinned", () => {
+  test("nine tools in the history namespace, each with its effective name as permission; search, brief and read are pinned", () => {
     const { added, namespaces } = register()
     expect(namespaces).toEqual([{ name: "history", description: NAMESPACE_DESCRIPTION }])
-    expect(added.map(t => t.name)).toEqual(["search", "brief", "read", "sessions", "files", "recall", "sql", "pin"])
+    expect(added.map(t => t.name)).toEqual(["search", "brief", "read", "sessions", "files", "recall", "sql", "events_list", "pin"])
     expect(added.map(t => t.name)).toEqual([...TOOL_NAMES])
     for (const tool of added) expect(tool.options).toMatchObject({ namespace: "history", permission: `history_${tool.name}` })
     expect(added.filter(t => t.options.pinned).map(t => t.name)).toEqual(["search", "brief", "read", "sessions", "files", "sql"])
@@ -290,7 +290,7 @@ describe("status", () => {
   test("the view shows the options in effect", async () => {
     const runtime = fakeRuntime()
     expect(await buildStatus({ version: "1.2.3", host, config: CONFIG, runtime, agents: async () => [] })).toEqual({
-      version: "1.2.3", host, state: "ready", index: INDEX, tools: { visible: 8, unknown: [] }, database: CONFIG.database, indexPath: CONFIG.indexPath, indexBytes: 1_536_000, masksChanged: false,
+      version: "1.2.3", host, state: "ready", index: INDEX, tools: { visible: 9, unknown: [] }, database: CONFIG.database, indexPath: CONFIG.indexPath, indexBytes: 1_536_000, masksChanged: false,
       defaultScope: "project", shadowedSkills: [], unguardedAgents: [], nextStep: "Nothing to do.",
     })
   })

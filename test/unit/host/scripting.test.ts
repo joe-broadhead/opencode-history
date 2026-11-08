@@ -70,7 +70,7 @@ describe("tools RPC contract", () => {
     const h = await setup()
     expect(h.contract.id).toBe(TOOLS_RPC_ID)
     expect(TOOLS_RPC_ID).toBe("history.sessions.tools")
-    expect(Object.keys(h.contract.methods)).toEqual(["describe", "search", "brief", "read", "sessions", "files", "recall", "sql"])
+    expect(Object.keys(h.contract.methods)).toEqual(["describe", "search", "brief", "read", "sessions", "files", "recall", "sql", "events_list"])
     expect(h.handlers.pin).toBeUndefined()
   })
 
@@ -105,7 +105,7 @@ describe("tools RPC contract", () => {
     expect(description.id).toBe(TOOLS_RPC_ID)
     expect(description.call).toContain(`/api/rpc/${TOOLS_RPC_ID}/<method>`)
     expect(description.methods.map(method => [method.name, method.action])).toEqual(
-      ["search", "brief", "read", "sessions", "files", "recall", "sql"].map(name => [name, `history_${name}`]))
+      ["search", "brief", "read", "sessions", "files", "recall", "sql", "events_list"].map(name => [name, `history_${name}`]))
     const search = description.methods.find(method => method.name === "search")!
     expect(search.input).toMatchObject({ type: "object", required: ["query"] })
     expect(search.output).toMatchObject({ type: "object", properties: { results: { type: "array" } } })

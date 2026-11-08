@@ -81,6 +81,12 @@
         "readOnly": true
       },
       {
+        "name": "history.events_list",
+        "permission": "history_events_list",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
         "name": "history.pin",
         "permission": "history_pin",
         "effect": "ask",
