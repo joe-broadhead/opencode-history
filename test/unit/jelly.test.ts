@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs"
 import { describe, expect, test } from "vitest"
 import { NAMESPACE } from "../../src/domain/contract.js"
+import { loadConfig } from "../../src/domain/config.js"
 import { DEFAULT_RULES, KNOWN_READS } from "../../src/host/permissions.js"
 import { ACTIONS, TOOL_NAMES } from "../../src/host/tools.js"
 import { type Declaration, type DeclaredTool, declarationProblems, docProblems, effectFromRules, readPackage } from "../support/jelly-kit.js"
@@ -18,6 +19,13 @@ const jelly = pkg.jelly as Declaration & { title: string; tools: DeclaredTool[];
 const doc = readFileSync(new URL("docs/jelly.md", ROOT), "utf8")
 
 describe("the jelly declaration", () => {
+  test("declares flat privacy-related options", () => {
+    const settings = (jelly.contributes as { settings: { key: string; type: string }[] }).settings
+    expect(settings.map(({ key, type }) => ({ key, type }))).toEqual([
+      { key: "access", type: "string" }, { key: "defaultScope", type: "string" }, { key: "maskDefaults", type: "boolean" },
+    ])
+    expect(loadConfig({ access: "read-only", defaultScope: "project", maskDefaults: true }).access).toBe("read-only")
+  })
   test("follows the plugin authors' standard, with the effects the plugin's own default rules give", () => {
     expect(declarationProblems(ROOT, { effectOf: effectFromRules(DEFAULT_RULES), registered: TOOL_NAMES.map(name => `${NAMESPACE}_${name}`) })).toEqual([])
   })
