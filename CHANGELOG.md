@@ -12,6 +12,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
+- No Code Mode signature is pinned. The namespace names `history-recall`, which now holds call shapes, and search finds full signatures. The skill no longer routes a general decision-recall request to session history.
+
 - **Every tool is allowed by default.** The plugin inserts an allow for each tool it registers and for the `history_*`
   namespace: the seven reads, and `history_pin`, which writes a past session's brief into the current session's
   instructions. An agent runs them without asking, and nothing is held back. `"ask-changes"` makes `history_pin` and a

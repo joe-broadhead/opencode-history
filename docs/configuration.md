@@ -125,7 +125,7 @@ The plugin reads no other table. The database is opened with SQLite's read-only 
 
 ## Tools
 
-Effective name `history_<name>`. `options.permission` is that name, so a deny with resource `*` hides the tool. Pinned: `history_search`, `history_brief`, `history_read`, `history_sessions`, `history_files`, `history_sql`. Every tool except `history_pin` is in Code Mode as `tools.history.<name>`.
+Effective name `history_<name>`. `options.permission` is that name, so a deny with resource `*` hides the tool. No tool is pinned; `history-recall` explains the calls and Code Mode search finds signatures. Every tool except `history_pin` is in Code Mode as `tools.history.<name>`.
 
 | Tool | What it does | Effect |
 | --- | --- | --- |

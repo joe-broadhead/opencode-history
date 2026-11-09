@@ -36,13 +36,14 @@ const context = (signal = new AbortController().signal) => ({ sessionID: "ses_no
 const CALLER = { sessionID: "ses_now", projectID: "prj_app", directory: "/work/app" }
 
 describe("registration", () => {
-  test("eight tools in the history namespace, each with its effective name as permission; search, brief and read are pinned", () => {
+  test("eight tools in the history namespace, each with its effective name as permission; none is pinned", () => {
     const { added, namespaces } = register()
     expect(namespaces).toEqual([{ name: "history", description: NAMESPACE_DESCRIPTION }])
     expect(added.map(t => t.name)).toEqual(["search", "brief", "read", "sessions", "files", "recall", "sql", "pin"])
     expect(added.map(t => t.name)).toEqual([...TOOL_NAMES])
     for (const tool of added) expect(tool.options).toMatchObject({ namespace: "history", permission: `history_${tool.name}` })
-    expect(added.filter(t => t.options.pinned).map(t => t.name)).toEqual(["search", "brief", "read", "sessions", "files", "sql"])
+    expect(added.filter(t => t.options.pinned)).toEqual([])
+    expect(Math.round((`- history (7 tools) // ${NAMESPACE_DESCRIPTION}`).length / 4)).toBeLessThanOrEqual(1000)
     expect(added.filter(t => !t.options.pinned).every(t => !("pinned" in t.options))).toBe(true)
   })
 
