@@ -220,6 +220,15 @@ An organisation can install the plugin for every user on a machine through OpenC
 
 There is nothing to sign in to and no client ID to set. `mask` adds patterns that are masked before text is indexed or shown. A deny in `permissions` removes a tool for every agent; deny `history_*` to keep agents out of history altogether.
 
+## Known limits
+
+- **The first index pass runs in the background.** Until it finishes, search, sessions and recall answer from the sessions indexed so far. `/history-status` shows the progress.
+- **Only OpenCode's database is read.** When it cannot be read, or its layout is one this version does not know, the plugin falls back to the plugin session API, which holds only the messages after each session's latest compaction. Status says the history is partial.
+- **Masking matches patterns.** The built-in patterns and your `mask` entries catch the credentials they describe, not every secret. Text indexed before a change keeps its old form until `/history-reindex rebuild`.
+- **The index is large and grows with your history.** It takes about 2.7 times the text it holds, and deleting a session does not shrink the file.
+- **Every tool is allowed by default.** Any agent can read any indexed session in any project, and `access` decides what runs without asking. `scope` filters results; it is not access control.
+- **Tested on OpenCode 2.2.3, 2.2.4, 2.2.5 and 2.2.6.** Other releases inside `>=2.2.3 <2.3.0` start, and status reports them as untested.
+
 ## Troubleshooting
 
 Start with `/history-status`. It ends with one next step. Errors read `CODE: what happened. Next step: What to do.`
