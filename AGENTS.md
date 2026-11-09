@@ -33,7 +33,7 @@ This repository builds `@joe-broadhead/opencode-history`, an unofficial OpenCode
 ## Checks
 
 - `npm run check` is the full gate, in order: `typecheck`, `test` (unit, Vitest), `build`, `test:host` (embedded `@opencode/sdk` host as each tested release), `test:tui` (the built dialog, Bun), `lint` (`scripts/check-forbidden.mjs`) and `test:pack` (the packed tarball on stock OpenCode 2.2.3, 2.2.4, 2.2.5 and 2.2.6, Bun). [CONTRIBUTING.md](CONTRIBUTING.md) says what each needs.
-- The Bun checks run Bun 1.4.4 through `npx`. `test:pack` installs stock OpenCode from npm, once per release, unless `OPENCODE_BIN_2_2_3`, `OPENCODE_BIN_2_2_4` and `OPENCODE_BIN_2_2_5` are set. Refresh its file-list snapshot (`npx -y bun@1.4.4 test test/pack --update-snapshots`) only when the published files change on purpose.
+- The Bun checks run Bun 1.4.4 through `npx`. `test:pack` installs stock OpenCode from npm, once per release, unless `OPENCODE_BIN_2_2_3`, `OPENCODE_BIN_2_2_4`, `OPENCODE_BIN_2_2_5` and `OPENCODE_BIN_2_2_6` are set. Refresh its file-list snapshot (`npx -y bun@1.4.4 test test/pack --update-snapshots`) only when the published files change on purpose.
 - Tests use the synthetic database in `test/fixtures/opencode-db.ts` and temporary folders from `test/temp.ts`, under `/tmp` and never under `$HOME`, so OpenCode's upward config search finds nothing of the user's; every OpenCode the tests start gets its own port. They never read a real OpenCode database or index, and call no network service.
 - Test doubles for the host are narrow types picked from `@opencode/plugin`, so they typecheck against the host API.
 - Do not skip, weaken or delete a test to get green.
