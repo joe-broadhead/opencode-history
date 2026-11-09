@@ -42,4 +42,8 @@ This repository builds `@joe-broadhead/opencode-history`, an unofficial OpenCode
 
 - Never commit session text, prompts, transcripts, keys, personal data or absolute local paths.
 - Commit messages use `type(scope): summary`.
+- No personal email in anything we publish. Every commit, tag and package is authored and committed as
+  `joe-broadhead <91376460+joe-broadhead@users.noreply.github.com>`. Before committing or tagging, check that
+  `git config user.email` is that address: a fresh clone inherits the machine's global identity, which is not that
+  address. Never commit, tag or publish with a work or personal address, or with a local hostname.
 - Keep the README, `docs/configuration.md`, `docs/architecture.md`, `SECURITY.md`, `CONTRIBUTING.md` and `CHANGELOG.md` in step with the code.
