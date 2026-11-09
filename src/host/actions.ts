@@ -37,10 +37,10 @@ export function pinSession(key: string) {
 }
 
 export const PinInputSchema = z.strictObject({
-  action: z.enum(["put", "remove", "list"]).default("put").describe("put (default): pin, replacing any earlier pin of that session. remove: unpin it. list: show this session's pins."),
-  sessionID: sessionID.optional().describe("The past session to pin or unpin, from history_search, history_sessions or history_files. Needed for put and remove."),
-  from: integer.min(0).optional().describe("Pin messages from this seq instead of the brief, for example a search excerpt's seq. Omit from and to to pin the session's brief."),
-  to: integer.min(0).optional().describe(`Last seq of the range, inclusive, at most ${MAX_PIN_RANGE} messages after from. Default: from, a single message.`),
+  action: z.enum(["put", "remove", "list"]).default("put").describe("put (default): replace the past session's pin; remove: unpin; list: show pins."),
+  sessionID: sessionID.optional().describe("Past session ID; required for put and remove."),
+  from: integer.min(0).optional().describe("First message seq; omit from and to for the brief."),
+  to: integer.min(0).optional().describe(`Last seq, inclusive, at most ${MAX_PIN_RANGE} after from; defaults to from.`),
   maxChars: ranged(BOUNDS.pin.maxChars, "Most characters to pin, its header line included"),
 }).superRefine((input, issues) => {
   const issue = (path: string, message: string) => issues.addIssue({ code: "custom", path: [path], message })
