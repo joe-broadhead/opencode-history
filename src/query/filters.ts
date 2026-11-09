@@ -1,7 +1,7 @@
 // Filters as SQL, shared by search, sessions and files so every tool reads them the same way.
 import { posix } from "node:path"
 import type { Caller, Filters, Hidden, HiddenReason } from "../domain/api.js"
-import type { Db, Value } from "../domain/sqlite.js"
+import type { Value } from "../domain/sqlite.js"
 import { escapeLike, placeholders, trimSlash } from "./common.js"
 import { refused } from "../domain/common.js"
 import { parseTime, QUERY_HINTS } from "./parse.js"
@@ -95,7 +95,7 @@ function pathMatch(path: string, directory: string): Where {
  * The scope, subagent, current-session and archived clauses are also returned apart, as `hiding`, so a query that
  * finds nothing can count what each one left out.
  */
-export function filterSql(db: Db, caller: Caller, filters: Filters, now: number, target: FilterTarget): Filtered {
+export function filterSql(caller: Caller, filters: Filters, now: number, target: FilterTarget): Filtered {
   const clauses: Where[] = []
   const hiding: Hiding[] = []
   const add = (sql: string, ...params: readonly Value[]) => {

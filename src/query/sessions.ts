@@ -21,7 +21,7 @@ export function sessions(db: Db, caller: Caller, input: SessionsInput, state: In
   const sort = input.sort ?? "updated"
   const limit = bounded(input.limit, BOUNDS.sessions.limit)
   const offset = decodeCursor(input.cursor)
-  const where = filterSql(db, caller, input, options.now ?? Date.now(), "sessions")
+  const where = filterSql(caller, input, options.now ?? Date.now(), "sessions")
   const title = input.title?.trim()
   const titled = title ? { sql: " and s.title like ? escape '\\'", params: [`%${escapeLike(title)}%`] } : { sql: "", params: [] }
   const from = "from sessions s left join sessions r on r.id = s.root_id left join projects p on p.id = s.project_id"

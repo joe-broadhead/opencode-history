@@ -44,7 +44,7 @@ export function files(db: Db, caller: Caller, input: FilesInput, state: IndexSta
   if (!input.path?.trim()) throw refused("QUERY_INVALID", "path must name a file or folder", QUERY_HINTS.path)
   const ops = input.ops && input.ops.length > 0 ? input.ops : undefined
   const limit = bounded(input.limit, BOUNDS.files.limit)
-  const where = filterSql(db, caller, input, options.now ?? Date.now(), "files")
+  const where = filterSql(caller, input, options.now ?? Date.now(), "files")
   const from = "from files f join sessions s on s.id = f.session_id left join sessions r on r.id = s.root_id"
   const opsSql = ops ? ` and f.op in (${placeholders(ops.length)})` : ""
   const rows = db.all<TouchRow>(

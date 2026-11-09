@@ -767,7 +767,7 @@ export async function search(db: Db, caller: Caller, input: SearchInput, state: 
   const snippetCount = bounded(input.snippets, BOUNDS.search.snippets)
   const offset = decodeCursor(input.cursor)
   const texts = phrasingsOf(input.query, mode === "regex")
-  const where = filterSql(db, caller, input, now, "docs")
+  const where = filterSql(caller, input, now, "docs")
   const deadline = performance.now() + SCAN_BUDGET_MS
 
   let hits: Hits
