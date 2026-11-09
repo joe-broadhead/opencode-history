@@ -130,18 +130,21 @@
           "key": "access",
           "label": "Access",
           "type": "string",
+          "default": "all",
           "description": "all, ask-changes or read-only. Generates default rules for agents with a base allow rule."
         },
         {
           "key": "defaultScope",
           "label": "Default scope",
           "type": "string",
+          "default": "project",
           "description": "Default search scope for past sessions."
         },
         {
           "key": "maskDefaults",
           "label": "Default masking",
           "type": "boolean",
+          "default": true,
           "description": "Use the built-in masking patterns when indexing and returning session text."
         }
       ]

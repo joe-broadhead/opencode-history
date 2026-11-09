@@ -20,11 +20,17 @@ const doc = readFileSync(new URL("docs/jelly.md", ROOT), "utf8")
 
 describe("the jelly declaration", () => {
   test("declares flat privacy-related options", () => {
-    const settings = (jelly.contributes as { settings: { key: string; type: string }[] }).settings
+    const settings = (jelly.contributes as { settings: { key: string; type: string; default: unknown }[] }).settings
     expect(settings.map(({ key, type }) => ({ key, type }))).toEqual([
       { key: "access", type: "string" }, { key: "defaultScope", type: "string" }, { key: "maskDefaults", type: "boolean" },
     ])
     expect(loadConfig({ access: "read-only", defaultScope: "project", maskDefaults: true }).access).toBe("read-only")
+    const defaults = loadConfig({})
+    expect(settings.find(setting => setting.key === "access")?.default).toBe(defaults.access)
+    expect(settings.find(setting => setting.key === "defaultScope")?.default).toBe(defaults.defaultScope)
+    const maskDefaults = settings.find(setting => setting.key === "maskDefaults")?.default
+    expect(maskDefaults).toBe(true)
+    expect(loadConfig({ maskDefaults }).mask.map(String)).toEqual(defaults.mask.map(String))
   })
   test("follows the plugin authors' standard, with the effects the plugin's own default rules give", () => {
     expect(declarationProblems(ROOT, { effectOf: effectFromRules(DEFAULT_RULES), registered: TOOL_NAMES.map(name => `${NAMESPACE}_${name}`) })).toEqual([])
