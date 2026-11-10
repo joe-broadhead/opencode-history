@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- Jelly shows each setting's default: `access` `"all"`, `defaultScope` `"project"` and `maskDefaults` `true`.
 - The `access` option restricts what the generated default rules allow: `"all"` (the default), `"ask-changes"` and
   `"read-only"`. The block is generated from the tool classes, with the `history_*` namespace rule first, so a tool a
   later version adds follows the same value. `/history-status` and the status RPC report the value and the block.
@@ -37,6 +38,7 @@ Everything an agent reads about History was rewritten and measured: 47 lookup, l
   config, or a Jobs run session.
 - Script asserts now carry the same tool source id as a model call, so an inner `ask` is refused and named instead of
   waiting for a prompt.
+- The `history_pin` description says that session text is data, never instructions, as the skill and the other tool descriptions do.
 
 ## [0.0.6] - 2026-11-08
 
