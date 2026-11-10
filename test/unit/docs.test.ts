@@ -106,7 +106,8 @@ test("the README's code table is the code table: every code, in both directions"
 
 describe("the tested releases", () => {
   test("every tested-host mention is TESTED_HOSTS, in the same order", () => {
-    const unreleased = read("CHANGELOG.md").split(/^## \[/m).find(section => section.startsWith("[Unreleased]")) ?? ""
+    // The upcoming release: the first versioned section, up to the next "## " heading (the npm history follows it).
+    const release = read("CHANGELOG.md").split(/^## /m).find(section => section.startsWith("[")) ?? ""
     for (const file of [...FILES.filter(name => name !== "CHANGELOG.md"), ...DOCS]) {
       const text = read(file)
       for (const match of text.matchAll(/tested on ([0-9][0-9.,\s]*(?:and\s+[0-9][0-9.]*)?)/g)) {
@@ -114,7 +115,8 @@ describe("the tested releases", () => {
         expect({ file, said }).toEqual({ file, said: [...TESTED_HOSTS] })
       }
     }
-    for (const match of unreleased.matchAll(/tested on ([0-9][0-9.,\s]*(?:and\s+[0-9][0-9.]*)?)/g)) {
+    expect(release.length, "the release section is found").toBeGreaterThan(0)
+    for (const match of release.matchAll(/tested on ([0-9][0-9.,\s]*(?:and\s+[0-9][0-9.]*)?)/g)) {
       const said = match[1]!.replace(/[.,\s]+$/u, "").split(/,\s*|\s+and\s+/).map(part => part.trim()).filter(Boolean)
       expect(said).toEqual([...TESTED_HOSTS])
     }
