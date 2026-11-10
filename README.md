@@ -42,6 +42,7 @@ await tools.history.sql({ sql: "select date(created) as day, round(sum(cost), 2)
 - **Sessions and files.** `history_sessions` lists sessions without a query, by last update, creation, cost or size. `history_files` lists the sessions that read or changed a file or folder, with counts per operation and the `seq`s of its touches.
 - **Recall.** `history_recall` searches, takes the best sessions and returns quoted evidence with session IDs and `seq`s, for the agent to answer from.
 - **SQL.** `history_sql` runs one read-only `SELECT` or `WITH` statement over the index, for counts and reports. Its stable interface is four views, `v_sessions`, `v_docs`, `v_files` and `v_links`, and two full-text tables, `docs_words` (`MATCH`) and `docs_sub` (`text LIKE '%substring%'`). The other tables can change between versions.
+- **Events list.** `history_events_list` lists what changed in this machine's sessions since a cursor, as normalised events, for Memory's collector and other scripts. It is the History side of the shared `events_list` source contract; agents answering questions use the tools above.
 - **Pin.** `history_pin` keeps a past session's brief, or a range of its messages, in the current session's instructions, so it stays in view through compactions. It is not in Code Mode, because it changes the current session.
 
 Search, sessions, files and recall look in the current project by default. They leave out the current session, subagent sessions and archived sessions unless you ask for them. The filters are `scope` (`project`, `directory`, `all` or `session`), `since` and `until` (an ISO date, or an age such as `36h`, `7d`, `3w`, `2m` or `1y`), `kinds`, `tool`, `agent`, `path`, `sessionID`, `includeSubagents`, `includeCurrent` and `includeArchived`.
@@ -50,7 +51,7 @@ Search has three modes: `words`, the default, matches stemmed words in any order
 
 Sessions with only some words of a phrasing show below full matches, marked `near match`; runs of the same thing in one directory, such as one scheduled prompt's runs, show once with a `similar` count. When a search, `history_sessions` or `history_files` finds nothing, the result names the input that would show what the default filters left out.
 
-One skill, `history-recall`, teaches the search, brief, read pattern and how to cite a session as `(ses_… #seq)`.
+The `history` namespace description tells an agent when to check here (before the repo or git, whenever you refer to earlier work), which tool fits which question, when to widen the search, and how to cite a session as `(ses_… #seq)`. One skill, `history-recall`, teaches the search, brief, read pattern and the longer recipes. [Where each instruction lives, and why](https://github.com/joe-broadhead/opencode-history/blob/HEAD/docs/architecture.md#what-the-model-reads-and-where-an-instruction-belongs).
 
 ### How it reads your history
 
@@ -129,6 +130,7 @@ The block for each value, generated from `defaultRules(access)` in `src/host/per
 | `history_files` | `*` | `allow` |
 | `history_recall` | `*` | `allow` |
 | `history_sql` | `*` | `allow` |
+| `history_events_list` | `*` | `allow` |
 | `history_pin` | `*` | `allow` |
 
 <!-- /generated:rules-all -->
@@ -147,6 +149,7 @@ The block for each value, generated from `defaultRules(access)` in `src/host/per
 | `history_files` | `*` | `allow` |
 | `history_recall` | `*` | `allow` |
 | `history_sql` | `*` | `allow` |
+| `history_events_list` | `*` | `allow` |
 | `history_pin` | `*` | `ask` |
 
 <!-- /generated:rules-ask-changes -->
@@ -165,6 +168,7 @@ The block for each value, generated from `defaultRules(access)` in `src/host/per
 | `history_files` | `*` | `allow` |
 | `history_recall` | `*` | `allow` |
 | `history_sql` | `*` | `allow` |
+| `history_events_list` | `*` | `allow` |
 | `history_pin` | `*` | `deny` |
 
 <!-- /generated:rules-read-only -->
@@ -237,6 +241,7 @@ Start with `/history-status`. It ends with one next step. Errors read `CODE: wha
 
 | Code | What happened | Next step |
 | --- | --- | --- |
+| `ACCOUNT_UNKNOWN` | History lists only this machine's sessions, and that account is another machine's. | Call history_events_list without account, or with the account its events name. |
 | `CANCELLED` | The call was cancelled. | Call the tool again if you still need the result. |
 | `CLOSED` | The History plugin is shutting down. | Retry after OpenCode has reloaded the plugin. |
 | `CONTRACT_MISMATCH` | The history index returned data this plugin version does not expect. | Reinstall the plugin, and if it persists, report it with the /history-status output. |

@@ -136,6 +136,7 @@ Effective name `history_<name>`. `options.permission` is that name, so a deny wi
 | `history_files` | Lists the sessions that touched a file or folder. | Reads the index. |
 | `history_recall` | Searches, then quotes message windows around the best excerpts. | Reads the index and the source. |
 | `history_sql` | Runs one read-only `SELECT` or `WITH` statement over the index views and full-text tables. | Reads the index, on its own read-only connection in a child process, for at most 10 seconds. |
+| `history_events_list` | Lists what changed in top-level sessions since a cursor, as Memory's normalised events. For Memory's collector and scripts. | Reads the index. |
 | `history_pin` | Puts, removes or lists pins in the current session's instructions. | Writes the current session's instruction entries. Not in Code Mode. |
 
 OpenCode checks tool input against each tool's schema before the call, and a result against its output schema after it. The text of a search, sessions, files, brief, read or recall result ends with the call to make next. The defaults and ranges below are the ones the schemas declare, and the query layer clamps to the same ones (`BOUNDS` in `src/domain/bounds.ts`).
@@ -259,6 +260,38 @@ Both index `v_docs.text`, and their `rowid` is `v_docs.doc_id`, for example `sel
 
 Times are UTC text `YYYY-MM-DD HH:MM:SS`, such as `2026-10-12 09:30:00`, with a space and no zone. An ISO value with a `T` sorts after it and shifts a window, so compare with a value in the stored form, or wrap both sides in `datetime()`: `datetime(created) >= datetime(?)` also takes `2026-11-03T00:00+01:00` and converts it to UTC. `cost` is the session's own spend in USD. `project` is the project's worktree. `archived` is `0` or `1`. `root_id` is the top-level session of the tree. `tool_calls` counts the model's tool calls, not the shell commands you ran yourself. Title texts are in `v_docs` with `seq` `-1`.
 
+### Events list
+
+`history_events_list` is History's side of Memory's sources funnel: the shared `events_list` contract in `src/host/events-list.ts`, which every source plugin carries. Memory's collector calls it on a schedule, with no model and no one there, so it never asks.
+
+| Input | Default | Rule |
+| --- | --- | --- |
+| `since` | 24 hours ago | Where to start when there is no cursor: an ISO date (a UTC day) or an ISO date-time with `Z` or an offset. |
+| `cursor` | unset | The `cursor` of the previous result. It wins over `since`. A cursor History did not issue for this machine is `CURSOR_INVALID`. |
+| `limit` | `100` | Events, 1–500. |
+| `account` | this machine | This machine's account, as its events name it; any other is `ACCOUNT_UNKNOWN`. |
+| `source` | `history` | History's one source; any other is `INPUT_INVALID`. |
+
+The result is `{ source, account, owner, events, cursor, more, trust: "untrusted" }`. `source` is `history` and `account` this machine on every result, an empty one included, so Memory can bind the source before it has anything to list. There is one event per top-level session each time it changes, oldest first by the time it changed; subagent sessions are part of their parent's work and are not listed. Each event has:
+
+| Field | Value |
+| --- | --- |
+| `source`, `kind` | `history`, `session`. |
+| `account` | This machine: its host name in lower case, without `.local`, such as `studio-mac`. |
+| `external_id` | The session ID and the time it changed, such as `ses_abc123@2026-11-08T09:14:00.000Z`, so each change is a new event. |
+| `occurred_at` | The time the session changed, in UTC. |
+| `thread` | `history-session:<root session ID>`. |
+| `actors` | The agent, as `{ "role": "agent", "id": "opencode-agent:build", "name": "build" }`. |
+| `title` | The session's title, at most 300 characters. |
+| `text` | `Prompt:` and the first prompt (at most 1,500 characters), then `Reply:` and the last reply, at most 4,096 characters in all, masked like every other result. |
+| `url` | `null`: a session has no link. |
+| `labels` | `project:<name>`, from the last segment of the project's folder only, and `archived` for an archived session. |
+| `hash` | `sha256:` and the digest of the other fields. |
+
+`owner` is `{ "id": "os-user:<user>@<account>", "label": "<user> on <account>" }`: the OS user who runs OpenCode here, and this machine. History reads only this machine's sessions, so Memory binds each machine as its own History source, and refuses events from another owner. A host rename changes the account and owner, and Memory then asks to bind the source again.
+
+The cursor holds where the listing stands: the change time and ID of the last session listed. Calling again with it lists what changed after that, and calling again with an older cursor lists the same events again. A session is listed only once it has not changed for 2 minutes, so a session indexed late is never passed over; one still in use is listed on a later call. While the index is still being built, the result is empty and the cursor stays where it was. `more` is `true` when another call would list more now. A result stops early, with `more`, before its JSON passes 900,000 bytes.
+
 ### Pin
 
 | Input | Default | Rule |
@@ -304,13 +337,14 @@ The default block, generated from `defaultRules(access)`:
 | `history_files` | `*` | `allow` |
 | `history_recall` | `*` | `allow` |
 | `history_sql` | `*` | `allow` |
+| `history_events_list` | `*` | `allow` |
 | `history_pin` | `*` | `allow` |
 
 <!-- /generated:rules-all -->
 
 | Tool | Default at `"all"` |
 |---|---|
-| `history_search`, `history_read`, `history_brief`, `history_sessions`, `history_files`, `history_recall`, `history_sql` | allow |
+| `history_search`, `history_read`, `history_brief`, `history_sessions`, `history_files`, `history_recall`, `history_sql`, `history_events_list` | allow |
 | `history_pin`, which changes the current session's instructions | allow |
 | any other `history_*` tool | allow |
 
@@ -380,7 +414,7 @@ Database: <database>
 Index file: <indexPath> (511 MB)
 Default scope: project
 Skill: history-recall
-Tools: 8 available
+Tools: 9 available
 Agents without default rules: none
 OpenCode: 2.2.3 (tested). History <version>
 Next step: Nothing to do.
@@ -409,6 +443,7 @@ Search, sessions, files, recall and SQL results carry the same `index` object, a
 | Substring and regex search | The newest 20,000 candidate texts per phrasing, 5 seconds. |
 | Sessions, files | 1–100 results. 20 sessions per path. |
 | Read | `before` 0–200, `after` 0–500, `maxChars` 500–200,000. Without `full`: call lines 300 characters, bodies 400 + 200. |
+| Events list | 1–500 events, 900,000 bytes of JSON. Text 4,096 characters (first prompt 1,500), title 300, 20 actors, 20 labels, cursor 1,024 characters. Sessions settle for 2 minutes. |
 | Brief | 10 summaries, 50 files, 30 commands, 50 subagents. |
 | Recall | 1–6 phrasings, 4 from a question (8 key terms), 1–10 sessions, 3 excerpts each, `maxChars` 1,000–100,000. |
 | SQL | 16,384 characters, 64 params, 1–200 rows, 512 KB of row data, 2,000 characters a cell, 10 seconds, two at once, 2-second busy timeout. |
@@ -439,10 +474,11 @@ When an unexpected error is reported only by a code, `OPERATION_FAILED` or a com
 | `STATUS_UNAVAILABLE` | Run `/history-status` again, or check the OpenCode server log. |
 | `INDEX_BUSY` | The index is locked by another writer, such as a second OpenCode process using the same `indexPath`. Retry in a moment. |
 | `INDEX_FAILED` | `/history-reindex` failed. Run `/history-status`; if it persists, delete the index file and restart. |
-| `INDEX_MISMATCH` | Another OpenCode process running another version of the plugin rebuilt the index for its own schema, so this version cannot query it. Restart every OpenCode process so they all run one version. Raised by search, sessions, files, read, brief, recall and SQL, and shown by status as its `Index schema:` row and next step. |
+| `INDEX_MISMATCH` | Another OpenCode process running another version of the plugin rebuilt the index for its own schema, so this version cannot query it. Restart every OpenCode process so they all run one version. Raised by search, sessions, files, read, brief, recall, SQL and events list, and shown by status as its `Index schema:` row and next step. |
 | `SESSION_NOT_FOUND` | No indexed session has that ID. Find it with `history_search` or `history_sessions`. |
 | `MESSAGE_NOT_FOUND` | The session has no message at that `seq` or ID. Call `history_read` without `at` to see its range. |
-| `CURSOR_INVALID` | Repeat the call without `cursor`. |
+| `CURSOR_INVALID` | Repeat the call without `cursor`. For `history_events_list`, the cursor is another source's, another machine's or malformed: list again from a `since`. |
+| `ACCOUNT_UNKNOWN` | `history_events_list` was given another machine's account. Call it without `account`, or with the account its events name. |
 | `QUERY_INVALID` | The query, regular expression, date, path or other filter cannot be used; the message says which, and the next step fits it: for example "Use a substring of at least 3 characters, or search with match: \"words\".", or "Use an ISO date such as 2026-10-01 or an age such as 7d." |
 | `SQL_REJECTED` | The SQL was not one read-only `SELECT` or `WITH` statement over the index. Rewrite it as one, best over the `v_*` views. |
 | `SQL_TIMEOUT` | The statement ran longer than 10 seconds and was stopped. Narrow it: filter by time or session, and bound a recursive `WITH` with a `LIMIT` or a `WHERE` on its counter. |

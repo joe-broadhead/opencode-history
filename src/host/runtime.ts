@@ -1,11 +1,12 @@
 // What the host drives. The index and query modules implement it; the host only codes against this interface.
 import type { Plugin } from "@opencode/plugin"
 import type {
-  BriefInput, BriefOutput, Caller, FilesInput, FilesOutput, IndexState, ReadInput, ReadOutput, RecallInput, RecallOutput,
-  SearchInput, SearchOutput, SessionsInput, SessionsOutput, SqlInput, SqlOutput,
+  BriefInput, BriefOutput, Caller, EventsListInput, EventsListOutput, FilesInput, FilesOutput, IndexState, ReadInput, ReadOutput, RecallInput,
+  RecallOutput, SearchInput, SearchOutput, SessionsInput, SessionsOutput, SqlInput, SqlOutput,
 } from "../domain/api.js"
 import type { FailureCode } from "../domain/common.js"
 import type { ResolvedConfig } from "../domain/config.js"
+import type { LocalIdentity } from "./identity.js"
 
 /** `catch-up` indexes what changed since the last run; `rebuild` drops the index and indexes everything again. */
 export type ReindexMode = "catch-up" | "rebuild"
@@ -49,6 +50,8 @@ export interface HistoryRuntime {
   /** Runs in a child process; `signal` kills it. */
   sql(caller: Caller, input: SqlInput, signal?: AbortSignal): Promise<SqlOutput>
   recall(caller: Caller, input: RecallInput): Promise<RecallOutput>
+  /** What changed in top-level sessions since a cursor, as the funnel's events (src/query/events.ts). */
+  eventsList(caller: Caller, input: EventsListInput): Promise<EventsListOutput>
   /** Resolves with the index state once the pass has finished. */
   reindex(mode: ReindexMode): Promise<IndexState>
   /** Called for every host event, for example to catch the index up after a session changes. Returns at once and never throws. */
@@ -57,12 +60,14 @@ export interface HistoryRuntime {
 }
 
 /** The query methods the tools call, by name. */
-export type QueryMethod = "search" | "sessions" | "files" | "read" | "brief" | "sql" | "recall"
+export type QueryMethod = "search" | "sessions" | "files" | "read" | "brief" | "sql" | "recall" | "eventsList"
 
 export interface RuntimeOptions {
   readonly config: ResolvedConfig
   /** The plugin context's session API: the partial fallback source when OpenCode's database cannot be read. */
   readonly session: Pick<Plugin.Context["session"], "list" | "context">
+  /** The account and owner events_list names. Default: this machine and its OS user (`localIdentity`). */
+  readonly identity?: LocalIdentity
 }
 /**
  * Opens the index and starts a catch-up in the background. It must not wait for indexing to finish. Search, sessions

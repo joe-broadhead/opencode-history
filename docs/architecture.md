@@ -11,7 +11,7 @@ Options, limits and errors are in [configuration.md](configuration.md); this pag
 1. Validates the options (`src/domain/config.ts`, `OPTIONS_INVALID`) and the host version (`src/host/compat.ts`, `HOST_UNTESTED`).
 2. Refuses a dangerous `indexPath` before anything opens it (`src/domain/paths.ts`, `INDEX_PATH_REFUSED`).
 3. Creates the runtime (`src/runtime.ts`): opens the source, opens or joins the shared index, and starts indexing in the background. Setup does not wait for it.
-4. Registers the default permission block (`ctx.agent.transform`), the eight tools, the status RPC, the tools RPC (the shared `tools-rpc.ts`) and its `evaluate` hook, two commands and the skill.
+4. Registers the default permission block (`ctx.agent.transform`), the nine tools, the status RPC, the tools RPC (the shared `tools-rpc.ts`) and its `evaluate` hook, two commands and the skill.
 5. Follows session events.
 
 A failed registration closes the runtime and rethrows. The cleanup stops the events, the tools RPC and the index. The TUI part, `src/tui.tsx`, is separate (see [Host parts](#host-parts)).
@@ -69,6 +69,21 @@ One SQLite file at `indexPath`, owned by the plugin and rebuildable from the sou
 - **Commands** (`commands.ts`) and the **skill** (`skills.ts`; a bad file is skipped with `SKILLS_INVALID`).
 - **Errors** (`src/domain/common.ts`, `errors.ts`). Every failure is a `HistoryError` with a code and one next step. Anything unexpected becomes `OPERATION_FAILED` or the operation's fallback, with one server-log line naming the operation, error class, SQLite code and throwing functions, never the message. Host errors pass through unchanged.
 - **TUI dialog** (`src/tui.tsx`). One global keymap layer: **History: Status** in the palette and as `/history`, and `r` to refresh while open. It renders the `status` RPC as the `/history-status` text, listens for `server.connected`, `agent.updated`, `session.created`, `session.deleted` and `session.idle` only while open, and changes nothing.
+
+## What the model reads, and where an instruction belongs
+
+The pinned tools reach a model through Code Mode, as `tools.history.<name>` inside `execute`; only `history_pin` is a direct tool. Measured on OpenCode 2.2.6 by asking a model which phrases it could see (and by reading what `await tools.history.search(...)` returns), the surfaces are not equal:
+
+| Surface | What reaches the model | Put here |
+| --- | --- | --- |
+| The namespace description | In full, always in context (checked to 3,000 characters). | When to look here, the first move, scope and widening, the citation rule. |
+| A tool description | The first ~118 characters in the catalog line; the rest only if the model calls `search()`. | One standalone sentence naming the tool's job, then detail. |
+| Input field descriptions | In full, as comments in the signature. | Per-argument rules: when to set `scope`, `includeArchived`, `includeSubagents`. |
+| Output field descriptions | In full, as comments in the return type. | What a field is for: copy `cite`, `hidden` only appears on an empty result, `similar` folds runs. |
+| The result `content` text (the `Next:` lines) | Not at all. Code Mode returns the structured output, and nothing else, to the model's code. | Only what a direct caller (such as a script through `opencode api`) reads. |
+| The skill | Its description is always listed; the body only when the model loads it (about three lookups in four with Claude Haiku in the evals). | The long reference, never the only copy of a rule. |
+
+So a rule that matters must live in the namespace or a field description, because the skill and the result text are optional. `test/unit/host/tools.test.ts` pins the wording that carries each rule.
 
 ## OpenCode facts relied on
 

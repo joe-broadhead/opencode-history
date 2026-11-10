@@ -74,6 +74,7 @@ describe(`tools RPC on @opencode/sdk, host version ${HOST_VERSION}`, () => {
       files: "read",
       recall: "read",
       sql: "read",
+      events_list: "read",
       pin: "write",
     })
   })

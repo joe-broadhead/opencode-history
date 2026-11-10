@@ -700,6 +700,7 @@ describe("history's own block", () => {
       files: "read",
       recall: "read",
       sql: "read",
+      events_list: "read",
       pin: "write",
     })
     expect(table.filter((method) => method.directOnly).map((method) => method.name)).toEqual([...ACTIONS])
@@ -723,6 +724,7 @@ describe("history's own block", () => {
       files: "read",
       recall: "read",
       sql: "read",
+      events_list: "read",
       pin: "write",
     })
   })

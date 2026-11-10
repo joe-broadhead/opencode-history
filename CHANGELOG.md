@@ -12,7 +12,15 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
-- No Code Mode signature is pinned. The namespace names `history-recall`, which now holds call shapes, and search finds full signatures. The skill no longer routes a general decision-recall request to session history.
+Everything an agent reads about History was rewritten and measured: 47 lookup, listing, aggregate, safety and "not in the history" questions, three trials each, on OpenCode 2.2.6 with Claude Haiku, against a synthetic history of 203 sessions across six projects. The share of runs in which every blocker and major item passed ("strict pass") went from 55% to 76%, a gain of 21 points (95% CI 14 to 30, paired over cases; 20 questions improved and none got worse); full `(ses_… #seq)` citations from 52% to 77%; the skill was loaded in 78% of the lookup questions, up from 53%. On 9 held-out questions written before tuning, strict pass went from 48% to 67% and runs with no failed blocker from 70% to 96%. The sample is small, one model and one synthetic corpus: read it as evidence of direction, not of size. [docs/architecture.md](docs/architecture.md#what-the-model-reads-and-where-an-instruction-belongs) says which text reaches the model and where an instruction belongs.
+
+- The `history` namespace description says when to look: before the repo or git, whenever the user refers to earlier work ("we did / wrote / fixed / decided", "last time", "how did we…"), and before saying that something the user says you did does not exist. It says to load the `history-recall` skill first, that time windows, costs, counts and rankings go to `sessions` or `sql` and not to `search`, how to widen a search that misses (`scope: "all"`, then `includeArchived` and `includeSubagents`), and how to cite. It is about 260 tokens, up from about 125, in every session that has the plugin.
+- The first ~118 characters of every tool description stand alone. The Code Mode catalog shows only that much of a description; the rest is read through `search()`.
+- `includeSubagents` and `includeArchived` no longer say to set them only after an empty result whose `hidden` count is above 0 (the 0.0.4 wording). Agents never read `hidden`, and it is reported only when a search finds nothing, so that wording left archived and subagent sessions unfound: the archived-decision question failed in every baseline trial. They now say to set them on the first call when the user asks for that kind of work, and on a repeat when the visible results miss. `scope` says when to use `all`.
+- Result fields carry descriptions that the Code Mode signature shows: `cite` (copy it, and keep it in what your code returns), `hidden`, `similar`, `queriesMatched`, `next`, `previous`, `seqs`, and recall's `evidence`, which can stop short of the answer.
+- The `history-recall` skill leads with four rules, adds rows for exact text, subagent work and archived sessions, says the newest session wins when sessions disagree, and tells an agent to read on when a recall's evidence stops short. Its frontmatter fires on "we wrote / did / ran X" and before telling the user something is not in the repo or git. It is about 280 tokens longer when loaded.
+- `docs/architecture.md` has a table of what the model reads, and where an instruction belongs.
+- The tests that pinned the changed wording pin the new wording, and `test/unit/host/tools.test.ts` pins the trigger rule, the standalone blurbs and the output-field docs.
 
 - **Every tool is allowed by default.** The plugin inserts an allow for each tool it registers and for the `history_*`
   namespace: the seven reads, and `history_pin`, which writes a past session's brief into the current session's
@@ -29,6 +37,14 @@ All notable changes to this project are documented here. The format follows [Kee
   config, or a Jobs run session.
 - Script asserts now carry the same tool source id as a model call, so an inner `ask` is refused and named instead of
   waiting for a prompt.
+
+## [0.0.6] - 2026-11-08
+
+### Added
+
+- `history_events_list`, and the tools RPC method `events_list`: every result names its `source` (`history`) and `account` (this machine), an empty one included, and the input takes `source: "history"`. It lists what changed in this machine's top-level sessions since a cursor, as Memory's normalised events, oldest first, one per session change, with the title, first prompt and last reply (masked, at most 4,096 characters). It never asks, so Memory's collector can run it unattended. The owner is this machine's OS user, and the account its host name.
+- `src/host/events-list.ts`, the shared `events_list` source contract: the event type, the input parser, the cursor helpers, the checks, and the conformance check every source runs in its tests. `scripts/check-copies.mjs` pins it like the other shared copies.
+- The error `ACCOUNT_UNKNOWN`, for an events list asked for another machine's account.
 
 ## [0.0.5] - 2026-11-06
 

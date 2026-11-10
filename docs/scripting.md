@@ -15,6 +15,7 @@ Every tool is a method, with the same name, input and output. A `history_search`
 | `files` | `history_files` | read |
 | `recall` | `history_recall` | read |
 | `sql` | `history_sql` | read |
+| `events_list` | `history_events_list`: what changed since a cursor, as Memory's events ([configuration.md](configuration.md#events-list)) |
 | `pin` | `history_pin` | write: it changes the current session's instructions |
 | `describe` | none: lists the methods with their classes, schemas, and permissions | – |
 

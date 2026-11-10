@@ -7,6 +7,8 @@ import { FAILURES, HistoryError, logUnexpected } from "../../src/domain/common.j
 import { loadConfig, type Config } from "../../src/domain/config.js"
 import { INDEX_SCHEMA_VERSION } from "../../src/domain/contract.js"
 import { openDb } from "../../src/domain/sqlite.js"
+import { resultProblems } from "../../src/host/events-list.js"
+import { identityOf } from "../../src/host/identity.js"
 import type { HistoryRuntime, RuntimeOptions } from "../../src/host/runtime.js"
 import { acquire, REGISTRY } from "../../src/index/shared.js"
 import { SYNCED_AT } from "../../src/index/sync.js"
@@ -156,6 +158,23 @@ describe("createRuntime", () => {
     expect(brief.todos).toEqual([{ content: "Rotate [masked]", status: "pending" }])
     expect(recall.evidence[0]!.text).toContain("Token [masked]")
     expect(search.results[0]!.snippets[0]!.text).toContain("[masked]")
+  })
+
+  it("lists each top-level session change as an event, masked, for this machine's identity", async () => {
+    const fixture = opencode()
+    const identity = identityOf("sam", "studio-mac")
+    const runtime = await createRuntime({ config: loadConfig({ database: fixture.path, indexPath: join(temp(), "index.db"), mask: ["sk-live-[0-9a-f]+"] }), session: contextApi() as unknown as RuntimeOptions["session"], identity })
+    cleanups.push(() => runtime.close())
+    await runtime.reindex("catch-up")
+    const listed = await runtime.eventsList(CALLER, { since: "2026-09-01" })
+    expect(resultProblems(listed)).toEqual([])
+    expect(listed.owner).toEqual(identity.owner)
+    expect(listed.events.map(event => event.external_id.split("@")[0]).sort()).toEqual(["ses_db", "ses_login"])
+    expect(listed.events.every(event => event.account === "studio-mac" && event.kind === "session")).toBe(true)
+    expect(JSON.stringify(listed)).not.toContain(SECRET)
+    expect(listed.events.find(event => event.external_id.startsWith("ses_login@"))!.text).toContain("Token [masked]")
+    expect(await runtime.eventsList(CALLER, { cursor: listed.cursor })).toMatchObject({ events: [], more: false })
+    await expect(runtime.eventsList(CALLER, { limit: 0 })).rejects.toMatchObject({ code: "INPUT_INVALID" })
   })
 
   it("falls back to the plugin session API when OpenCode's database is missing or has an unknown layout, and says why", async () => {
