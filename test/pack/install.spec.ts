@@ -175,7 +175,7 @@ for (const version of VERSIONS) describe(`stock OpenCode ${version}`, () => {
     expect(described.status).toBe(200)
     const methods = (described.data as { output: { methods: { name: string; class: string; permission?: string }[] } }).output.methods
     expect(Object.fromEntries(methods.map(method => [method.name, method.class]))).toEqual({
-      search: "read", brief: "read", read: "read", sessions: "read", files: "read", recall: "read", sql: "read", pin: "write",
+      search: "read", brief: "read", read: "read", sessions: "read", files: "read", recall: "read", sql: "read", pin: "write", events_list: "read",
     })
     expect(Object.fromEntries(methods.map(method => [method.name, method.permission]))).toMatchObject({ search: "allow", pin: "ask" })
     // The write asks by default, so a script is refused before anything runs.
