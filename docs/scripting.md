@@ -27,16 +27,16 @@ Every call names a session, and the session must name an agent. The script runs 
 
 **Only a resolved `allow` runs.** An `ask` is refused, because no one is there to answer the prompt, and a `deny` is refused. Both cost nothing: no tool call and no prompt left waiting. A script gets the same default as the model: at `access: "all"` the default block allows every method. At `"ask-changes"` an `ask` stops a write, so `history_pin` then needs a prior explicit allow; at `"read-only"` it is denied.
 
-Create the session once, with the agent the script should run as, and keep its ID (`data.id`). A script, and a test of one, uses a session created for it. Never borrow an existing session found through `history_sessions` or another list: the script would run as that session's agent, under its rules.
+Create the session once, with the agent the script should run as, and keep its ID (`data.id`). Give the project as the session's `location`: a session made without one belongs to the service's default location, where the project's agents may not exist, and each call then fails `Agent not found`. A script, and a test of one, uses a session created for it. Never borrow an existing session found through `history_sessions` or another list: the script would run as that session's agent, under its rules.
 
 ```sh
-opencode api post /api/session -d '{"title":"weekly history report","agent":"build"}'
+opencode api post /api/session -d '{"title":"weekly history report","agent":"build","location":{"directory":"/path/to/project"}}'
 ```
 
 Session rules come after the agent's, so a session can narrow what its script may do:
 
 ```sh
-opencode api post /api/session -d '{"title":"weekly history report","agent":"build","permissions":[
+opencode api post /api/session -d '{"title":"weekly history report","agent":"build","location":{"directory":"/path/to/project"},"permissions":[
   {"action":"history_*","resource":"*","effect":"deny"},
   {"action":"history_sql","resource":"*","effect":"allow"}
 ]}'
