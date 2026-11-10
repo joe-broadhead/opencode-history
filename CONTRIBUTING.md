@@ -80,13 +80,20 @@ When the published file list changes on purpose, refresh the snapshot with `npm 
 
 ## Releasing
 
-1. Update `CHANGELOG.md` and the `version` in `package.json` on `master`.
-2. Make the release commit: it removes `"private": true` from `package.json` and dates the CHANGELOG heading, and changes nothing else. `npm run check` passes in that state.
-3. Push a `vX.Y.Z` tag for that commit.
-4. A reviewer approves the job in the `release` environment.
+Every plugin releases as `v0.0.0`, and it installs from that GitHub tag. The release is one commit on top of a `master`
+head that CI passed, and the tag points at it.
 
-`.github/workflows/release.yml` first runs a guard job outside the environment, which refuses a private package, a tag that differs from the version, install scripts and dependencies, so a bad tag never reaches a reviewer. The publish job, in the environment, runs `npm ci` and `npm run check`, packs the tree once, runs the pack test on that exact tarball, and publishes it to npm with trusted publishing and provenance, under `next` for a prerelease tag. If the version is already on npm, it publishes nothing and says so, so a re-run is safe.
+1. Set `version` to `0.0.0` in `package.json`, date the `## [0.0.0]` entry in `CHANGELOG.md`, then run `npm run check`.
+2. Push that commit to `master`, and wait for CI to pass on it.
+3. In a clean checkout of `master` at that commit, run `node scripts/release-commit.mjs --ci-sha <its full sha>`. It builds
+   `dist/`, removes the lifecycle scripts, and creates the signed commit and the signed annotated tag `v0.0.0`. It never
+   pushes; `--dry-run` shows the change first.
+4. Push the tag only: `git push origin v0.0.0`.
+5. Approve the run in the `release` environment. The release workflow checks the tag and its commit, installs the tag on
+   each stock OpenCode host (2.2.3 to 2.2.6), packs it, and creates the GitHub Release with the notes, the tarball and
+   `SHA256SUMS`.
 
+A tag that already exists stops step 3. Delete the old tag and its Release first, then start again.
 ## Commits
 
 Commit messages use `type(scope): summary`. Keep the README, `docs/configuration.md`, `docs/architecture.md`, `SECURITY.md`, this file and `CHANGELOG.md` in step with the code. See [AGENTS.md](AGENTS.md) for the design rules.

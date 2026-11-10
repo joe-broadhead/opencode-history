@@ -13,12 +13,13 @@ Unofficial; not affiliated with OpenCode.
 ## Install
 
 ```sh
-opencode plugin add @joe-broadhead/opencode-history
+opencode plugin add github:joe-broadhead/opencode-history#v0.0.0
 ```
 
-Run `opencode reload`, or restart OpenCode. Then run `/history-status`. On first start the plugin indexes every session in OpenCode's database in the background, newest first. The tools work while it runs, over the sessions indexed so far. `/history-status`, or `/history` in the terminal UI, shows the progress.
+Run `opencode reload`, or restart OpenCode, then run `/history-status`.
 
-To update, run `opencode plugin update @joe-broadhead/opencode-history`, then `opencode reload`. An entry pinned to a version, such as `@joe-broadhead/opencode-history@0.0.1`, does not update: remove the `@version` from `plugins` first. The index is kept; when a new version changes its layout, the plugin rebuilds it in the background.
+The install takes the GitHub release tag. Its commit carries the built `dist/`, so the install runs no build.
+A new release is a new tag: install it with its own `#v<version>` spec.
 
 ## Sign in
 

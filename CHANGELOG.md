@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.0.0] - 2026-11-10
+
 ### Added
 
 - Jelly shows each setting's default: `access` `"all"`, `defaultScope` `"project"` and `maskDefaults` `true`.
