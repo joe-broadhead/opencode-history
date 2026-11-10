@@ -11,6 +11,7 @@ import type { PermissionRequest } from "../../../src/host/permissions.js"
 import { StatusSchema } from "../../../src/domain/schemas.js"
 import { BUILDING, buildStatus, fallbackFailure, MASKS_CHANGED, nextStep } from "../../../src/host/status.js"
 import { DESCRIPTIONS, MAX_RESULT_BYTES, NAMESPACE_DESCRIPTION, TOOL_NAMES, toolTransform, type ToolName, type ToolSources } from "../../../src/host/tools.js"
+import { FilesOutputSchema, ReadOutputSchema, SearchOutputSchema } from "../../../src/domain/schemas.js"
 import { failure, fakeRuntime } from "../../host/runtime.js"
 import { INDEX, SAMPLES } from "../../host/samples.js"
 import { fakeSession } from "../../host/session.js"
@@ -90,9 +91,14 @@ describe("descriptions teach the lookup", () => {
   test("the widening and paging inputs say when to use them", () => {
     type Props = { properties: Record<string, { description: string }> }
     const props = (name: ToolName) => (z.toJSONSchema(register().tool(name).input, { io: "input" }) as unknown as Props).properties
+    // The hidden counts exist only on an empty result, so the inputs tell the model to set them when the user asks for that
+    // kind of work, and when the visible results miss: waiting for a count that never comes leaves the session unfound.
     for (const name of ["search", "sessions", "files", "recall"] as const) {
-      expect(props(name).includeSubagents!.description, name).toMatch(/only.*hidden\.subagents/)
-      expect(props(name).includeArchived!.description, name).toMatch(/only.*hidden\.archived/)
+      expect(props(name).includeSubagents!.description, name).toMatch(/Set it true on the first call when the user asks.*on a repeat when the visible results do not contain what they describe/)
+      expect(props(name).includeSubagents!.description, name).toMatch(/hidden\.subagents is reported only when a search finds nothing/)
+      expect(props(name).includeArchived!.description, name).toMatch(/Set it true when the user mentions archived.*on a repeat when the visible results do not contain what they describe/)
+      expect(props(name).includeArchived!.description, name).toMatch(/hidden\.archived is reported only when a search finds nothing/)
+      expect(props(name).scope!.description, name).toMatch(/Use all when the user names another repo.*or when this project's results do not contain what they describe/)
     }
     expect(props("sessions").limit!.description).toMatch(/keep the default.*cursor/i)
     expect(props("sessions").sort!.description).toMatch(/whole life.*no per-day cost/)
@@ -101,6 +107,37 @@ describe("descriptions teach the lookup", () => {
   test("the search query field asks for phrasings too", () => {
     const schema = z.toJSONSchema(register().tool("search").input, { io: "input" }) as unknown as { properties: { query: { description: string } } }
     expect(schema.properties.query.description).toMatch(/^Two to four phrasings/)
+  })
+
+  test("the namespace description says WHEN to look here, and the catalog blurbs stand alone", () => {
+    // Visible in full and always present: the one place that can say when to check history, and what to do first.
+    expect(NAMESPACE_DESCRIPTION).toMatch(/Check here BEFORE the repo or git whenever the user refers to earlier work/)
+    expect(NAMESPACE_DESCRIPTION).toMatch(/look here before saying it does not exist/)
+    expect(NAMESPACE_DESCRIPTION).toContain("Load the history-recall skill first.")
+    expect(NAMESPACE_DESCRIPTION).toMatch(/Time windows, costs, counts and rankings are not searches: use sessions or sql/)
+    expect(NAMESPACE_DESCRIPTION).toMatch(/archived and subagent sessions stay hidden until you set includeArchived or includeSubagents/)
+    // The Code Mode catalog shows only the first ~118 characters of a tool description; the rest is read through search().
+    // That opening has to carry the tool's job on its own.
+    const blurb = (name: ToolName) => DESCRIPTIONS[name].slice(0, 118)
+    expect(blurb("search")).toMatch(/Find past sessions about a topic.*2-4 phrasings; cite hits as \(ses_… #seq\)/)
+    expect(blurb("sessions")).toMatch(/with no query: by time window, cost or size/)
+    expect(blurb("files")).toMatch(/Include the repo folder in the path/)
+    expect(blurb("read")).toMatch(/exact wording, code or commands/)
+    expect(blurb("brief")).toMatch(/confirm a hit/)
+    expect(blurb("recall")).toMatch(/Answer-ready evidence in one call/)
+  })
+
+  test("result fields the model must use carry their own documentation, which the Code Mode signature shows", () => {
+    const doc = (schema: z.ZodType, ...path: string[]) => {
+      let node = z.toJSONSchema(schema, { io: "output" }) as unknown as Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
+      for (const key of path) node = node.properties?.[key] ?? node.items?.properties?.[key] ?? node.anyOf?.find((n: any) => n.properties)?.properties?.[key] // eslint-disable-line @typescript-eslint/no-explicit-any
+      return (node?.description ?? "") as string
+    }
+    expect(doc(SearchOutputSchema, "results", "snippets", "cite")).toMatch(/citation to copy into your answer.*keep it in whatever your code returns/)
+    expect(doc(SearchOutputSchema, "hidden")).toMatch(/counted only when nothing matched.*includeArchived or includeSubagents/)
+    expect(doc(SearchOutputSchema, "results", "similar")).toMatch(/sessions\(\{ title \}\)/)
+    expect(doc(ReadOutputSchema, "messages", "cite")).toMatch(/citation to copy into your answer/)
+    expect(doc(FilesOutputSchema, "files", "sessions", "seqs")).toMatch(/pass one as history_read at/)
   })
 
   test("descriptions only name registered tools", () => {
