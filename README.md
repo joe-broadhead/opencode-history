@@ -261,7 +261,7 @@ Start with `/history-status`. It ends with one next step. Errors read `CODE: wha
 | `PERMISSION_DENIED` | The session's agent may not use this tool. | Add an allow rule for the tool's action to that agent, or call as a session whose agent allows it. |
 | `PIN_TOO_LARGE` | The text to pin is larger than OpenCode allows for one instruction entry. | Pin a shorter range, or set a lower maxChars. |
 | `QUERY_INVALID` | The search query cannot be used. | Correct the named input and call the tool again. |
-| `SESSION_AGENT_REQUIRED` | That session names no agent, so there are no rules to run the tool under. | Create a session that names an agent, such as POST /api/session with {"agent":"build"}, and pass its id. |
+| `SESSION_AGENT_REQUIRED` | That session names no agent, or one this location does not have, so there are no rules to run the tool under. | Create a session that names an agent this project has, with its project as the location, such as POST /api/session with {"agent":"build","location":{"directory":"/path/to/project"}}, and pass its id. |
 | `SESSION_NOT_FOUND` | No indexed session has that ID. | Find the session ID with history_search or history_sessions. |
 | `SESSION_UNKNOWN` | OpenCode has no session with that ID. | Create a session that names an agent, such as POST /api/session with {"agent":"build"}, and pass its id. |
 | `SKILLS_INVALID` | A History skill file is missing or malformed, so that skill was skipped. | Reinstall the plugin. |

@@ -48,7 +48,7 @@ export const FAILURES: { readonly [C in FailureCode]: readonly [message: string,
   EVENTS_UNAVAILABLE: ["OpenCode's session events stopped, so the index may lag behind new sessions.", "Wait, since the plugin subscribes again by itself, and restart OpenCode if it persists."],
   PERMISSION_DENIED: ["The session's agent may not use this tool.", "Add an allow rule for the tool's action to that agent, or call as a session whose agent allows it."],
   SESSION_UNKNOWN: ["OpenCode has no session with that ID.", "Create a session that names an agent, such as POST /api/session with {\"agent\":\"build\"}, and pass its id."],
-  SESSION_AGENT_REQUIRED: ["That session names no agent, so there are no rules to run the tool under.", "Create a session that names an agent, such as POST /api/session with {\"agent\":\"build\"}, and pass its id."],
+  SESSION_AGENT_REQUIRED: ["That session names no agent, or one this location does not have, so there are no rules to run the tool under.", "Create a session that names an agent this project has, with its project as the location, such as POST /api/session with {\"agent\":\"build\",\"location\":{\"directory\":\"/path/to/project\"}}, and pass its id."],
   OPERATION_FAILED: ["The tool failed unexpectedly.", "Retry, and if it persists, run /history-status."],
 }
 
