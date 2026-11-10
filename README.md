@@ -16,7 +16,11 @@ Unofficial; not affiliated with OpenCode.
 opencode plugin add github:joe-broadhead/opencode-history#v0.0.0
 ```
 
-Run `opencode reload`, or restart OpenCode, then run `/history-status`.
+Run `opencode reload`, or restart OpenCode. Then run `/history-status`. On first start the plugin indexes every session in OpenCode's database in the background, newest first. The tools work while it runs, over the sessions indexed so far. `/history-status`, or `/history` in the terminal UI, shows the progress.
+
+A Git install is removed and updated by its installed spec: `opencode plugin remove github:joe-broadhead/opencode-history#v0.0.0`. `opencode plugin update` and `opencode plugin check` take the same spec.
+
+To update, run `opencode plugin update github:joe-broadhead/opencode-history#v0.0.0`, then `opencode reload`. An entry pinned to a tag does not update: remove the tag from its `plugins` entry first. The index is kept; when a new version changes its layout, the plugin rebuilds it in the background.
 
 The install takes the GitHub release tag. Its commit carries the built `dist/`, so the install runs no build.
 A new release is a new tag: install it with its own `#v<version>` spec.
@@ -302,7 +306,7 @@ The codes a tool call can return, each with its next step, are in [docs/configur
 2. Remove the plugin, then run `opencode reload` or restart OpenCode:
 
    ```sh
-   opencode plugin remove @joe-broadhead/opencode-history
+   opencode plugin remove github:joe-broadhead/opencode-history#v0.0.0
    ```
 
 3. Delete the index, which removing the plugin keeps: `~/.local/share/opencode-history`, or your `indexPath` with its `-wal` and `-shm` files. OpenCode's database is not touched either way.
