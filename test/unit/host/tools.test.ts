@@ -11,7 +11,7 @@ import type { PermissionRequest } from "../../../src/host/permissions.js"
 import { StatusSchema } from "../../../src/domain/schemas.js"
 import { BUILDING, buildStatus, fallbackFailure, MASKS_CHANGED, nextStep } from "../../../src/host/status.js"
 import { DESCRIPTIONS, MAX_RESULT_BYTES, NAMESPACE_DESCRIPTION, TOOL_NAMES, toolTransform, type ToolName, type ToolSources } from "../../../src/host/tools.js"
-import { FilesOutputSchema, ReadOutputSchema, SearchOutputSchema } from "../../../src/domain/schemas.js"
+import { FilesOutputSchema, ReadOutputSchema, RecallOutputSchema, SearchOutputSchema } from "../../../src/domain/schemas.js"
 import { failure, fakeRuntime } from "../../host/runtime.js"
 import { INDEX, SAMPLES } from "../../host/samples.js"
 import { fakeSession } from "../../host/session.js"
@@ -114,6 +114,10 @@ describe("descriptions teach the lookup", () => {
     expect(NAMESPACE_DESCRIPTION).toMatch(/Check here BEFORE the repo or git whenever the user refers to earlier work/)
     expect(NAMESPACE_DESCRIPTION).toMatch(/look here before saying it does not exist/)
     expect(NAMESPACE_DESCRIPTION).toContain("Load the history-recall skill first.")
+    // The hidden counts exist only on an empty result, so an agent never sees that archived or subagent sessions matched:
+    // the widening ladder is stated where every agent reads it.
+    expect(NAMESPACE_DESCRIPTION).toMatch(/if the hits miss what the user describes, retry with scope "all", then those two, before saying it never happened/)
+    expect(DESCRIPTIONS.search).toMatch(/retry with scope: "all", then includeArchived and includeSubagents, before concluding it never happened/)
     expect(NAMESPACE_DESCRIPTION).toMatch(/Time windows, costs, counts and rankings are not searches: use sessions or sql/)
     expect(NAMESPACE_DESCRIPTION).toMatch(/archived and subagent sessions stay hidden until you set includeArchived or includeSubagents/)
     // The Code Mode catalog shows only the first ~118 characters of a tool description; the rest is read through search().
@@ -138,6 +142,9 @@ describe("descriptions teach the lookup", () => {
     expect(doc(SearchOutputSchema, "results", "similar")).toMatch(/sessions\(\{ title \}\)/)
     expect(doc(ReadOutputSchema, "messages", "cite")).toMatch(/citation to copy into your answer/)
     expect(doc(FilesOutputSchema, "files", "sessions", "seqs")).toMatch(/pass one as history_read at/)
+    // recall's windows are the best-matching messages: an agent that sees only the diagnosis must read on, not report the fix as missing.
+    expect(doc(RecallOutputSchema, "evidence")).toMatch(/can stop short of the answer.*history_read the session at or after the last seq before saying it is missing/)
+    expect(DESCRIPTIONS.recall).toMatch(/can stop short of the answer: when it does, history_read the session at or after its last seq/)
   })
 
   test("descriptions only name registered tools", () => {

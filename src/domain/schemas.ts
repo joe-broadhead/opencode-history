@@ -200,7 +200,7 @@ export const SqlOutputSchema = z.strictObject({
 })
 
 export const RecallOutputSchema = z.strictObject({
-  evidence: z.array(EvidenceSchema),
+  evidence: z.array(EvidenceSchema).describe("Quoted windows around the best-matching messages, not the whole story: they can stop short of the answer, so history_read the session at or after the last seq before saying it is missing."),
   queries: z.array(z.string()),
   index: IndexStateSchema,
 })

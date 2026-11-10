@@ -26,7 +26,7 @@ Four rules decide most answers:
 | which sessions touched a file, and why | `files` with a path that includes its repo folder | `read` at a seq from that session's `seqs` |
 | most expensive or largest sessions | `sessions` with `sort: "cost"` (or `"messages"`) | |
 | totals, counts or rankings per day, project, agent, file or tool | one `sql` statement over `v_sessions`, `v_docs` or `v_files` | |
-| quoted evidence for a question in one call | `recall` | answer from its evidence yourself |
+| quoted evidence for a question in one call | `recall` | answer from its evidence; if it stops short of the answer, `read` the session at or after its last seq |
 
 Answer from the history tools, not from `git log`: git does not know which session made a change, or why.
 
