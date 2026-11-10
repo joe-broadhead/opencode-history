@@ -18,12 +18,17 @@ opencode plugin add github:joe-broadhead/opencode-history#v0.0.0
 
 Run `opencode reload`, or restart OpenCode. Then run `/history-status`. On first start the plugin indexes every session in OpenCode's database in the background, newest first. The tools work while it runs, over the sessions indexed so far. `/history-status`, or `/history` in the terminal UI, shows the progress.
 
-A Git install is removed and updated by its installed spec: `opencode plugin remove github:joe-broadhead/opencode-history#v0.0.0`. `opencode plugin update` and `opencode plugin check` take the same spec.
+Each release has its own tag, and a Git install does not update by itself. To move to a newer release, remove the old entry with `opencode plugin remove github:joe-broadhead/opencode-history#v0.0.0`, then add the new tag with `opencode plugin add github:joe-broadhead/opencode-history#v<version>`.
 
-To update, run `opencode plugin update github:joe-broadhead/opencode-history#v0.0.0`, then `opencode reload`. An entry pinned to a tag does not update: remove the tag from its `plugins` entry first. The index is kept; when a new version changes its layout, the plugin rebuilds it in the background.
+Or add the plugin to `opencode.json` instead, with the same spec:
+
+```json
+{ "plugins": [{ "package": "github:joe-broadhead/opencode-history#v0.0.0" }] }
+```
+
+The index is kept; when a new version changes its layout, the plugin rebuilds it in the background.
 
 The install takes the GitHub release tag. Its commit carries the built `dist/`, so the install runs no build.
-A new release is a new tag: install it with its own `#v<version>` spec.
 
 ## Sign in
 
@@ -98,7 +103,7 @@ See [Scripting](https://github.com/joe-broadhead/opencode-history/blob/HEAD/docs
    | `"read-only"` | the reads | nothing: `history_pin` and new tools are **denied** |
 
    ```json
-   { "plugins": [{ "package": "@joe-broadhead/opencode-history", "options": { "access": "read-only" } }] }
+   { "plugins": [{ "package": "github:joe-broadhead/opencode-history#v0.0.0", "options": { "access": "read-only" } }] }
    ```
 
 2. **An agent that is read-only or asks**, with rules of its own, later than the plugin's:
@@ -201,7 +206,7 @@ Options go on the plugin entry in `opencode.json`:
 ```jsonc
 {
   "plugins": [{
-    "package": "@joe-broadhead/opencode-history",
+    "package": "github:joe-broadhead/opencode-history#v0.0.0",
     "options": {
       "defaultScope": "project",
       "mask": ["internal-token-[0-9a-f]{32}"]
@@ -220,7 +225,7 @@ An organisation can install the plugin for every user on a machine through OpenC
 
 ```json
 {
-  "plugins": [{ "package": "@joe-broadhead/opencode-history", "options": { "mask": ["internal-token-[0-9a-f]{32}"] } }],
+  "plugins": [{ "package": "github:joe-broadhead/opencode-history#v0.0.0", "options": { "mask": ["internal-token-[0-9a-f]{32}"] } }],
   "permissions": [
     { "action": "history_sql", "resource": "*", "effect": "deny" }
   ]
@@ -237,6 +242,7 @@ There is nothing to sign in to and no client ID to set. `mask` adds patterns tha
 - **The index is large and grows with your history.** It takes about 2.7 times the text it holds, and deleting a session does not shrink the file.
 - **Every tool is allowed by default.** Any agent can read any indexed session in any project, and `access` decides what runs without asking. `scope` filters results; it is not access control.
 - **Tested on OpenCode 2.2.3, 2.2.4, 2.2.5 and 2.2.6.** Other releases inside `>=2.2.3 <2.3.0` start, and status reports them as untested.
+- Updates are not automatic for a Git install, and `opencode plugin update` and `opencode plugin check` do not work on one: to move to a newer release, remove the old entry and add the new tag.
 
 ## Troubleshooting
 
