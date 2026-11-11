@@ -159,7 +159,6 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run --maxWorkers=2",
-    "build": "node scripts/build.mjs",
     "test:host": "node scripts/test-host.mjs",
     "test:tui": "npx -y bun@1.4.4 test test/tui",
     "test:pack": "npx -y bun@1.4.4 test test/pack",
