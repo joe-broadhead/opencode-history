@@ -159,13 +159,14 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run --maxWorkers=2",
+    "test:kit": "node --test scripts/release-kit.test.mjs",
     "build": "node scripts/build.mjs",
     "test:host": "node scripts/test-host.mjs",
     "test:tui": "npx -y bun@1.4.4 test test/tui",
     "test:pack": "npx -y bun@1.4.4 test test/pack",
     "bench": "vitest run -c vitest.bench.config.ts --silent=false",
     "lint": "node scripts/check-forbidden.mjs && node scripts/check-copies.mjs && node scripts/check-icons.mjs && node scripts/check-workflows.mjs",
-    "check": "npm run typecheck && npm test && npm run build && npm run test:host && npm run test:tui && npm run lint && npm run test:pack"
+    "check": "npm run typecheck && npm test && npm run test:kit && npm run build && npm run test:host && npm run test:tui && npm run lint && npm run test:pack"
   },
   "devDependencies": {
     "@babel/core": "7.29.7",
