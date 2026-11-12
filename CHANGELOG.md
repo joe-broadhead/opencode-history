@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Scripts call History through its tools RPC. The `history` namespace description and a new row in the `history-recall` skill's table now say that a script or cron job uses the tools RPC `history.sessions.tools` (`opencode api post /api/rpc/history.sessions.tools/<tool>`, as a session the script creates) and never reads OpenCode's database (`opencode.db`) or History's index (`index.db`) directly: the RPC masks secrets and applies the permission rules, and a direct read does neither. In an interleaved evaluation against 0.0.0 (both versions run case by case in the same hour, Claude Haiku on OpenCode, 45 core questions and 17 safety questions, one model and one synthetic history), the scripting question's direct database reads fell from 1 of 2 runs to none, with no regression on the core questions and no safety failures. Scores moved by 10 to 16 points between runs of the same version at different hours, so only the interleaved comparison is meaningful, and it supports "no regression", not a gain.
+
 ## [0.0.0] - 2026-11-10
 <!-- kit-release: the GitHub release v0.0.0 -->
 

@@ -125,6 +125,8 @@ describe("descriptions teach the lookup", () => {
     expect(DESCRIPTIONS.search).toMatch(/retry with scope: "all", then includeArchived and includeSubagents, before concluding it never happened/)
     expect(NAMESPACE_DESCRIPTION).toMatch(/Time windows, costs, counts and rankings are not searches: use sessions or sql/)
     expect(NAMESPACE_DESCRIPTION).toMatch(/archived and subagent sessions stay hidden until you set includeArchived or includeSubagents/)
+    // Scripts: the tools RPC, never OpenCode's database or the index directly.
+    expect(NAMESPACE_DESCRIPTION).toMatch(/tools RPC history\.sessions\.tools .*never by reading OpenCode's database \(opencode\.db\) or History's index \(index\.db\) directly/)
     // The Code Mode catalog shows only the first ~118 characters of a tool description; the rest is read through search().
     // That opening has to carry the tool's job on its own.
     const blurb = (name: ToolName) => DESCRIPTIONS[name].slice(0, 118)
