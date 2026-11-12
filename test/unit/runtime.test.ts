@@ -240,7 +240,10 @@ describe("createRuntime", () => {
     expect(waited).toBeGreaterThanOrEqual(REFRESH_MS - 20)
     expect(waited).toBeLessThan(REFRESH_MS + 1500)
     expect(found.results.map(hit => hit.sessionID)).toEqual(["ses_ctx"])
-    expect(found.index.lagSeconds).toBe(60)
+    // The lag is rounded from the wall clock: synced 60 s ago plus this search's own wait (about 200 ms, and up to
+    // 1.5 s on a slow runner), so it reads 60 or, past the half second, 61.
+    expect(found.index.lagSeconds).toBeGreaterThanOrEqual(60)
+    expect(found.index.lagSeconds).toBeLessThanOrEqual(61)
     release()
     await vi.waitFor(async () => expect((await runtime.status()).lagSeconds).toBe(0))
   })
