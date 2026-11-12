@@ -22,6 +22,8 @@ describe("skills", () => {
   test("the shipped skill loads as an auto-invoked skill and is registered", async () => {
     const skills = await loadSkills(packageRoot, message => { throw new Error(`no warning expected: ${message}`) })
     expect(skills.map(s => s.id)).toEqual([...SKILLS])
+    // Scripts: the skill's row names the tools RPC.
+    expect(skills[0]!.info.content).toMatch(/\| a script or cron job that uses History \| the tools RPC `history\.sessions\.tools`/)
     expect(skills[0]!.info).toMatchObject({ id: "history-recall", name: "history-recall", autoinvoke: true, path: join(packageRoot, "skills/history-recall/SKILL.md") })
     const added: string[] = []
     skillTransform(skills)({ add: (s: { id: string }) => { added.push(s.id) } } as never)

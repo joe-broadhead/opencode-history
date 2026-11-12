@@ -27,6 +27,7 @@ Four rules decide most answers:
 | most expensive or largest sessions | `sessions` with `sort: "cost"` (or `"messages"`) | |
 | totals, counts or rankings per day, project, agent, file or tool | one `sql` statement over `v_sessions`, `v_docs` or `v_files` | |
 | quoted evidence for a question in one call | `recall` | answer from its evidence; if it stops short of the answer, `read` the session at or after its last seq |
+| a script or cron job that uses History | the tools RPC `history.sessions.tools`: `opencode api post /api/rpc/history.sessions.tools/<tool>`, as a session the script creates | never read `opencode.db` or `index.db` directly: the RPC masks secrets and applies the permission rules |
 
 Answer from the history tools, not from `git log`: git does not know which session made a change, or why.
 
