@@ -242,6 +242,7 @@ There is nothing to sign in to and no client ID to set. `mask` adds patterns tha
 - **The index is large and grows with your history.** It takes about 2.7 times the text it holds, and deleting a session does not shrink the file.
 - **Every tool is allowed by default.** Any agent can read any indexed session in any project, and `access` decides what runs without asking. `scope` filters results; it is not access control.
 - **Tested on OpenCode 2.2.3, 2.2.4, 2.2.5 and 2.2.6.** Other releases inside `>=2.2.3 <2.3.0` start, and status reports them as untested.
+- **Jelly's settings need a recent Jelly.** The `jelly` settings declare their choices, which a Jelly without app#1301 does not read: it refuses the plugin's declaration.
 - Updates are not automatic for a Git install, and `opencode plugin update` and `opencode plugin check` do not work on one: to move to a newer release, remove the old entry and add the new tag.
 
 ## Troubleshooting
