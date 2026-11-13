@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.2] - 2026-11-13
+
+### Added
+
+- The `jelly` settings declare their choices, so Jelly draws them as choices instead of free text: `access` offers
+  Jelly's three (Allowed, Ask before changes, Read only), and `defaultScope` offers This project, This folder and Every
+  project. A test reads them with Jelly's setting schema and checks that the options parser takes every declared value
+  and refuses one outside the set (needs a jelly that includes app#1301).
+
 ## [0.0.1] - 2026-11-12
 
 ### Changed
