@@ -1,6 +1,7 @@
 {
   "name": "@joe-broadhead/opencode-history",
   "version": "0.0.2",
+  "private": true,
   "description": "Unofficial OpenCode plugin: search, read and recall your past OpenCode sessions",
   "keywords": [
     "opencode",
