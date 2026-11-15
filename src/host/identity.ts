@@ -1,6 +1,6 @@
 // Who this machine's History belongs to, for events_list: the account its events name and the owner Memory binds.
 import { hostname, userInfo } from "node:os"
-import type { EventsOwner } from "./events-list.js"
+import type { EventsOwner } from "@we-the-rebel-alliance/source-contract/events"
 
 /**
  * History reads only the local engine's sessions, so its source account is this machine and its owner is the OS user

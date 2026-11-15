@@ -1,6 +1,6 @@
 // One sample output per query method, typed against api.ts. A unit test checks each against its tool output schema.
-import type { BriefOutput, EventsListOutput, FilesOutput, IndexState, ReadOutput, RecallOutput, SearchOutput, SessionSummary, SessionsOutput, SqlOutput } from "../../src/domain/api.js"
-import { encodeCursor, eventsListResult, makeEvent } from "../../src/host/events-list.js"
+import type { BriefOutput, EventsListOutput, FilesOutput, IndexState, ProbeOutput, ReadOutput, RecallOutput, SearchOutput, SessionSummary, SessionsOutput, SqlOutput } from "../../src/domain/api.js"
+import { encodeCursor, eventsListResult, makeEvent } from "@we-the-rebel-alliance/source-contract/events"
 
 export const INDEX: IndexState = { ready: true, sessionsIndexed: 42, sessionsTotal: 42, lagSeconds: 0, source: "opencode-db", complete: true }
 
@@ -69,8 +69,9 @@ export const SAMPLES = {
     })],
     encodeCursor("history", { a: "studio-mac", u: Date.parse(SESSION.updated), i: "ses_login1" }),
     false,
-  ),
+  ) as EventsListOutput,
+  probe: { source: "sessions", account: "studio-mac", owner: { id: "os-user:sam@studio-mac", label: "sam on studio-mac" }, trust: "untrusted" },
 } satisfies {
   search: SearchOutput; sessions: SessionsOutput; files: FilesOutput; read: ReadOutput; brief: BriefOutput; sql: SqlOutput; recall: RecallOutput
-  eventsList: EventsListOutput
+  eventsList: EventsListOutput; probe: ProbeOutput
 }

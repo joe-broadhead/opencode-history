@@ -7,7 +7,8 @@ import type { Access } from "../domain/contract.js"
  *
  * - `history_*` takes the effect `access` asks for: at `all` it allows the namespace, so a tool a later version adds
  *   runs at once; `ask-changes` asks for it and `read-only` denies it;
- * - the known reads (`READ_TOOLS`) are allowed again by exact name, so they never prompt;
+ * - the known reads (`READ_TOOLS`) are allowed again by exact name, so they never prompt, and so is `history_probe`,
+ *   the source contract's probe, a tools RPC method that reads only this machine's account and OS user;
  * - `history_pin`, the one tool that changes something (the current session's instructions), takes the same effect.
  *
  * Every later rule (agent denies, the user's `permissions`, saved approvals) still wins. Each tool also asserts its
@@ -27,6 +28,12 @@ export const KNOWN_READS: readonly string[] = READ_TOOLS.map(name => `history_${
 /** The plugin's namespace: a tool a later version adds follows the same effect, so `all` means everything. */
 export const NAMESPACE_ACTION = "history_*"
 
+/**
+ * The source contract's probe, a tools RPC method and not a tool (`sources.probe.action` in package.json). It reads
+ * only this machine's account and OS user, so it is allowed as a read.
+ */
+export const PROBE_ACTION = "history_probe"
+
 /** The actions that change something: `history_pin` writes to the current session's instructions. */
 export const CHANGING_ACTIONS = ["history_pin"] as const
 
@@ -36,6 +43,7 @@ export function defaultRules(access: Access = "all"): readonly Rule[] {
   return [
     { action: NAMESPACE_ACTION, resource: "*", effect: other },
     ...KNOWN_READS.map((action): Rule => ({ action, resource: "*", effect: "allow" })),
+    { action: PROBE_ACTION, resource: "*", effect: "allow" },
     ...CHANGING_ACTIONS.map((action): Rule => ({ action, resource: "*", effect: other })),
   ]
 }

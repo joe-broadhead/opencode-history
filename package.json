@@ -62,6 +62,41 @@
       }
     ]
   },
+  "sources": {
+    "contractVersion": 1,
+    "rpc": "history.sessions.tools",
+    "probe": {
+      "action": "history_probe"
+    },
+    "items": [
+      {
+        "id": "history.sessions",
+        "kind": "events",
+        "reads": "session",
+        "tool": "events_list",
+        "input": {
+          "source": "sessions"
+        },
+        "accounts": {
+          "named": false
+        },
+        "permission": {
+          "events": "history_events_list",
+          "rules": [
+            {
+              "action": "history_events_list",
+              "resource": "*"
+            }
+          ]
+        },
+        "private": true,
+        "cost": {
+          "class": "free"
+        },
+        "maxBytes": 262144
+      }
+    ]
+  },
   "jelly": {
     "title": "History",
     "summary": "Your past OpenCode sessions.",

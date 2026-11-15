@@ -20,7 +20,7 @@ const location = { directory }
 const open = {}
 const Tools = Rpc.define({
   id: TOOLS_RPC_ID,
-  methods: Object.fromEntries(["describe", ...TOOL_NAMES].map(name => [name, { input: open, output: open, errors: { failed: open } }])),
+  methods: Object.fromEntries(["describe", ...TOOL_NAMES, "probe"].map(name => [name, { input: open, output: open, errors: { failed: open } }])),
   events: {},
 })
 
@@ -64,7 +64,7 @@ async function run(method: string, session: string, input: unknown): Promise<Rec
 const asked = async (session: string) => host.sdk.permission.list({ sessionID: session })
 
 describe(`tools RPC on @opencode/sdk, host version ${HOST_VERSION}`, () => {
-  test("describes every tool, pin included, each with its class", async () => {
+  test("describes every tool, pin included, and probe, each with its class", async () => {
     const description = await tools().describe!({}, { location }) as { methods: { name: string; class: string }[] }
     expect(Object.fromEntries(description.methods.map(method => [method.name, method.class]))).toEqual({
       search: "read",
@@ -76,7 +76,20 @@ describe(`tools RPC on @opencode/sdk, host version ${HOST_VERSION}`, () => {
       sql: "read",
       events_list: "read",
       pin: "write",
+      probe: "read",
     })
+  })
+
+  test("probe names this machine and its OS user, and the sessions source lists under that owner with a cursor that names its account", async () => {
+    const probed = await run("probe", sessions.build!, { source: "sessions" })
+    expect(probed.value, probed.message).toMatchObject({ source: "sessions", account: expect.any(String), owner: { id: expect.stringMatching(/^os-user:/), label: expect.any(String) }, trust: "untrusted" })
+    const { account, owner } = probed.value as { account: string; owner: { id: string; label: string } }
+    const page = await run("events_list", sessions.build!, { source: "sessions", since: "2020-01-01" })
+    expect(page.value, page.message).toMatchObject({ source: "sessions", account, owner, plugin: "@joe-broadhead/opencode-history", trust: "untrusted" })
+    expect(await run("events_list", sessions.build!, { source: "sessions", cursor: page.value!.cursor })).toMatchObject({ type: "failed", code: "INPUT_INVALID" })
+    expect(await run("events_list", sessions.build!, { source: "sessions", account, cursor: page.value!.cursor })).toMatchObject({ value: { source: "sessions", account } })
+    expect(await run("events_list", sessions.build!, { source: "sessions", account: "other-mac" })).toMatchObject({ type: "failed", code: "ACCOUNT_MISMATCH" })
+    expect(await run("probe", sessions.build!, { account: "other-mac" })).toMatchObject({ type: "failed", code: "ACCOUNT_MISMATCH" })
   })
 
   test("describe with a session reports each method's permission", async () => {

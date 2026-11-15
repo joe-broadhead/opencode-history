@@ -5,6 +5,7 @@ import { FAILURES } from "../../src/domain/common.js"
 import { loadConfig } from "../../src/domain/config.js"
 import { checkHost } from "../../src/host/compat.js"
 import { loadSkills } from "../../src/host/skills.js"
+import { NEXT_STEPS } from "../../src/host/tools-rpc.js"
 
 const root = join(import.meta.dirname, "../..")
 const sources = (dir: string): string[] =>
@@ -24,9 +25,12 @@ describe("the error table", () => {
     expect([...codes].sort()).toEqual(Object.keys(FAILURES).sort())
   })
 
-  test("every code is raised somewhere outside the table", () => {
+  test("every code is raised somewhere outside the table, or by the source contract's transport", () => {
     const text = sources(join(root, "src")).filter(file => !file.endsWith(join("domain", "common.ts"))).map(file => readFileSync(file, "utf8")).join("\n")
-    for (const code of Object.keys(FAILURES)) expect(text, code).toContain(`"${code}"`)
+    // The tools RPC transport is the package's: it refuses a call with these, and History gives each its next step.
+    const transport = Object.keys(NEXT_STEPS).filter(code => code !== "CANCELLED")
+    expect(transport.sort()).toEqual(["PERMISSION_DENIED", "SESSION_AGENT_REQUIRED", "SESSION_UNKNOWN"])
+    for (const code of Object.keys(FAILURES).filter(code => !transport.includes(code))) expect(text, code).toContain(`"${code}"`)
   })
 })
 

@@ -2,7 +2,7 @@ import * as z from "zod"
 import { BOUNDS, MAX_PHRASINGS, type Bound } from "./bounds.js"
 import { integer, text } from "./common.js"
 import { ACCESS_VALUES, DOC_KINDS, type DocKind, type FileOp, type MessageKind } from "./contract.js"
-import { EVENT_KINDS, EVENT_LIMITS, SINCE_PATTERN, TRUST } from "../host/events-list.js"
+import { EVENT_KINDS, EVENT_LIMITS, REFUSAL_REASONS, SINCE_PATTERN, TRUST } from "@we-the-rebel-alliance/source-contract/events"
 
 // The one description of every tool's input and output; api.ts derives the types from these. Inputs carry the defaults
 // the model sees, from BOUNDS, which the query layer clamps to as well. The host validates every tool result against
@@ -105,14 +105,21 @@ export const RecallInputSchema = z.strictObject({
   ...filters,
 })
 
-/** events_list's input, as the shared contract (src/host/events-list.ts) defines it; the query checks it again with the contract's parser. */
+/** events_list's input, as the source contract defines it; the query checks it again with the contract's parser. */
 export const EventsListInputSchema = z.strictObject({
   since: z.string().max(40).regex(SINCE_PATTERN, "must be an ISO date, or an ISO date-time with Z or an offset").optional()
     .describe("Where to start when there is no cursor: an ISO date (a UTC day) or an ISO date-time with Z or an offset. Default: 24 hours ago."),
   cursor: text(EVENT_LIMITS.cursor).min(1).optional().describe("The cursor of the previous result, to list what changed after it. It wins over since."),
   limit: ranged(BOUNDS.events_list.limit, "Most events to return"),
-  account: text(EVENT_LIMITS.account).min(1).optional().describe("This machine's account, as its events name it. Default: this machine."),
-  source: z.literal("history").optional().describe("History's one source, history. Default: history."),
+  account: text(EVENT_LIMITS.account).min(1).optional().describe("This machine's account, as its events name it. Default: this machine. A sessions listing with a cursor names it."),
+  source: text(EVENT_LIMITS.source).min(1).optional()
+    .describe("sessions: the source contract's history.sessions; history (the default): the listing scripts read before it, unchanged. Any other is SOURCE_UNKNOWN."),
+})
+
+/** The source contract's probe input: the source and the account, both optional. */
+export const ProbeInputSchema = z.strictObject({
+  source: text(EVENT_LIMITS.source).min(1).optional().describe("The source: sessions, the default. Any other is SOURCE_UNKNOWN."),
+  account: text(EVENT_LIMITS.account).min(1).optional().describe("This machine's account. Default: this machine."),
 })
 
 // Outputs
@@ -221,13 +228,26 @@ export const SourceEventSchema = z.strictObject({
   hash: z.string().max(80),
 })
 
+const OwnerSchema = z.strictObject({ id: z.string().max(EVENT_LIMITS.ownerId), label: z.string().max(EVENT_LIMITS.ownerLabel) })
+
 export const EventsListOutputSchema = z.strictObject({
   source: z.string().max(EVENT_LIMITS.source),
   account: z.string().max(EVENT_LIMITS.account),
-  owner: z.strictObject({ id: z.string().max(EVENT_LIMITS.ownerId), label: z.string().max(EVENT_LIMITS.ownerLabel) }),
+  owner: OwnerSchema,
   events: z.array(SourceEventSchema),
   cursor: z.string().max(EVENT_LIMITS.cursor),
   more: z.boolean(),
+  plugin: z.string().max(214).optional().describe("The package, on a sessions page."),
+  refused: z.array(z.strictObject({ external_id: z.string().max(EVENT_LIMITS.externalId), reason: z.enum(REFUSAL_REASONS), detail: z.string().max(200).optional() }))
+    .optional().describe("Sessions left out for good, such as one whose title still holds a secret after masking; the cursor moves past them."),
+  trust: z.literal(TRUST),
+})
+
+/** The probe's answer: whose this machine's History is, and nothing it reads. */
+export const ProbeOutputSchema = z.strictObject({
+  source: z.literal("sessions"),
+  account: z.string().max(EVENT_LIMITS.account),
+  owner: OwnerSchema,
   trust: z.literal(TRUST),
 })
 

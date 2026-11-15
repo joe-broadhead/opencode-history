@@ -1,8 +1,8 @@
 // What the host drives. The index and query modules implement it; the host only codes against this interface.
 import type { Plugin } from "@opencode/plugin"
 import type {
-  BriefInput, BriefOutput, Caller, EventsListInput, EventsListOutput, FilesInput, FilesOutput, IndexState, ReadInput, ReadOutput, RecallInput,
-  RecallOutput, SearchInput, SearchOutput, SessionsInput, SessionsOutput, SqlInput, SqlOutput,
+  BriefInput, BriefOutput, Caller, EventsListInput, EventsListOutput, FilesInput, FilesOutput, IndexState, ProbeInput, ProbeOutput, ReadInput, ReadOutput,
+  RecallInput, RecallOutput, SearchInput, SearchOutput, SessionsInput, SessionsOutput, SqlInput, SqlOutput,
 } from "../domain/api.js"
 import type { FailureCode } from "../domain/common.js"
 import type { ResolvedConfig } from "../domain/config.js"
@@ -52,6 +52,8 @@ export interface HistoryRuntime {
   recall(caller: Caller, input: RecallInput): Promise<RecallOutput>
   /** What changed in top-level sessions since a cursor, as the funnel's events (src/query/events.ts). */
   eventsList(caller: Caller, input: EventsListInput): Promise<EventsListOutput>
+  /** The source contract's probe for History's sessions source: this machine's account and OS user, and nothing else. */
+  probe(caller: Caller, input: ProbeInput): Promise<ProbeOutput>
   /** Resolves with the index state once the pass has finished. */
   reindex(mode: ReindexMode): Promise<IndexState>
   /** Called for every host event, for example to catch the index up after a session changes. Returns at once and never throws. */
@@ -60,7 +62,7 @@ export interface HistoryRuntime {
 }
 
 /** The query methods the tools call, by name. */
-export type QueryMethod = "search" | "sessions" | "files" | "read" | "brief" | "sql" | "recall" | "eventsList"
+export type QueryMethod = "search" | "sessions" | "files" | "read" | "brief" | "sql" | "recall" | "eventsList" | "probe"
 
 export interface RuntimeOptions {
   readonly config: ResolvedConfig
