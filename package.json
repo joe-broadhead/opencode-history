@@ -1,6 +1,6 @@
 {
   "name": "@joe-broadhead/opencode-history",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "private": true,
   "description": "Unofficial OpenCode plugin: search, read and recall your past OpenCode sessions",
   "keywords": [
@@ -37,7 +37,7 @@
     "CHANGELOG.md"
   ],
   "opencode": {
-    "host": ">=2.2.3 <2.3.0",
+    "host": ">=2.2.3 <2.4.0",
     "icons": [
       {
         "src": "assets/icon.svg",

@@ -38,7 +38,7 @@ describe("setup failures and warnings", () => {
   test("show the next step from the table, the one source", async () => {
     const hint = (code: keyof typeof FAILURES) => `Next step: ${FAILURES[code][1]}`
     expect(() => loadConfig({ unknown: true })).toThrow(hint("OPTIONS_INVALID"))
-    expect(() => checkHost("2.3.0", false)).toThrow(hint("HOST_UNTESTED"))
+    expect(() => checkHost("2.4.0", false)).toThrow(hint("HOST_UNTESTED"))
     const warnings: string[] = []
     await loadSkills("/nonexistent-history-package", message => { warnings.push(message) })
     expect(warnings[0]).toMatch(/^SKILLS_INVALID: /)

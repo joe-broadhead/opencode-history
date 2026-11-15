@@ -239,6 +239,12 @@ describe("tool_result docs", () => {
     expect(result.docs[1]).toMatchObject({ kind: "tool_result", text: "error: exit code 1" })
   })
 
+  it("reads a failed call from the tool part's error, in the shape OpenCode 2.3 stores", () => {
+    // Captured from stock OpenCode 2.3.0 (the path shortened): the call never ran, and there is no content.
+    const part = { type: "tool", id: "call_1", name: "glob", executed: false, state: { status: "error", input: { pattern: "*.x", path: "/missing" }, error: { type: "tool.execution", message: "Search path does not exist: /missing" } }, time: { created: 1, ran: 2, completed: 3 } }
+    expect(tool(part).docs.map(doc => [doc.kind, doc.text])).toEqual([["tool_call", "glob: *.x in /missing"], ["tool_result", "error: Search path does not exist: /missing"]])
+  })
+
   it("skips read results, empty results and all results when disabled", () => {
     expect(tool(toolPart("read", { filePath: "/a" }, { output: "file body" })).docs.map(d => d.kind)).toEqual(["tool_call"])
     expect(tool(toolPart("bash", { command: "true" }, { output: "" })).docs.map(d => d.kind)).toEqual(["tool_call"])

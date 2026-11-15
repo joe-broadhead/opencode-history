@@ -104,7 +104,7 @@ describe("setup", () => {
   test("the status RPC carries the package version and the options", async () => {
     const h = host({ options: { defaultScope: "all" } }), { cleanup } = await setup(h)
     expect(await h.rpc.handlers!.status!({}, { error: () => { throw new Error("unexpected") } })).toMatchObject({
-      version: VERSION, host: { version: "2.2.3", range: ">=2.2.3 <2.3.0", tested: true }, state: expect.stringMatching(/^(ready|connecting)$/), defaultScope: "all",
+      version: VERSION, host: { version: "2.2.3", range: ">=2.2.3 <2.4.0", tested: true }, state: expect.stringMatching(/^(ready|connecting)$/), defaultScope: "all",
     })
     await cleanup()
   })
@@ -148,11 +148,11 @@ describe("setup", () => {
   test("invalid options and untested hosts stop setup before the runtime opens; allowUntestedHost warns and runs", async () => {
     const r = runtimes()
     await expect(createPlugin({ createRuntime: r.create, packageRoot }).setup(host({ options: { scope: "everywhere" } }).ctx)).rejects.toThrow(/^OPTIONS_INVALID: .*options\.scope is not a History option/)
-    await expect(createPlugin({ createRuntime: r.create, packageRoot }).setup(host({ version: "2.3.0" }).ctx)).rejects.toThrow(/^HOST_UNTESTED: /)
+    await expect(createPlugin({ createRuntime: r.create, packageRoot }).setup(host({ version: "2.4.0" }).ctx)).rejects.toThrow(/^HOST_UNTESTED: /)
     expect(r.created).toEqual([])
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
-    const { cleanup } = await setup(host({ version: "2.3.0", options: { allowUntestedHost: true } }), r)
-    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/^HOST_UNTESTED: OpenCode 2\.3\.0 is untested/))
+    const { cleanup } = await setup(host({ version: "2.4.0", options: { allowUntestedHost: true } }), r)
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/^HOST_UNTESTED: OpenCode 2\.4\.0 is untested/))
     await cleanup()
   })
 

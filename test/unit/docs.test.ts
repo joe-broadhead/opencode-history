@@ -120,7 +120,7 @@ describe("the tested releases", () => {
       const said = match[1]!.replace(/[.,\s]+$/u, "").split(/,\s*|\s+and\s+/).map(part => part.trim()).filter(Boolean)
       expect(said).toEqual([...TESTED_HOSTS])
     }
-    expect(TESTED_HOSTS).toContain("2.2.6")
+    expect(TESTED_HOSTS).toContain("2.3.0")
   })
 })
 
