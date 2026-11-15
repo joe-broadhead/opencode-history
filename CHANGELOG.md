@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.0.4] - 2026-11-15
+## [Unreleased]
 
 ### Added
 
@@ -39,11 +39,15 @@ All notable changes to this project are documented here. The format follows [Kee
   `source`, or with `source: "history"`, lists exactly as before, with its own cursor; only an unknown `source` is now
   `SOURCE_UNKNOWN` rather than `INPUT_INVALID`.
 - The default rules allow `history_probe` by its exact name, at every `access` value.
-- For jelly: nothing to do. The `jelly` declaration is unchanged; `probe` is a tools RPC method, not a tool.
+- For jelly: the `jelly` declaration is unchanged, and `probe` is a tools RPC method, not a tool. Jelly's broker does
+  not take this source yet: it drops `history_events_list`, whose action has no dot and whose source states its grant
+  in `permission.rules` rather than `permission.operations`, until it reads declarations through the source
+  contract's `descriptor`.
 - For Memory: move from the `history` source to `history.sessions` by starting again with `since`: the old cursors are
   refused by the new source (`CURSOR_INVALID`), while the `history` source still reads them. The owner label is
   unchanged, `<user> on <account>`, the same in `probe` and on every page; pass this machine's `account` with every
-  listing that carries a cursor.
+  listing that carries a cursor. A host rename changes the account and the owner, so the old cursors are refused
+  (`ACCOUNT_MISMATCH`): bind the source again and start with `since` (README, Known limits).
 
 ## [0.0.3] - 2026-11-14
 
