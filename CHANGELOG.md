@@ -2,6 +2,49 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- History's source under the shared source contract, `@we-the-rebel-alliance/source-contract` v0.1.0: `package.json`'s
+  new top-level `sources` key declares `history.sessions`, an `events` source of kind `session`, read with
+  `history_events_list` and input `source: "sessions"`, for one account (`accounts.named: false`): this machine,
+  owned by its OS user, `os-user:<user>@<account>`. It reads only the local index, so its one grant is
+  `history_events_list` itself (`permission.rules`); it is private, free (`cost.class: "free"`), and `maxBytes` is
+  262,144. The tools RPC is `history.sessions.tools` and the probe action `history_probe`. Memory and jelly read the
+  declaration from the installed package, with the contract's `descriptor`.
+- For Memory and every consumer: the tools RPC method `probe` (action `history_probe`, allowed by the default rules at
+  every `access`) answers `{ source: "sessions", account, owner, trust }`, this machine and its OS user, the same owner
+  every `sessions` page names, and reads nothing else.
+- For Memory and every consumer: `history_events_list` with `source: "sessions"` lists the same sessions as before,
+  under the contract's page: `plugin`, and `refused[]` for a session whose title or text still holds a secret after
+  masking (`reason: "secret"`; the cursor moves past it). Its cursor is the contract's version 2, bound to the plugin,
+  the source and this machine, and holds the owner. A listing with a cursor must name its `account`
+  (`INPUT_INVALID`); another machine's account, or a cursor for one, is `ACCOUNT_MISMATCH`; and a cursor of another
+  source, plugin or OS user, or the `history` source's, is `CURSOR_INVALID`: start again with `since`.
+- `npm test` runs the contract's conformance kit over the declaration, `events_list` and `probe`
+  (`test/unit/conformance.test.ts`), on invented sessions in a synthetic index, and writes
+  `reports/conformance-report.json` (git-ignored, the same bytes on every run) for a release to attach. Every check
+  that applies passes. The report stays incomplete on the kit's expired-cursor check: the local index keeps every
+  session it indexed, so History never answers `CURSOR_EXPIRED`, which v0.1.0 has no way to say.
+
+### Changed
+
+- The tools RPC and the events contract are the source contract's, bundled into `dist/index.js` from the pinned tag:
+  `src/host/events-list.ts`, the shared part of `src/host/tools-rpc.ts`, the shared suites
+  (`test/unit/host/events-list.test.ts`, `test/unit/host/tools-rpc-resolve.test.ts` and the shared part of
+  `test/unit/host/tools-rpc.test.ts`, which the package runs verbatim) and their `check-copies` pins are deleted.
+  History's part of the RPC is the `ToolsRpcPlugin` value in `src/host/tools-rpc.ts`, and its own block's tests stay.
+  The RPC id `history.sessions.tools`, its methods and their answers are unchanged, and `history_events_list` without
+  `source`, or with `source: "history"`, lists exactly as before, with its own cursor; only an unknown `source` is now
+  `SOURCE_UNKNOWN` rather than `INPUT_INVALID`.
+- The default rules allow `history_probe` by its exact name, at every `access` value.
+- For jelly: nothing to do. The `jelly` declaration is unchanged; `probe` is a tools RPC method, not a tool.
+- For Memory: move from the `history` source to `history.sessions` by starting again with `since`: the old cursors are
+  refused by the new source (`CURSOR_INVALID`), while the `history` source still reads them. The owner label is
+  unchanged, `<user> on <account>`, the same in `probe` and on every page; pass this machine's `account` with every
+  listing that carries a cursor.
+
 ## [0.0.3] - 2026-11-14
 
 ### Changed

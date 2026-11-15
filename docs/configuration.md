@@ -136,7 +136,7 @@ Effective name `history_<name>`. `options.permission` is that name, so a deny wi
 | `history_files` | Lists the sessions that touched a file or folder. | Reads the index. |
 | `history_recall` | Searches, then quotes message windows around the best excerpts. | Reads the index and the source. |
 | `history_sql` | Runs one read-only `SELECT` or `WITH` statement over the index views and full-text tables. | Reads the index, on its own read-only connection in a child process, for at most 10 seconds. |
-| `history_events_list` | Lists what changed in top-level sessions since a cursor, as Memory's normalised events. For Memory's collector and scripts. | Reads the index. |
+| `history_events_list` | Lists what changed in top-level sessions since a cursor, as the source contract's normalised events. For Memory, other consumers and scripts. | Reads the index. |
 | `history_pin` | Puts, removes or lists pins in the current session's instructions. | Writes the current session's instruction entries. Not in Code Mode. |
 
 OpenCode checks tool input against each tool's schema before the call, and a result against its output schema after it. The text of a search, sessions, files, brief, read or recall result ends with the call to make next. The defaults and ranges below are the ones the schemas declare, and the query layer clamps to the same ones (`BOUNDS` in `src/domain/bounds.ts`).
@@ -262,21 +262,24 @@ Times are UTC text `YYYY-MM-DD HH:MM:SS`, such as `2026-10-12 09:30:00`, with a 
 
 ### Events list
 
-`history_events_list` is History's side of Memory's sources funnel: the shared `events_list` contract in `src/host/events-list.ts`, which every source plugin carries. Memory's collector calls it on a schedule, with no model and no one there, so it never asks.
+`history_events_list` is History's side of the source contract, [`@we-the-rebel-alliance/source-contract`](https://github.com/we-the-rebel-alliance/source-contract) `v0.1.0`, which Memory and other consumers read. Memory's collector calls it on a schedule, with no model and no one there, so it never asks. It serves two sources, which list the same sessions:
+
+- `sessions`, the declared source `history.sessions` (`package.json`'s `sources`), for consumers of the source contract;
+- `history`, the default, the listing scripts and Memory's collector read before the source contract, with the same answers as before.
 
 | Input | Default | Rule |
 | --- | --- | --- |
 | `since` | 24 hours ago | Where to start when there is no cursor: an ISO date (a UTC day) or an ISO date-time with `Z` or an offset. |
-| `cursor` | unset | The `cursor` of the previous result. It wins over `since`. A cursor History did not issue for this machine is `CURSOR_INVALID`. |
+| `cursor` | unset | The `cursor` of the previous result, of the same source. It wins over `since`. A cursor History did not issue for this machine and source is `CURSOR_INVALID`. |
 | `limit` | `100` | Events, 1–500. |
-| `account` | this machine | This machine's account, as its events name it; any other is `ACCOUNT_UNKNOWN`. |
-| `source` | `history` | History's one source; any other is `INPUT_INVALID`. |
+| `account` | this machine | This machine's account, as its events name it; any other is `ACCOUNT_UNKNOWN` for `history` and `ACCOUNT_MISMATCH` for `sessions`. A `sessions` listing with a cursor must name it. |
+| `source` | `history` | `sessions` or `history`; any other is `SOURCE_UNKNOWN`. |
 
-The result is `{ source, account, owner, events, cursor, more, trust: "untrusted" }`. `source` is `history` and `account` this machine on every result, an empty one included, so Memory can bind the source before it has anything to list. There is one event per top-level session each time it changes, oldest first by the time it changed; subagent sessions are part of their parent's work and are not listed. Each event has:
+The result is `{ source, account, owner, events, cursor, more, plugin?, refused?, trust: "untrusted" }`. `source` is the source listed and `account` this machine on every result, an empty one included, so Memory can bind the source before it has anything to list. There is one event per top-level session each time it changes, oldest first by the time it changed; subagent sessions are part of their parent's work and are not listed. Each event has:
 
 | Field | Value |
 | --- | --- |
-| `source`, `kind` | `history`, `session`. |
+| `source`, `kind` | The source listed, `sessions` or `history`, and `session`. |
 | `account` | This machine: its host name in lower case, without `.local`, such as `studio-mac`. |
 | `external_id` | The session ID and the time it changed, such as `ses_abc123@2026-11-08T09:14:00.000Z`, so each change is a new event. |
 | `occurred_at` | The time the session changed, in UTC. |
@@ -290,7 +293,20 @@ The result is `{ source, account, owner, events, cursor, more, trust: "untrusted
 
 `owner` is `{ "id": "os-user:<user>@<account>", "label": "<user> on <account>" }`: the OS user who runs OpenCode here, and this machine. History reads only this machine's sessions, so Memory binds each machine as its own History source, and refuses events from another owner. A host rename changes the account and owner, and Memory then asks to bind the source again.
 
-The cursor holds where the listing stands: the change time and ID of the last session listed. Calling again with it lists what changed after that, and calling again with an older cursor lists the same events again. A session is listed only once it has not changed for 2 minutes, so a session indexed late is never passed over; one still in use is listed on a later call. While the index is still being built, the result is empty and the cursor stays where it was. `more` is `true` when another call would list more now. A result stops early, with `more`, before its JSON passes 900,000 bytes.
+The cursor holds where the listing stands: the change time and ID of the last session listed. Calling again with it lists what changed after that, and calling again with an older cursor lists the same events again. A session is listed only once it has not changed for 2 minutes, so a session indexed late is never passed over; one still in use is listed on a later call. While the index is still being built, the result is empty and the cursor stays where it was. `more` is `true` when another call would list more now. A result stops early, with `more`, before its JSON passes 262,144 bytes for `sessions`, and 900,000 for `history`.
+
+#### The `sessions` source and `probe`
+
+`probe` is a tools RPC method, not a tool: `probe({ source?, account? })` answers `{ source: "sessions", account, owner, trust: "untrusted" }`, this machine and its OS user, exactly as every `sessions` page names them. It asserts `history_probe` and reads nothing else: no index, no session, no network. Another account is `ACCOUNT_MISMATCH`, and another source `SOURCE_UNKNOWN`.
+
+A `sessions` page also carries `plugin` and, when it has any, `refused`:
+
+- its cursor is the source contract's version 2, bound to (`history`, `sessions`, this machine), and holds the owner;
+- a listing with a cursor names its `account` (`INPUT_INVALID` otherwise), and another machine's account, or a cursor for one, is `ACCOUNT_MISMATCH`, before the index is read;
+- a cursor of another source or plugin, of another OS user, or from before this release (the `history` source's) is `CURSOR_INVALID`: start again with `since`;
+- a session whose title or text still holds a secret after masking, such as a password a mask pattern does not describe, is left out for good: it is listed in `refused` with the reason `secret`, and the cursor moves past it.
+
+The `history` source answers as before: its own cursor, `ACCOUNT_UNKNOWN` for another machine, and no `plugin` or `refused`.
 
 ### Pin
 
@@ -338,6 +354,7 @@ The default block, generated from `defaultRules(access)`:
 | `history_recall` | `*` | `allow` |
 | `history_sql` | `*` | `allow` |
 | `history_events_list` | `*` | `allow` |
+| `history_probe` | `*` | `allow` |
 | `history_pin` | `*` | `allow` |
 
 <!-- /generated:rules-all -->
@@ -477,8 +494,10 @@ When an unexpected error is reported only by a code, `OPERATION_FAILED` or a com
 | `INDEX_MISMATCH` | Another OpenCode process running another version of the plugin rebuilt the index for its own schema, so this version cannot query it. Restart every OpenCode process so they all run one version. Raised by search, sessions, files, read, brief, recall, SQL and events list, and shown by status as its `Index schema:` row and next step. |
 | `SESSION_NOT_FOUND` | No indexed session has that ID. Find it with `history_search` or `history_sessions`. |
 | `MESSAGE_NOT_FOUND` | The session has no message at that `seq` or ID. Call `history_read` without `at` to see its range. |
-| `CURSOR_INVALID` | Repeat the call without `cursor`. For `history_events_list`, the cursor is another source's, another machine's or malformed: list again from a `since`. |
-| `ACCOUNT_UNKNOWN` | `history_events_list` was given another machine's account. Call it without `account`, or with the account its events name. |
+| `CURSOR_INVALID` | Repeat the call without `cursor`. For `history_events_list`, the cursor is another source's, another machine's or user's, or malformed: list again from a `since`. |
+| `ACCOUNT_UNKNOWN` | `history_events_list` was given another machine's account, for the `history` source. Call it without `account`, or with the account its events name. |
+| `ACCOUNT_MISMATCH` | The `sessions` source, or `probe`, was given another machine's account, or a cursor for one. Pass this machine's account, as `probe` names it, with a cursor it issued. |
+| `SOURCE_UNKNOWN` | `history_events_list` or `probe` was given a source History does not have. Pass `sessions`, or leave it out. |
 | `QUERY_INVALID` | The query, regular expression, date, path or other filter cannot be used; the message says which, and the next step fits it: for example "Use a substring of at least 3 characters, or search with match: \"words\".", or "Use an ISO date such as 2026-10-01 or an age such as 7d." |
 | `SQL_REJECTED` | The SQL was not one read-only `SELECT` or `WITH` statement over the index. Rewrite it as one, best over the `v_*` views. |
 | `SQL_TIMEOUT` | The statement ran longer than 10 seconds and was stopped. Narrow it: filter by time or session, and bound a recursive `WITH` with a `LIMIT` or a `WHERE` on its counter. |

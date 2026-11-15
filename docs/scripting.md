@@ -15,8 +15,9 @@ Every tool is a method, with the same name, input and output. A `history_search`
 | `files` | `history_files` | read |
 | `recall` | `history_recall` | read |
 | `sql` | `history_sql` | read |
-| `events_list` | `history_events_list`: what changed since a cursor, as Memory's events ([configuration.md](configuration.md#events-list)) |
+| `events_list` | `history_events_list`: what changed since a cursor, as the source contract's events ([configuration.md](configuration.md#events-list)) | read |
 | `pin` | `history_pin` | write: it changes the current session's instructions |
+| `probe` | none: the source contract's probe, `history_probe`, this machine's account and OS user for the `sessions` source ([configuration.md](configuration.md#the-sessions-source-and-probe)) | read |
 | `describe` | none: lists the methods with their classes, schemas, and permissions | – |
 
 The class says the worst thing a method can do. It never decides whether a call runs: the rules do.
