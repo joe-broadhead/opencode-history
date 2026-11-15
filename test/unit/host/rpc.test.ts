@@ -69,7 +69,7 @@ describe("RPC handlers", () => {
     const view = await setup().handlers.status({}, context) as Record<string, unknown>
     expect(view).toMatchObject({
       version: "1.0.0",
-      host: { version: "2.2.3", range: ">=2.2.3 <2.3.0", tested: true },
+      host: { version: "2.2.3", range: ">=2.2.3 <2.4.0", tested: true },
       state: "ready",
       unguardedAgents: [],
       nextStep: "Nothing to do.",

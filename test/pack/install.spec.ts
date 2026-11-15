@@ -1,7 +1,7 @@
 // Packs the package as npm would publish it, installs the tarball into an empty project with scripts disabled,
-// imports its entries, and loads it on stock OpenCode 2.2.3, 2.2.4, 2.2.5 and 2.2.6. Run `npm run build` first.
-// It runs on every release in src/host/tested-hosts.json. OPENCODE_BIN_2_2_3, OPENCODE_BIN_2_2_4 and
-// OPENCODE_BIN_2_2_5 name the stock `opencode` binaries when set. When unset, each release is installed into this
+// imports its entries, and loads it on stock OpenCode 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0. Run `npm run build` first.
+// It runs on every release in src/host/tested-hosts.json. OPENCODE_BIN_2_2_3 to OPENCODE_BIN_2_2_7 and
+// OPENCODE_BIN_2_3_0 name the stock `opencode` binaries when set. When unset, each release is installed into this
 // test's temp project with --ignore-scripts.
 // PACKED_DIR names a folder with the tarball already packed, as release.yml does: the test then checks that exact
 // file, the one that will be published.
@@ -9,7 +9,8 @@ import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "
 import { execFileSync, spawn, type ChildProcess } from "node:child_process"
 import { randomBytes } from "node:crypto"
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
-import { createServer } from "node:net"
+import { createServer as createHttpServer } from "node:http"
+import { createServer, type AddressInfo } from "node:net"
 import { arch, platform } from "node:os"
 import { join, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -168,6 +169,40 @@ for (const version of VERSIONS) describe(`stock OpenCode ${version}`, () => {
     expect(pin.status).not.toBe(200)
   })
 
+  // OpenCode 2.3 no longer emits session.tool.failed, and adds a session.fork hook. History reads a failed call from
+  // the tool part's error in the database, and a fork is a session of its own.
+  test("a failed tool call is indexed from the tool part's error, and a fork of its session is indexed too", async () => {
+    const created = await host.api("POST", "/api/session", { title: `Missing folder on ${version}`, agent: "build", location: { directory: host.directory } })
+    const id = (created.data as { data: { id: string } }).data.id
+    // The scripted model calls glob on a folder that does not exist, then answers once the tool result is back.
+    const prompt = await host.api("POST", `/api/session/${id}/prompt`, { text: `CALL glob ${JSON.stringify({ pattern: "*.x", path: "/nonexistent/wombat-folder" })} END` })
+    expect(prompt.status).toBe(200)
+    const script = await host.api("POST", "/api/session", { title: "Script", agent: "build", location: { directory: host.directory } })
+    const sessionID = (script.data as { data: { id: string } }).data.id
+    const search = async (sessions?: string) => {
+      const response = await host.api("POST", `/api/rpc/${PLUGIN_ID}.tools/search`, { input: { sessionID, input: { query: "/nonexistent/wombat-folder", match: "substring", kinds: ["tool_result"], scope: "all", ...sessions ? { sessionID: sessions } : {} } } })
+      expect(response.status).toBe(200)
+      return (response.data as { output: { results: { sessionID: string; snippets: { kind: string; tool: string | null; text: string }[] }[] } }).output.results
+    }
+    const until = async (check: () => Promise<boolean>, what: string) => {
+      const deadline = Date.now() + 30_000
+      while (!(await check())) {
+        if (Date.now() > deadline) throw new Error(`timed out waiting for ${what}`)
+        await Bun.sleep(250)
+      }
+    }
+    let results: Awaited<ReturnType<typeof search>> = []
+    await until(async () => (results = await search(id)).length > 0, "the failed call in the index")
+    expect(results.map(result => result.sessionID)).toEqual([id])
+    expect(results[0]!.snippets[0]).toMatchObject({ kind: "tool_result", tool: "glob", text: expect.stringMatching(/^error: .*wombat-folder/) })
+    const forked = await host.api("POST", `/api/session/${id}/fork`, {})
+    expect(forked.status).toBe(200)
+    const fork = (forked.data as { data: { id: string } }).data.id
+    expect(fork).not.toBe(id)
+    await until(async () => (results = await search(fork)).length > 0, "the fork in the index")
+    expect(results[0]!.snippets[0]).toMatchObject({ kind: "tool_result", tool: "glob" })
+  })
+
   test("describe gives each method's class and, with a session, its permission; a write needs a prior allow, and a location is required", async () => {
     const script = await host.api("POST", "/api/session", { title: "v2", agent: "build", location: { directory: host.directory } })
     const sessionID = (script.data as { data: { id: string } }).data.id
@@ -286,7 +321,9 @@ async function serve(version: string, binary: string) {
   const home = join(root, "home"), directory = join(root, "project"), tmp = join(root, "tmp")
   for (const dir of [join(home, ".config"), join(home, ".local/share"), join(home, ".cache"), join(home, ".local/state"), directory, tmp]) mkdirSync(dir, { recursive: true })
   // `access: "ask-changes"` exercises the option end to end on the installed package: its block asks for `pin`.
-  writeFileSync(join(directory, "opencode.json"), JSON.stringify({ plugins: [{ package: installed, options: { access: "ask-changes" } }] }))
+  // A scripted model on loopback (scriptedModel below), so a session can make a tool call that fails.
+  const provider = { name: "Scripted", package: ["@opencode", "ai", "providers", "openai-compatible"].join("/"), settings: { baseURL: await scriptedModel(), apiKey: "test" }, models: { m1: { name: "Mock", capabilities: { tools: true } } } }
+  writeFileSync(join(directory, "opencode.json"), JSON.stringify({ plugins: [{ package: installed, options: { access: "ask-changes" } }], providers: { scripted: provider }, model: "scripted/m1" }))
   const password = randomBytes(18).toString("base64url"), port = await freePort()
   const env = {
     HOME: home, OPENCODE_TEST_HOME: home, TMPDIR: tmp,
@@ -355,6 +392,39 @@ function processes(): { pid: number; ppid: number }[] {
   return execFileSync("ps", ["-A", "-o", "pid=,ppid="], { encoding: "utf8" }).trim().split("\n").map(line => {
     const [pid, ppid] = line.trim().split(/\s+/).map(Number)
     return { pid: pid!, ppid: ppid! }
+  })
+}
+
+/**
+ * A scripted OpenAI-compatible model on loopback, shared by every host: a prompt holding `CALL <tool> <json> END` gets
+ * that tool call, and any request that already carries a tool result, or has no such prompt, gets the text "done".
+ */
+let model: Promise<string> | undefined
+function scriptedModel() {
+  return model ??= new Promise<string>((resolve, reject) => {
+    const server = createHttpServer(async (request, response) => {
+      let raw = ""
+      for await (const chunk of request) raw += chunk
+      const messages = (JSON.parse(raw) as { messages?: { role: string; content?: unknown }[] }).messages ?? []
+      const last = messages.findLast(message => message.role === "user")
+      const text = typeof last?.content === "string" ? last.content : Array.isArray(last?.content) ? last.content.map(part => (part as { text?: string }).text ?? "").join("\n") : ""
+      const call = /CALL (\S+) (\{.*?\}) END/.exec(text)
+      const chunk = (delta: Record<string, unknown>, finish: string | null = null) =>
+        `data: ${JSON.stringify({ id: "mock", object: "chat.completion.chunk", created: 0, model: "m1", choices: [{ index: 0, delta, finish_reason: finish }] })}\n\n`
+      response.writeHead(200, { "content-type": "text/event-stream" })
+      if (call && !messages.some(message => message.role === "tool")) {
+        response.write(chunk({ role: "assistant", tool_calls: [{ index: 0, id: `call_${randomBytes(4).toString("hex")}`, type: "function", function: { name: call[1], arguments: call[2] } }] }))
+        response.write(chunk({}, "tool_calls"))
+      } else {
+        response.write(chunk({ role: "assistant", content: "done" }))
+        response.write(chunk({}, "stop"))
+      }
+      response.end("data: [DONE]\n\n")
+    })
+    server.once("error", reject).listen(0, "127.0.0.1", () => {
+      server.unref()
+      resolve(`http://127.0.0.1:${(server.address() as AddressInfo).port}/v1`)
+    })
   })
 }
 

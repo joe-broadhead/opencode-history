@@ -89,6 +89,15 @@ describe("eventRouter", () => {
     expect(calls).toEqual(types.map((_, i) => `sync ses_${i}`))
   })
 
+  it("syncs a session whose tool call failed without session.tool.failed, as OpenCode 2.3 emits it", () => {
+    // OpenCode 2.3 no longer emits session.tool.failed: the failed call is read from the tool part's error in the
+    // database, and the step and execution events that follow it schedule the sync.
+    const router = eventRouter(fake, { debounceMs: 10 })
+    for (const type of ["session.tool.input.started", "session.tool.called", "session.step.ended", "session.execution.succeeded"]) router.handle(event(type, "ses_failed"))
+    vi.advanceTimersByTime(10)
+    expect(calls).toEqual(["sync ses_failed"])
+  })
+
   it("deletes right away and drops a pending sync", () => {
     const router = eventRouter(fake)
     router.handle(event("session.renamed", "ses_a"))

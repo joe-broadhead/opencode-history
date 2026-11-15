@@ -131,7 +131,7 @@ describe("result text", () => {
   })
 
   test("status rows end with exactly one next step", () => {
-    const view = { version: "0.1.0", access: "ask-changes" as const, host: { version: "2.3.0", range: HOST_RANGE, tested: false }, state: "ready" as const, tools: { visible: 9, unknown: [] as string[] }, index: { ...INDEX, lagSeconds: 3.4 }, database: "/d/opencode.db", indexPath: "/d/index.db", indexBytes: 535_822_336, masksChanged: false, defaultScope: "project" as const, shadowedSkills: [], unguardedAgents: [] as string[], nextStep: "Use 2.2.x." }
+    const view = { version: "0.1.0", access: "ask-changes" as const, host: { version: "2.4.0", range: HOST_RANGE, tested: false }, state: "ready" as const, tools: { visible: 9, unknown: [] as string[] }, index: { ...INDEX, lagSeconds: 3.4 }, database: "/d/opencode.db", indexPath: "/d/index.db", indexBytes: 535_822_336, masksChanged: false, defaultScope: "project" as const, shadowedSkills: [], unguardedAgents: [] as string[], nextStep: "Use 2.3.0." }
     expect(formatStatus(view).split("\n")).toEqual([
       "History status",
       "Connection: connected",
@@ -145,8 +145,8 @@ describe("result text", () => {
       "Skill: history-recall",
       "Tools: 9 available",
       "Agents without default rules: none",
-      "OpenCode: 2.3.0 (untested; supported range >=2.2.3 <2.3.0). History 0.1.0",
-      "Next step: Use 2.2.x.",
+      "OpenCode: 2.4.0 (untested; supported range >=2.2.3 <2.4.0). History 0.1.0",
+      "Next step: Use 2.3.0.",
     ])
     const mismatched = formatStatus({ ...view, mismatch: { file: "1", build: "3" }, nextStep: "Restart." }).split("\n")
     expect(mismatched.slice(7, 9)).toEqual(["Index file: /d/index.db (511 MB)", "Index schema: version 1 in the file, but this build uses version 3, so every query fails (INDEX_MISMATCH)"])

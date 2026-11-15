@@ -1,4 +1,4 @@
-// The complete source: OpenCode's own database, opened read-only. Layout of OpenCode 2.2.x.
+// The complete source: OpenCode's own database, opened read-only. Layout of OpenCode 2.2 and 2.3.
 import { homedir } from "node:os"
 import { isAbsolute, join } from "node:path"
 import type { Source, SourceMessage, SourceProject, SourceSession } from "../domain/contract.js"

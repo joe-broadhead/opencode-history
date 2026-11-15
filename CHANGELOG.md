@@ -2,6 +2,28 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Admits OpenCode 2.3: the host range is `>=2.2.3 <2.4.0`, in `package.json` `opencode.host` and `HOST_RANGE`, tested
+  on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0. That list, `src/host/tested-hosts.json`, is what status's `tested`
+  flag, the host and pack tests and CI read, so CI now runs stock OpenCode 2.2.7 and 2.3.0 too. The out-of-range
+  example in the docs and tests is now 2.4.0, and the refusal's next step names the six tested releases.
+- On OpenCode 2.3, checked on the stock binary: History reads a failed tool call from the tool part's error in
+  OpenCode's database, so it never needed `session.tool.failed`, which 2.3 no longer emits; the step and execution
+  events after the call still trigger the sync, and the event stays in the subscription because 2.2 emits it. A fork
+  is indexed as a session of its own (`session.forked` and the database); History does not use the new `session.fork`
+  hook. Subagents always run in the background on 2.3: the parent's `subagent` result says the child is working, and
+  the child's answer arrives later as a `<subagent>` message, which is indexed as synthetic text; the link to the child
+  is unchanged. `history_sql` already stops its statement when the person presses Stop and the tool's signal aborts.
+
+### Added
+
+- The pack test makes each stock OpenCode host index a failed tool call, made by a scripted model on loopback, and a
+  fork of its session. Unit tests cover a failed call in the tool part shape OpenCode 2.3 stores and a sync with no
+  `session.tool.failed`.
+
 ## [0.0.4] - 2026-11-15
 
 ### Added

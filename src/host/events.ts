@@ -13,7 +13,13 @@ export const STREAMING_EVENTS = [
   "session.tool.progress", "session.status", "session.usage.updated",
 ] as const satisfies readonly SessionType[]
 
-/** Every other `session.*` event a plugin can subscribe to in OpenCode 2.2: the durable ones, which record a change, and `session.idle`. */
+/**
+ * Every other `session.*` event a plugin can subscribe to in OpenCode 2.2: the durable ones, which record a change, and
+ * `session.idle`. Each only schedules a sync; the index reads the messages themselves from the database. So
+ * `session.tool.failed`, which OpenCode 2.3 no longer emits, is not needed: a failed call is read from its tool part's
+ * error, and the step and execution events after it schedule the sync. It stays listed because 2.2 emits it and 2.3
+ * still accepts it in a subscription. A fork is a new session, with `session.forked`, on both.
+ */
 export const SESSION_EVENTS = [
   "session.created", "session.deleted", "session.forked", "session.moved", "session.renamed", "session.archived", "session.unarchived",
   "session.metadata.updated", "session.permissions", "session.agent.selected", "session.model.selected", "session.instructions.updated", "session.viewed",

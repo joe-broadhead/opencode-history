@@ -21,7 +21,7 @@ const BUILDING = "The index is still being built (40 of 42 sessions), and result
 const view = (version: string, overrides: Partial<StatusView> = {}): StatusView => ({
   version,
   access: "all",
-  host: { version: "2.2.3", range: ">=2.2.3 <2.3.0", tested: true },
+  host: { version: "2.2.3", range: ">=2.2.3 <2.4.0", tested: true },
   state: "connecting",
   tools: { visible: 9, unknown: [] },
   index: { ready: false, sessionsIndexed: 40, sessionsTotal: 42, lagSeconds: 0, source: "opencode-db", complete: true },
