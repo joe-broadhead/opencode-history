@@ -22,6 +22,7 @@ export type BriefInput = z.input<typeof S.BriefInputSchema>
 export type SqlInput = z.input<typeof S.SqlInputSchema>
 export type RecallInput = z.input<typeof S.RecallInputSchema>
 export type EventsListInput = z.input<typeof S.EventsListInputSchema>
+export type ProbeInput = z.input<typeof S.ProbeInputSchema>
 
 export type IndexState = z.output<typeof S.IndexStateSchema>
 export type SessionSummary = z.output<typeof S.SessionSummarySchema>
@@ -38,6 +39,7 @@ export type BriefOutput = z.output<typeof S.BriefOutputSchema>
 export type SqlOutput = z.output<typeof S.SqlOutputSchema>
 export type RecallOutput = z.output<typeof S.RecallOutputSchema>
 export type EventsListOutput = z.output<typeof S.EventsListOutputSchema>
+export type ProbeOutput = z.output<typeof S.ProbeOutputSchema>
 
 /** Why a filter left sessions out by default: each reason is undone by one input. */
 export type HiddenReason = keyof Hidden

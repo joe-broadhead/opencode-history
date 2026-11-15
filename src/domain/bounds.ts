@@ -1,6 +1,6 @@
 // Defaults and ranges of the number inputs. The tool schemas declare them and the query layer clamps to them, so the
 // two cannot disagree.
-import { PAGE } from "../host/events-list.js"
+import { PAGE } from "@we-the-rebel-alliance/source-contract/events"
 
 /** A number input's default and inclusive range. */
 export interface Bound {

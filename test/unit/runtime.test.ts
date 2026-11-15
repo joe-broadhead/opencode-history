@@ -7,7 +7,7 @@ import { FAILURES, HistoryError, logUnexpected } from "../../src/domain/common.j
 import { loadConfig, type Config } from "../../src/domain/config.js"
 import { INDEX_SCHEMA_VERSION } from "../../src/domain/contract.js"
 import { openDb } from "../../src/domain/sqlite.js"
-import { resultProblems } from "../../src/host/events-list.js"
+import { resultProblems } from "@we-the-rebel-alliance/source-contract/events"
 import { identityOf } from "../../src/host/identity.js"
 import type { HistoryRuntime, RuntimeOptions } from "../../src/host/runtime.js"
 import { acquire, REGISTRY } from "../../src/index/shared.js"

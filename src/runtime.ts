@@ -7,6 +7,7 @@ import { locked } from "./domain/sqlite.js"
 import { DEFAULT_EXTRACT, INDEX_SCHEMA_VERSION, type ExtractOptions, type Source } from "./domain/contract.js"
 import { extractMessage, maskText, titleDoc } from "./extract/index.js"
 import { INDEX_PATH_MESSAGES } from "./domain/paths.js"
+import type { EventsListOutput, ProbeOutput } from "./domain/api.js"
 import type { CreateRuntime, RuntimeOptions, SourceFallback } from "./host/runtime.js"
 import { eventRouter, type EventRouter } from "./index/events.js"
 import { acquire, type Lease } from "./index/shared.js"
@@ -14,7 +15,7 @@ import { ForeignIndexError, IndexStore } from "./index/store.js"
 import { Indexer } from "./index/sync.js"
 import { localIdentity } from "./host/identity.js"
 import { brief } from "./query/brief.js"
-import { eventsList, eventsRequest } from "./query/events.js"
+import { eventsList, eventsRequest, probe } from "./query/events.js"
 import { files } from "./query/files.js"
 import { read } from "./query/read.js"
 import { recall } from "./query/recall.js"
@@ -329,8 +330,11 @@ export const createRuntime: CreateRuntime = async ({ config, session, identity =
     // The query masks the text before it cuts and hashes it, so the output is not masked again.
     eventsList: async (_caller, input) => {
       const request = eventsRequest(input)
-      return query("events_list", () => fresh(() => eventsList(shared.store.db, request, identity, state(), mask, Date.now())))
+      // The package's event type also admits extension kinds; History's are all `session`, which the output schema names.
+      return query("events_list", () => fresh(() => eventsList(shared.store.db, request, identity, state(), mask, Date.now()) as EventsListOutput))
     },
+    // Reads only this machine's identity: no index, no session.
+    probe: async (_caller, input) => query("probe", () => probe(input, identity) as ProbeOutput),
     reindex: mode =>
       run("reindex", async () => {
         await (mode === "rebuild" ? shared.rebuild() : shared.catchUp())

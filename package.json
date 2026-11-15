@@ -1,6 +1,6 @@
 {
   "name": "@joe-broadhead/opencode-history",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "private": true,
   "description": "Unofficial OpenCode plugin: search, read and recall your past OpenCode sessions",
   "keywords": [
@@ -59,6 +59,41 @@
         "sizes": [
           "256x256"
         ]
+      }
+    ]
+  },
+  "sources": {
+    "contractVersion": 1,
+    "rpc": "history.sessions.tools",
+    "probe": {
+      "action": "history_probe"
+    },
+    "items": [
+      {
+        "id": "history.sessions",
+        "kind": "events",
+        "reads": "session",
+        "tool": "events_list",
+        "input": {
+          "source": "sessions"
+        },
+        "accounts": {
+          "named": false
+        },
+        "permission": {
+          "events": "history_events_list",
+          "rules": [
+            {
+              "action": "history_events_list",
+              "resource": "*"
+            }
+          ]
+        },
+        "private": true,
+        "cost": {
+          "class": "free"
+        },
+        "maxBytes": 262144
       }
     ]
   },
@@ -216,6 +251,7 @@
     "@opentui/solid": "0.8.0",
     "@types/bun": "1.4.4",
     "@types/node": "24.19.2",
+    "@we-the-rebel-alliance/source-contract": "github:we-the-rebel-alliance/source-contract#v0.1.0",
     "babel-preset-solid": "1.9.16",
     "effect": "4.0.6",
     "esbuild": "0.28.2",

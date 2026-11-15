@@ -3,12 +3,22 @@ import type { IndexState } from "../../../src/domain/api.js"
 import { BOUNDS } from "../../../src/domain/bounds.js"
 import { parse } from "../../../src/domain/common.js"
 import { EventsListInputSchema } from "../../../src/domain/schemas.js"
-import { assertEventsListConformance, encodeCursor, eventProblems, MAX_PAGE_BYTES, PAGE, resultProblems, type EventsListInput } from "../../../src/host/events-list.js"
+import { encodeBoundCursor } from "@we-the-rebel-alliance/source-contract/cursor"
+import { assertEventsListConformance, encodeCursor, eventProblems, PAGE, resultProblems, type EventsListInput, type EventsListResult } from "@we-the-rebel-alliance/source-contract/events"
 import { identityOf } from "../../../src/host/identity.js"
-import { EVENTS_SOURCE, eventsList, eventsRequest, SETTLE_MS } from "../../../src/query/events.js"
+import { EVENTS_SOURCE, eventsList, eventsRequest, PAGE_MAX_BYTES, probe, SESSIONS_SOURCE, SETTLE_MS } from "../../../src/query/events.js"
 import { DAY, NO_MASK, NOW, project, session, sidecar, STATE, type Sidecar } from "./fixture.js"
 
 const IDENTITY = identityOf("sam", "Studio-Mac.local")
+/** The code a synchronous call fails with. */
+const codeOf = (work: () => unknown) => {
+  try {
+    work()
+    return undefined
+  } catch (error) {
+    return (error as { code?: string }).code
+  }
+}
 const HOUR = 3_600_000
 
 const sidecars: Sidecar[] = []
@@ -39,7 +49,7 @@ function history(s: Sidecar): void {
   session(s.db, { id: "ses_new", updated: NOW - SETTLE_MS / 2 })
 }
 
-describe("history_events_list", () => {
+describe("history_events_list, contract 1's source history", () => {
   it("keeps the shared events_list contract", async () => {
     const s = index()
     history(s)
@@ -136,7 +146,8 @@ describe("history_events_list", () => {
     expect(first.more).toBe(true)
     expect(first.events.length).toBeGreaterThan(100)
     expect(first.events.length).toBeLessThan(300)
-    expect(Buffer.byteLength(JSON.stringify(first))).toBeLessThanOrEqual(MAX_PAGE_BYTES)
+    // Contract 1's page limit, kept for its answers.
+    expect(Buffer.byteLength(JSON.stringify(first))).toBeLessThanOrEqual(900_000)
     const rest = await lister(s)({ cursor: first.cursor, limit: PAGE.max })
     expect(first.events.length + rest.events.length).toBe(300)
     expect(rest.more).toBe(false)
@@ -151,13 +162,74 @@ describe("history_events_list", () => {
     await expect(lister(s)({ since: "2026-11-01T10:00" })).rejects.toMatchObject({ code: "INPUT_INVALID" })
     expect((await lister(s)({ account: IDENTITY.account })).events.length).toBe(5)
     expect((await lister(s)({ source: "history" })).events.length).toBe(5)
-    await expect(lister(s)({ source: "gmail" })).rejects.toMatchObject({ code: "INPUT_INVALID" })
-    // Called past the tool's schema, the query refuses another source too.
-    expect(() => eventsList(s.db, { limit: 10, source: "gmail" }, IDENTITY, STATE, NO_MASK, NOW)).toThrow(/"source" must be "history"/)
+    await expect(lister(s)({ source: "gmail" })).rejects.toMatchObject({ code: "SOURCE_UNKNOWN" })
+    // Called past the tool's schema, the query refuses another source as one it does not have.
+    expect(codeOf(() => eventsRequest({ source: "gmail" }))).toBe("SOURCE_UNKNOWN")
+    expect(codeOf(() => eventsList(s.db, { limit: 10, source: "gmail" }, IDENTITY, STATE, NO_MASK, NOW))).toBe("SOURCE_UNKNOWN")
   })
 
   it("takes its limit's default and range from the contract", () => {
     expect(BOUNDS.events_list.limit).toEqual(PAGE)
+  })
+})
+
+describe("history_events_list, the sessions source history.sessions", () => {
+  const sessions = (s: Sidecar, options?: Parameters<typeof lister>[1]) => {
+    const list = lister(s, options)
+    return (input: EventsListInput) => list({ source: SESSIONS_SOURCE, ...input }) as Promise<EventsListResult>
+  }
+
+  it("lists the same sessions as contract 1, under the source contract's page and the owner probe names", async () => {
+    const s = index()
+    history(s)
+    const page = await sessions(s)({ since: new Date(NOW - DAY).toISOString(), limit: PAGE.max })
+    expect(resultProblems(page, PAGE.max, PAGE_MAX_BYTES)).toEqual([])
+    const named = probe({}, IDENTITY)
+    expect(page).toMatchObject({ source: SESSIONS_SOURCE, account: named.account, owner: named.owner, plugin: "@joe-broadhead/opencode-history", trust: "untrusted" })
+    expect(page.events.map(event => [event.source, event.external_id.split("@")[0]])).toEqual(["ses_a", "ses_b", "ses_c", "ses_d", "ses_e"].map(id => [SESSIONS_SOURCE, id]))
+  })
+
+  it("names the account with a cursor, refuses another account or its cursor, and a forged, foreign or contract 1 cursor", async () => {
+    const s = index()
+    history(s)
+    const first = await sessions(s)({ since: new Date(NOW - DAY).toISOString(), limit: 2 })
+    expect((await sessions(s)({ account: IDENTITY.account, cursor: first.cursor })).events.map(event => event.external_id.split("@")[0])).toEqual(["ses_c", "ses_d", "ses_e"])
+    await expect(sessions(s)({ cursor: first.cursor })).rejects.toMatchObject({ code: "INPUT_INVALID" })
+    await expect(sessions(s)({ account: "other-mac" })).rejects.toMatchObject({ code: "ACCOUNT_MISMATCH" })
+    const theirs = encodeBoundCursor({ plugin: "history", source: SESSIONS_SOURCE, account: "other-mac" }, { a: "other-mac", o: "os-user:sam@other-mac", u: NOW, i: "" })
+    await expect(sessions(s)({ account: IDENTITY.account, cursor: theirs })).rejects.toMatchObject({ code: "ACCOUNT_MISMATCH" })
+    const foreign = encodeBoundCursor({ plugin: "granola", source: SESSIONS_SOURCE, account: IDENTITY.account }, { a: IDENTITY.account, o: IDENTITY.owner.id, u: 0, i: "" })
+    const otherUser = encodeBoundCursor({ plugin: "history", source: SESSIONS_SOURCE, account: IDENTITY.account }, { a: IDENTITY.account, o: "os-user:ana@studio-mac", u: 0, i: "" })
+    const old = (await lister(s)({ limit: 1 })).cursor
+    for (const cursor of [foreign, otherUser, old, "not-a-cursor"]) {
+      await expect(sessions(s)({ account: IDENTITY.account, cursor })).rejects.toMatchObject({ code: "CURSOR_INVALID", hint: expect.stringContaining("since") })
+    }
+    // Contract 1's source still reads its own cursor.
+    expect((await lister(s)({ cursor: old })).events.length).toBe(4)
+  })
+
+  it("refuses a session that still holds a secret after masking, for good, and moves the cursor past it", async () => {
+    const s = index()
+    session(s.db, { id: "ses_a", updated: NOW - 2 * HOUR, title: "Deploy notes", firstPrompt: "Ship it" })
+    session(s.db, { id: "ses_b", updated: NOW - HOUR, title: "Wifi password: Ku7pLm2QzR9w", firstPrompt: "Note it" })
+    const page = await sessions(s)({})
+    expect(page.events.map(event => event.external_id.split("@")[0])).toEqual(["ses_a"])
+    expect(page.refused).toEqual([{ external_id: `ses_b@${new Date(NOW - HOUR).toISOString()}`, reason: "secret", detail: expect.any(String) }])
+    expect((await sessions(s)({ account: IDENTITY.account, cursor: page.cursor })).events).toEqual([])
+  })
+
+  it("lists nothing while the index is being built, and keeps its cursor where it was", async () => {
+    const s = index()
+    history(s)
+    const building = await sessions(s, { state: { ...STATE, ready: false } })({ limit: 2 })
+    expect(building).toMatchObject({ source: SESSIONS_SOURCE, events: [], more: false })
+    expect((await sessions(s)({ account: IDENTITY.account, cursor: building.cursor, limit: 2 })).events.map(event => event.external_id.split("@")[0])).toEqual(["ses_a", "ses_b"])
+  })
+
+  it("probe names this machine and its OS user, and refuses another account or source", () => {
+    expect(probe({ source: SESSIONS_SOURCE }, IDENTITY)).toEqual({ source: SESSIONS_SOURCE, account: "studio-mac", owner: { id: "os-user:sam@studio-mac", label: "sam on studio-mac" }, trust: "untrusted" })
+    expect(codeOf(() => probe({ account: "other-mac" }, IDENTITY))).toBe("ACCOUNT_MISMATCH")
+    expect(codeOf(() => probe({ source: "history" }, IDENTITY))).toBe("SOURCE_UNKNOWN")
   })
 })
 
