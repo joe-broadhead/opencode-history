@@ -2,6 +2,38 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **`history_events_list` no longer passes over a session version indexed late.** A version History indexed more than
+  a minute after it changed, while it was listing sessions, kept the time it changed as its place. A cursor could
+  already stand past that place, so the version was never listed: one changed while no OpenCode with History ran, or
+  one an index retry wrote. Such a version is now listed where it was indexed, in the session's new `listed` column, so
+  every cursor issued before the write lists it. Every rebuild keeps those places, a version the old index never
+  listed is listed after the cursors before the rebuild, and the index gains the column in place, with no rebuild. Its event is
+  unchanged (`occurred_at` is still when it changed), and each page stays oldest first by that time. This applies to
+  both sources.
+- While History reads the fallback session API, which may leave sessions out, it no longer removes a session the
+  fallback did not list: only OpenCode's deletion event removes one then.
+
+### Changed
+
+- The source contract is `@we-the-rebel-alliance/source-contract` v0.2.0 (it was v0.1.0), still bundled into
+  `dist/index.js` with no runtime dependency. `history.sessions`, its declaration, its pages and `probe`'s answer are
+  unchanged: History sends none of the keys v0.2.0 adds, which a consumer still on 0.1.x refuses.
+- The conformance report is complete and ok. The kit's `noExpiry` reports `gap-and-cursor-expired` as not applicable,
+  with its reason: OpenCode (2.2.3 to 2.3.0) keeps a session until the person or their client deletes it, History keeps
+  every session OpenCode keeps, and a version indexed late is listed after every earlier cursor (below). `atomicPages`
+  still says why `failed-holds-cursor` cannot apply (a page is one query of the index). Every other check that applies
+  runs.
+- `npm run conformance` runs the kit and writes `reports/conformance-report.json`; a release runs it again on the
+  parent and attaches the report as the Release asset `conformance-report.json` (release kit r4.1, `1f452e5`).
+  `docs/jelly.md` carries jelly's shared block for every plugin of the family, word for word, and
+  `test/support/jelly-kit.ts` knows jelly's `cost` and `admin` lines.
+- CI's concurrency group names the event, so a run by hand on `master` never cancels the push run a release stands on.
+- Tested on OpenCode 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0, as before; the host range stays `>=2.2.3 <2.4.0`.
+
 ## [0.0.5] - 2026-11-15
 
 ### Changed

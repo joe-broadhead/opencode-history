@@ -262,7 +262,7 @@ Times are UTC text `YYYY-MM-DD HH:MM:SS`, such as `2026-10-12 09:30:00`, with a 
 
 ### Events list
 
-`history_events_list` is History's side of the source contract, [`@we-the-rebel-alliance/source-contract`](https://github.com/we-the-rebel-alliance/source-contract) `v0.1.0`, which Memory and other consumers read. Memory's collector calls it on a schedule, with no model and no one there, so it never asks. It serves two sources, which list the same sessions:
+`history_events_list` is History's side of the source contract, [`@we-the-rebel-alliance/source-contract`](https://github.com/we-the-rebel-alliance/source-contract) `v0.2.0`, which Memory and other consumers read. Memory's collector calls it on a schedule, with no model and no one there, so it never asks. It serves two sources, which list the same sessions:
 
 - `sessions`, the declared source `history.sessions` (`package.json`'s `sources`), for consumers of the source contract;
 - `history`, the default, the listing scripts and Memory's collector read before the source contract, with the same answers as before.
@@ -293,7 +293,7 @@ The result is `{ source, account, owner, events, cursor, more, plugin?, refused?
 
 `owner` is `{ "id": "os-user:<user>@<account>", "label": "<user> on <account>" }`: the OS user who runs OpenCode here, and this machine. History reads only this machine's sessions, so Memory binds each machine as its own History source, and refuses events from another owner. A host rename changes the account and owner, and Memory then asks to bind the source again.
 
-The cursor holds where the listing stands: the change time and ID of the last session listed. Calling again with it lists what changed after that, and calling again with an older cursor lists the same events again. A session is listed only once it has not changed for 2 minutes, so a session indexed late is never passed over; one still in use is listed on a later call. While the index is still being built, the result is empty and the cursor stays where it was. `more` is `true` when another call would list more now. A result stops early, with `more`, before its JSON passes 262,144 bytes for `sessions`, and 900,000 for `history`.
+The cursor holds where the listing stands: the listing time and ID of the last session listed. A session version is listed at the time it changed, and a page is oldest first by that time. Calling again with the cursor lists what changed after that, and calling again with an older cursor lists the same events again. A session is listed only once it has not changed for 2 minutes, so one still in use is listed on a later call. A version History indexes later than that, once it is listing sessions, is listed when it was indexed rather than when it changed. Examples are a session changed while no OpenCode with History ran, and an index retry. So no cursor issued before the write stands past it, and it is never passed over. While the index is still being built, the result is empty and the cursor stays where it was. `more` is `true` when another call would list more now. A result stops early, with `more`, before its JSON passes 262,144 bytes for `sessions`, and 900,000 for `history`.
 
 #### The `sessions` source and `probe`
 
@@ -304,7 +304,8 @@ A `sessions` page also carries `plugin` and, when it has any, `refused`:
 - its cursor is the source contract's version 2, bound to (`history`, `sessions`, this machine), and holds the owner;
 - a listing with a cursor names its `account` (`INPUT_INVALID` otherwise), and another machine's account, or a cursor for one, is `ACCOUNT_MISMATCH`, before the index is read;
 - a cursor of another source or plugin, of another OS user, or from before this release (the `history` source's) is `CURSOR_INVALID`: start again with `since`;
-- a session whose title or text still holds a secret after masking, such as a password a mask pattern does not describe, is left out for good: it is listed in `refused` with the reason `secret`, and the cursor moves past it.
+- a session whose title or text still holds a secret after masking, such as a password a mask pattern does not describe, is left out for good: it is listed in `refused` with the reason `secret`, and the cursor moves past it;
+- nothing behind a cursor expires, so the source never answers `CURSOR_EXPIRED` or a `gap`: OpenCode (2.2.3 to 2.3.0) keeps a session until the person or their client deletes it, and History keeps every session OpenCode keeps. A deleted session no longer exists, so a consumer that had not listed it never sees it. One it had listed is not withdrawn yet: `removals[]` waits until consumers read source-contract 0.2.0. While History reads the fallback session API, which may leave sessions out, it removes a session only on OpenCode's deletion event. A rebuild keeps those places. That covers `/history-reindex rebuild`, the rebuild status asks for when the mask patterns change, and the drop on opening an index of another layout. Each one carries where every version was listed (the `carried` table, kept until the rebuild finishes, including one interrupted and started again). A version the old index never listed is listed at the rebuild's start less a minute, after every cursor issued before it.
 
 The `history` source answers as before: its own cursor, `ACCOUNT_UNKNOWN` for another machine, and no `plugin` or `refused`.
 
