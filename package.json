@@ -229,6 +229,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run --maxWorkers=2",
+    "conformance": "vitest run test/unit/conformance.test.ts",
     "test:kit": "node --test scripts/release-kit.test.mjs",
     "build": "node scripts/build.mjs",
     "test:host": "node scripts/test-host.mjs",
