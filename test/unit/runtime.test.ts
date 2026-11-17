@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import type { Caller } from "../../src/domain/api.js"
 import { FAILURES, HistoryError, logUnexpected } from "../../src/domain/common.js"
 import { loadConfig, type Config } from "../../src/domain/config.js"
-import { INDEX_SCHEMA_VERSION } from "../../src/domain/contract.js"
+import { INDEX_SCHEMA_VERSION, SETTLE_MS } from "../../src/domain/contract.js"
 import { openDb } from "../../src/domain/sqlite.js"
 import { resultProblems } from "@we-the-rebel-alliance/source-contract/events"
 import { identityOf } from "../../src/host/identity.js"
@@ -175,6 +175,61 @@ describe("createRuntime", () => {
     expect(listed.events.find(event => event.external_id.startsWith("ses_login@"))!.text).toContain("Token [masked]")
     expect(await runtime.eventsList(CALLER, { cursor: listed.cursor })).toMatchObject({ events: [], more: false })
     await expect(runtime.eventsList(CALLER, { limit: 0 })).rejects.toMatchObject({ code: "INPUT_INVALID" })
+  })
+
+  describe("a rebuild keeps where each version was listed, so a version listed late stays after a cursor mid-stream", () => {
+    // A reader has listed the newer session, A; the older one, B, was indexed late, so it is listed after A's place and
+    // the reader has not listed it yet. Then the index is rebuilt, three ways, before the reader's next page.
+    const rebuilds = {
+      "/history-reindex rebuild": async (runtime: HistoryRuntime) => {
+        await runtime.reindex("rebuild")
+        return runtime
+      },
+      "the rebuild status asks for when the mask patterns change": async (runtime: HistoryRuntime, setup: Setup) => {
+        await runtime.close()
+        const later = await createRuntime({ config: loadConfig({ database: setup.database, indexPath: setup.indexPath, mask: ["Lax"] }), session: contextApi() as unknown as RuntimeOptions["session"] })
+        cleanups.push(() => later.close())
+        expect(await later.indexFile()).toMatchObject({ masksChanged: true })
+        await later.reindex("rebuild")
+        return later
+      },
+      "the drop on opening an index of another layout": async (runtime: HistoryRuntime, setup: Setup) => {
+        await runtime.close()
+        const raw = openDb(setup.indexPath)
+        raw.run("update meta set value = ? where key = 'schema_version'", String(INDEX_SCHEMA_VERSION + 1))
+        raw.close()
+        const later = await open({ database: setup.database, indexPath: setup.indexPath })
+        await later.reindex("catch-up")
+        return later
+      },
+    }
+    interface Setup {
+      readonly database: string
+      readonly indexPath: string
+    }
+
+    for (const [name, rebuild] of Object.entries(rebuilds)) {
+      it(name, async () => {
+        const { fixture, indexPath, runtime } = await indexed()
+        const raw = openDb(indexPath)
+        const rows = raw.all<{ id: string; updated: number }>("select id, updated from sessions where parent_id is null order by updated, id")
+        expect(rows.map(row => row.id).sort()).toEqual(["ses_db", "ses_login"])
+        const [b, a] = rows as [{ id: string; updated: number }, { id: string; updated: number }]
+        const late = Date.now() - 3 * SETTLE_MS
+        raw.run("update sessions set listed = ? where id = ?", late, b.id)
+        raw.close()
+        const first = await runtime.eventsList(CALLER, { since: "2000-01-01", limit: 1 })
+        expect(first.events.map(event => event.external_id.split("@")[0])).toEqual([a.id])
+        const after = await rebuild(runtime, { database: fixture.path, indexPath })
+        const check = openDb(indexPath)
+        expect(check.get("select listed, updated from sessions where id = ?", b.id)).toEqual({ listed: late, updated: b.updated })
+        expect(check.get("select count(*) as n from carried")).toEqual({ n: 0 })
+        check.close()
+        const next = await after.eventsList(CALLER, { cursor: first.cursor })
+        expect(next.events.map(event => event.external_id.split("@")[0])).toEqual([b.id])
+        expect(await after.eventsList(CALLER, { cursor: next.cursor })).toMatchObject({ events: [] })
+      })
+    }
   })
 
   it("falls back to the plugin session API when OpenCode's database is missing or has an unknown layout, and says why", async () => {

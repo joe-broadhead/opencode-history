@@ -194,7 +194,11 @@ export class Indexer {
           onProgress?.({ done, total: all.length, failed })
         }
         const watermark = all.reduce((max, session) => Math.max(max, session.updated), this.watermark() ?? -1)
-        this.store.setMeta(WATERMARK, String(watermark))
+        this.store.transaction(() => {
+          this.store.setMeta(WATERMARK, String(watermark))
+          // Sessions are listed from here on, and every version a rebuild wrote has its place.
+          this.store.endRebuild()
+        })
         this.synced(started)
       }, signal)
     } finally {

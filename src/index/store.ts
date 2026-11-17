@@ -3,7 +3,7 @@ import { closeSync, mkdirSync, openSync } from "node:fs"
 import { dirname } from "node:path"
 import type { Doc, Extracted, SessionFacts, SessionLink, SourceProject, SourceSession } from "../domain/contract.js"
 import { openDb, type Db } from "../domain/sqlite.js"
-import { LATE_LISTING_MS } from "../domain/contract.js"
+import { LATE_LISTING_MS, LISTED } from "../domain/contract.js"
 import { ADDED_COLUMNS, SCHEMA_VERSION, TABLES, TRIGGERS, VIEWS } from "./schema.js"
 
 /** Messages with seq from `from` to `to`, both inclusive; empty when `to < from`. */
@@ -96,6 +96,52 @@ function dropAll(db: Db): void {
   }
 }
 
+/** Meta key: when the rebuild still under way started, by the store's clock; see `carry`. */
+export const REBUILT_AT = "rebuild.at"
+
+/** Where a session version was listed by the index a rebuild replaced. */
+interface Carried {
+  readonly id: string
+  readonly updated: number
+  readonly listed: number
+}
+
+const columnsOf = (db: Db, table: string) => db.all<{ name: string }>(`select name from pragma_table_info('${table}')`).map(column => column.name)
+
+/**
+ * What a rebuild must keep of the index it drops, read before the drop: where each session version was listed (its
+ * LISTED place, `updated` for a layout without `listed`), with what an unfinished rebuild still carries. Undefined when
+ * the index held no session and no rebuild was under way: a first build lists each version when it changed. An index
+ * that held sessions in a layout this build cannot read carries none, so every version is listed anew (see `restore`).
+ */
+function carry(db: Db): Carried[] | undefined {
+  const rows = new Map<string, Carried>()
+  let held = false
+  if (["id", "updated", "listed"].every(column => columnsOf(db, "carried").includes(column))) {
+    for (const row of db.all<Carried>("select id, updated, listed from carried")) rows.set(row.id, row)
+    held = rows.size > 0
+  }
+  if (columnsOf(db, "meta").length > 0 && db.get("select 1 from meta where key = ?", REBUILT_AT)) held = true
+  const sessions = columnsOf(db, "sessions")
+  if (sessions.length > 0) {
+    if (sessions.includes("id") && sessions.includes("updated")) {
+      const listed = sessions.includes("listed") ? LISTED : "updated"
+      for (const row of db.all<Carried>(`select id, updated, ${listed} as listed from sessions`)) {
+        rows.set(row.id, row)
+        held = true
+      }
+    } else if (db.get("select 1 from sessions limit 1")) held = true
+  }
+  return held ? [...rows.values()] : undefined
+}
+
+/** After the drop: keep the carried places for the rebuild's writes, and when it started. */
+function restore(db: Db, rows: readonly Carried[] | undefined, at: number): void {
+  if (rows === undefined) return
+  for (const row of rows) db.run("insert into carried (id, updated, listed) values (?, ?, ?)", row.id, row.updated, row.listed)
+  db.run("insert into meta (key, value) values (?, ?) on conflict(key) do update set value = excluded.value", REBUILT_AT, String(at))
+}
+
 /** Add the columns an index made by an earlier build lacks, so it is kept rather than rebuilt. */
 function addColumns(db: Db): void {
   for (const [table, column, type] of ADDED_COLUMNS) {
@@ -145,8 +191,13 @@ export class IndexStore {
       db.exec("pragma journal_mode = wal")
       db.exec("pragma synchronous = normal")
       db.transaction(() => {
-        if (schemaVersion(db) !== String(SCHEMA_VERSION)) dropAll(db)
-        create(db)
+        if (schemaVersion(db) !== String(SCHEMA_VERSION)) {
+          // Another layout: the index is dropped and rebuilt, keeping where each version was listed.
+          const kept = carry(db)
+          dropAll(db)
+          create(db)
+          restore(db, kept, Date.now())
+        } else create(db)
       })
     } catch (error) {
       db.close()
@@ -168,19 +219,44 @@ export class IndexStore {
 
   /**
    * Drop everything and recreate an empty index. The dropped pages are overwritten with zeros and the write-ahead log is
-   * emptied, so text stored before, such as a secret masked only by a newer pattern, does not stay in the file.
+   * emptied, so text stored before, such as a secret masked only by a newer pattern, does not stay in the file. Where
+   * each session version was listed is kept for the rebuild (`carry`); `at` is now.
    */
-  reset(): void {
+  reset(at = Date.now()): void {
     this.db.exec("pragma secure_delete = on")
     try {
       this.transaction(() => {
+        const kept = carry(this.db)
         dropAll(this.db)
         create(this.db)
+        restore(this.db, kept, at)
       })
     } finally {
       this.db.exec("pragma secure_delete = off")
     }
     this.db.exec("pragma wal_checkpoint(truncate)")
+  }
+
+  /** The rebuild has indexed everything: what it carried is no longer needed. */
+  endRebuild(): void {
+    this.transaction(() => {
+      this.db.run("delete from carried")
+      this.db.run("delete from meta where key = ?", REBUILT_AT)
+    })
+  }
+
+  /**
+   * Where a version written while no catch-up has finished is listed. Outside a rebuild, when it changed. During one, the
+   * place the replaced index gave the same version, so a version it had listed late stays after the cursors issued
+   * before it; any other version, which the replaced index never listed, at the rebuild's start less LATE_LISTING_MS,
+   * after every cursor issued before the rebuild.
+   */
+  private rebuildListed(session: SourceSession): number {
+    const at = Number(this.meta(REBUILT_AT) ?? Number.NaN)
+    if (!Number.isFinite(at)) return session.updated
+    const kept = this.db.get<{ updated: number; listed: number }>("select updated, listed from carried where id = ?", session.id)
+    if (kept && kept.updated === session.updated) return Math.max(kept.listed, session.updated)
+    return Math.max(session.updated, at - LATE_LISTING_MS)
   }
 
   /** The schema version the file is at now, which another process running another plugin version may have changed. */
@@ -334,7 +410,8 @@ export class IndexStore {
   /**
    * A new version of a session is listed at the time it changed, unless it is written later than LATE_LISTING_MS after
    * that while sessions are being listed (`listing` is now): then at `listing` less LATE_LISTING_MS, after every place a
-   * cursor issued before this write can stand, so no cursor passes it. The same version keeps its place.
+   * cursor issued before this write can stand, so no cursor passes it. The same version keeps its place, across a
+   * rebuild too (`rebuildListed`).
    */
   private writeSession(session: SourceSession, rootID: string, facts: Partial<SessionFacts>, range: SeqRange | undefined, listing?: number): void {
     if (!range && COUNTS.some(key => facts[key] !== undefined)) {
@@ -371,7 +448,7 @@ export class IndexStore {
       session.updated,
       session.archived,
       Date.now(),
-      listing === undefined ? session.updated : Math.max(session.updated, listing - LATE_LISTING_MS),
+      listing === undefined ? this.rebuildListed(session) : Math.max(session.updated, listing - LATE_LISTING_MS),
     )
     if (previous && previous.root_id !== rootID) this.moveRoot(session.id, rootID)
     // A session indexed before its parent could only guess the parent's ID as its root.

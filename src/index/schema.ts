@@ -93,6 +93,8 @@ export const TABLES: readonly string[] = [
     tool_calls integer not null default 0,
     primary key (session_id, from_seq)
   ) without rowid`,
+  // During a rebuild: where each session of the index it replaced was listed (store.ts, `carry`).
+  `create table if not exists carried (id text primary key, updated integer not null, listed integer not null) without rowid`,
 ]
 
 /** Keep both full-text tables in step with doc_texts, and a doc's text with the doc. */
