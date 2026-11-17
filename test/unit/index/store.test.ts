@@ -1,7 +1,7 @@
 import { chmodSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
-import type { Doc, FileTouch, SourceSession } from "../../../src/domain/contract.js"
+import { LATE_LISTING_MS, type Doc, type FileTouch, type SourceSession } from "../../../src/domain/contract.js"
 import { openDb } from "../../../src/domain/sqlite.js"
 import { SCHEMA_VERSION, VIEW_NAMES } from "../../../src/index/schema.js"
 import { APPLICATION_ID, ForeignIndexError, IndexStore, SeqStraddleError, TITLE_SEQ, type Batch, type IndexedLink } from "../../../src/index/store.js"
@@ -112,6 +112,17 @@ describe("IndexStore.open", () => {
     store = IndexStore.open(path)
     expect(words("keep")).toBe(1)
     expect(counts()?.messages).toBe(1)
+  })
+
+  it("gives an index from an earlier build the listed column in place, and lists its rows when they changed", () => {
+    store.writeBatch(session(), "ses_a", { from: 0, to: 0 }, batch({ docs: [doc(0, "kept text")] }))
+    store.db.exec("drop index sessions_listed")
+    store.db.exec("alter table sessions drop column listed")
+    store.close()
+    store = IndexStore.open(path)
+    expect(words("kept")).toBe(1)
+    expect(row("select listed, updated from sessions")).toEqual({ listed: null, updated: 2_000 })
+    expect(row("select name from sqlite_master where name = 'sessions_listed'")).toEqual({ name: "sessions_listed" })
   })
 
   it("drops everything and rebuilds when the schema version differs", () => {
@@ -486,6 +497,29 @@ describe("transactions", () => {
       store.writeBatch(session(), "ses_a", { from: 1, to: 1 }, batch({ facts: { messages: 1 } }))
     })
     expect(counts()?.messages).toBe(2)
+  })
+})
+
+describe("where a session version is listed", () => {
+  const listed = () => row("select listed from sessions where id = 'ses_a'")?.["listed"]
+  const write = (updated: number, listing?: number) => store.writeBatch(session({ updated }), "ses_a", { from: 0, to: 0 }, batch({ docs: [doc(0, `v${updated}`)] }), listing)
+
+  it("at the time it changed while the index is being built, or when it is indexed promptly", () => {
+    write(2_000)
+    expect(listed()).toBe(2_000)
+    write(500_000, 500_000 + LATE_LISTING_MS)
+    expect(listed()).toBe(500_000)
+  })
+
+  it("at the time it is indexed, less LATE_LISTING_MS, when it is indexed late; the same version keeps its place", () => {
+    write(2_000)
+    write(5_000, 900_000)
+    expect(listed()).toBe(900_000 - LATE_LISTING_MS)
+    write(5_000, 2_000_000)
+    expect(listed()).toBe(900_000 - LATE_LISTING_MS)
+    // A later version is placed again.
+    write(1_990_000, 2_000_000)
+    expect(listed()).toBe(1_990_000)
   })
 })
 

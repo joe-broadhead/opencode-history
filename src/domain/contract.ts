@@ -5,6 +5,27 @@ export const TUI_ID = "history.sessions.tui"
 export const NAMESPACE = "history"
 export const INDEX_SCHEMA_VERSION = 3
 
+/**
+ * How long a session must have stood still before `history_events_list` lists it. Sessions are indexed one by one as
+ * they change, so one changed a moment ago may not be indexed yet while a later one is; waiting this long keeps a
+ * cursor from passing it.
+ */
+export const SETTLE_MS = 120_000
+
+/**
+ * A session version indexed late, once sessions are being listed, is listed at the time it was indexed less this, not
+ * at the time it changed, which a cursor may already have passed. Half of SETTLE_MS: a listing that started before
+ * the write committed stops at least SETTLE_MS before its own time, so it can never stand past this place.
+ */
+export const LATE_LISTING_MS = SETTLE_MS / 2
+
+/**
+ * A session's listing position, in SQL over the index's `sessions` table: its `listed` column, never before `updated`,
+ * so a row an older build wrote (no `listed`, or one left from an earlier version) lists at the time it changed. The
+ * index `sessions_listed` is on this expression and `id`.
+ */
+export const LISTED = "max(coalesce(listed, updated), updated)"
+
 /** How much the generated default rules allow. `all` is the default; the other two are how a user restricts the plugin. */
 export const ACCESS_VALUES = ["all", "ask-changes", "read-only"] as const
 export type Access = (typeof ACCESS_VALUES)[number]

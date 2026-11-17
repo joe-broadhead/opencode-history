@@ -1,6 +1,6 @@
 {
   "name": "@joe-broadhead/opencode-history",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "private": true,
   "description": "Unofficial OpenCode plugin: search, read and recall your past OpenCode sessions",
   "keywords": [
@@ -229,6 +229,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run --maxWorkers=2",
+    "conformance": "vitest run test/unit/conformance.test.ts",
     "test:kit": "node --test scripts/release-kit.test.mjs",
     "build": "node scripts/build.mjs",
     "test:host": "node scripts/test-host.mjs",
@@ -251,7 +252,7 @@
     "@opentui/solid": "0.8.0",
     "@types/bun": "1.4.4",
     "@types/node": "24.19.2",
-    "@we-the-rebel-alliance/source-contract": "github:we-the-rebel-alliance/source-contract#v0.1.0",
+    "@we-the-rebel-alliance/source-contract": "github:we-the-rebel-alliance/source-contract#v0.2.0",
     "babel-preset-solid": "1.9.16",
     "effect": "4.0.6",
     "esbuild": "0.28.2",

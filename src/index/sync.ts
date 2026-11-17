@@ -194,7 +194,11 @@ export class Indexer {
           onProgress?.({ done, total: all.length, failed })
         }
         const watermark = all.reduce((max, session) => Math.max(max, session.updated), this.watermark() ?? -1)
-        this.store.setMeta(WATERMARK, String(watermark))
+        this.store.transaction(() => {
+          this.store.setMeta(WATERMARK, String(watermark))
+          // Sessions are listed from here on, and every version a rebuild wrote has its place.
+          this.store.endRebuild()
+        })
         this.synced(started)
       }, signal)
     } finally {
@@ -208,6 +212,9 @@ export class Indexer {
       const written = new Set<string>()
       this.written.add(written)
       try {
+        // The fallback lists at most so many sessions, newest first, so a session it leaves out may still exist: only
+        // OpenCode's deletion events remove a session then, and nothing History indexed is hidden.
+        if (this.source.kind === "context") return []
         const ids = await this.source.sessionIDs()
         if (ids.size === 0 && this.store.sessionCount() > 0) return []
         this.total = ids.size
@@ -315,9 +322,11 @@ export class Indexer {
         batch: this.combine(session, part),
       }))
       const title = first ? this.titleDoc(session) : undefined
+      // Once sessions are being listed (a catch-up has finished), a version written late is listed when it is written.
+      const listing = this.watermark() === undefined ? undefined : this.now()
       this.store.transaction(() => {
         if (title !== undefined) this.store.writeTitle(session.id, rootID, title)
-        for (const { range, batch } of writes) this.store.writeBatch(session, rootID, range, batch)
+        for (const { range, batch } of writes) this.store.writeBatch(session, rootID, range, batch, listing)
       })
       for (const written of this.written) written.add(session.id)
       await tick()

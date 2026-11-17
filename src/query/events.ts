@@ -3,11 +3,12 @@
 import { basename } from "node:path"
 import { decodeBoundCursor, encodeBoundCursor } from "@we-the-rebel-alliance/source-contract/cursor"
 import {
-  cut, decodeCursor, encodeCursor, eventsListResult, fitPage, makeEvent, parseEventsListInput, probeResult, screenEvents, startTime,
+  cut, decodeCursor, encodeCursor, eventsListResult, fitPage, makeEvent, oldestFirst, parseEventsListInput, probeResult, screenEvents, startTime,
   type EventsListRequest, type EventsListResult, type ProbeResult, type RefusedEvent, type SourceEvent,
 } from "@we-the-rebel-alliance/source-contract/events"
 import type { IndexState } from "../domain/api.js"
 import { fail } from "../domain/common.js"
+import { LISTED, SETTLE_MS } from "../domain/contract.js"
 import type { Db } from "../domain/sqlite.js"
 import type { LocalIdentity } from "../host/identity.js"
 import type { Mask } from "./common.js"
@@ -26,11 +27,10 @@ export const PAGE_MAX_BYTES = 262_144
 const LEGACY_PAGE_BYTES = 900_000
 
 /**
- * How long a session must have stood still before it is listed. Sessions are indexed one by one as they change, so one
- * changed a moment ago may not be indexed yet while a later one is; waiting this long keeps the cursor from passing it.
- * A session still in use is listed on a later call, once it settles, and again each time it changes after that.
+ * How long a session must have stood still before it is listed (domain/contract.ts). A session still in use is listed
+ * on a later call, once it settles, and again each time it changes after that.
  */
-export const SETTLE_MS = 120_000
+export { SETTLE_MS }
 
 /** Characters of the first prompt in an event's text; the last reply has the rest of the 4096. */
 const PROMPT_CHARS = 1_500
@@ -43,6 +43,8 @@ interface Row {
   readonly firstPrompt: string | null
   readonly lastReply: string | null
   readonly updated: number
+  /** Where the session is listed: when it changed, or, for a version indexed late, when it was indexed (LISTED). */
+  readonly listed: number
   readonly archived: number | null
   readonly worktree: string | null
 }
@@ -58,7 +60,7 @@ export function eventsRequest(input: unknown): EventsListRequest {
   return parsed.ok ? parsed.value : fail("INPUT_INVALID", { message: `The tool input is invalid. ${parsed.problems.join("; ")}.` })
 }
 
-/** Where a listing stands: after the session `id` that changed at `updated`, in (updated, id) order. */
+/** Where a listing stands: after the session `id` listed at `updated` (its LISTED position), in that order and then by id. */
 interface Position {
   readonly updated: number
   readonly id: string
@@ -103,14 +105,18 @@ function toEvent(row: Row, source: string, account: string, mask: Mask): SourceE
   })
 }
 
-/** The top-level sessions that changed after `from` and settled, in (updated, id) order: one more than `limit`. */
+/**
+ * The top-level sessions listed after `from` that have settled, in listing order (LISTED, then id): one more than
+ * `limit`. A version indexed late is listed where it was indexed, so a cursor never stands past a version it has not
+ * listed.
+ */
 function changed(db: Db, from: Position, limit: number, now: number): { readonly rows: readonly Row[] } {
   const rows = db.all<Row>(
     `select s.id as id, s.root_id as rootID, s.title as title, s.agent as agent, s.first_prompt as firstPrompt, s.last_reply as lastReply,
-        s.updated as updated, s.archived as archived, p.worktree as worktree
+        s.updated as updated, ${LISTED} as listed, s.archived as archived, p.worktree as worktree
       from sessions s left join projects p on p.id = s.project_id
-      where s.parent_id is null and s.updated <= ? and (s.updated > ? or (s.updated = ? and s.id > ?))
-      order by s.updated, s.id limit ?`,
+      where s.parent_id is null and ${LISTED} <= ? and (${LISTED} > ? or (${LISTED} = ? and s.id > ?))
+      order by ${LISTED}, s.id limit ?`,
     now - SETTLE_MS,
     from.updated,
     from.updated,
@@ -139,7 +145,7 @@ export function eventsList(db: Db, request: EventsListRequest, identity: LocalId
   const events = rows.slice(0, request.limit).map(row => toEvent(row, EVENTS_SOURCE, account, mask))
   const kept = fitPage(events, request.limit, LEGACY_PAGE_BYTES)
   const last = rows[kept - 1]
-  return eventsListResult(whose, events.slice(0, kept), cursorAt(last ? { updated: last.updated, id: last.id } : from, account), rows.length > kept)
+  return eventsListResult(whose, oldestFirst(events.slice(0, kept)), cursorAt(last ? { updated: last.listed, id: last.id } : from, account), rows.length > kept)
 }
 
 // ── the declared source: "sessions" ──────────────────────────────────────
@@ -208,8 +214,9 @@ function sessionsList(db: Db, request: EventsListRequest, identity: LocalIdentit
   const last = taken.at(-1)?.row
   return eventsListResult(
     whose,
-    taken.flatMap(entry => entry.event ? [entry.event] : []),
-    sessionsCursor(last ? { updated: last.updated, id: last.id } : from, identity),
+    // Listing order is where versions were indexed; a page is oldest first by when they changed.
+    oldestFirst(taken.flatMap(entry => entry.event ? [entry.event] : [])),
+    sessionsCursor(last ? { updated: last.listed, id: last.id } : from, identity),
     rows.length > taken.length,
     { plugin: PACKAGE, ...refused.length === 0 ? {} : { refused } },
   )

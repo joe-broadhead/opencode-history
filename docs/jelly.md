@@ -30,6 +30,23 @@ it there.
 Keep `jelly.tools` in step with the plugin's tools and default rules; `test/**/jelly.test.ts`
 checks each declared tool and effect against them.
 
+Jelly's shared rules for every plugin of the family, word for word:
+
+<!-- family-block:start -->
+- At Allowed (`all`), the default, every tool runs without asking, declared or not, whatever its `effect`.
+- At Ask before changes (`ask-changes`), a `readOnly` tool runs, and every other tool asks first, including a tool this plugin does not declare.
+- At Read only (`read-only`), a `readOnly` tool runs, and every other tool is off, including a tool this plugin does not declare.
+- A declared `effect` of `allow` changes nothing: the tool follows the access choice and its `readOnly`.
+- A declared `effect` of `ask` makes the tool ask at Ask before changes, even when it is `readOnly`, and changes nothing at Allowed or Read only.
+- A declared `effect` of `deny` turns the tool off at Ask before changes and at Read only, and changes nothing at Allowed.
+- An action listed in `asks` asks first at Ask before changes and at Read only, and never at Allowed.
+- A tool named with one `*`, such as another account's `plaud-*.get_file`, follows the same rules as a tool named in full.
+- A choice the person makes for one tool wins over the access choice and the declared `effect`.
+- jelly leaves out a key it does not know at the top level of the `jelly` block, and reads the rest.
+- jelly refuses the plugin for a key it does not know inside anything it reads, such as a tool, a sign-in or a setting.
+- jelly refuses the plugin, with one plain line, when `requires` names a field or a feature it does not read.
+<!-- family-block:end -->
+
 ## Skills
 
 Declared: `history-recall`. Jelly refuses an install whose skill ids collide with another
@@ -49,4 +66,4 @@ declares no sign-ins.
 Jelly's curated catalogue pins an exact version. Publish each release under a new version, so
 that a review in Jelly can tell two releases apart.
 
-The declaration test runs the shared kit, `test/support/jelly-kit.ts`, which checks the declaration and this page against Jelly's plugin authors' standard. `scripts/check-copies.mjs` holds the kit equal to the copy every plugin carries. The events contract and the tools RPC come from the source contract package, `@we-the-rebel-alliance/source-contract` `v0.1.0`, pinned in `package-lock.json` and bundled; its `probe` is a tools RPC method, not a tool, so the declaration does not list it.
+The declaration test runs the shared kit, `test/support/jelly-kit.ts`, which checks the declaration and this page against Jelly's plugin authors' standard. `scripts/check-copies.mjs` holds the kit equal to the copy every plugin carries. The events contract and the tools RPC come from the source contract package, `@we-the-rebel-alliance/source-contract` `v0.2.0`, pinned in `package-lock.json` and bundled; its `probe` is a tools RPC method, not a tool, so the declaration does not list it.
