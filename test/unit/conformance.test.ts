@@ -35,6 +35,8 @@ const ACCOUNT = IDENTITY.account
 const HOUR = 3_600_000
 const SINCE = new Date(NOW - DAY).toISOString()
 const ATOMIC = "a page is one query of the local index, and no session is read on its own, so no single session can fail on its own"
+const NO_EXPIRY =
+  "History keeps every session OpenCode keeps, and OpenCode (2.2.3 to 2.3.0) has no retention: it deletes a session only when the person or their client deletes it, which leaves nothing to list; a cursor is a place in the local index, and a version indexed late is listed after every cursor issued before it, a rebuild keeping each place, so nothing a reader would have listed is lost and History never answers CURSOR_EXPIRED or a gap"
 
 /** Invented sessions: four over the last day, one whose title holds a secret masking did not catch, and two later. */
 function index() {
@@ -50,6 +52,9 @@ function index() {
     later() {
       session(s.db, { id: "ses_conf_e", title: "Ship the export", updated: at(6), agent: "build", firstPrompt: "Ship it", lastReply: "Shipped." })
       session(s.db, { id: "ses_conf_f", title: "Write the changelog", updated: at(4), agent: "build", firstPrompt: "Write it", lastReply: "Written." })
+      // Changed before the first listing's last session, indexed only after it: listed where it was indexed.
+      session(s.db, { id: "ses_conf_g", title: "Tidy the fixtures", updated: at(15), agent: "build", firstPrompt: "Tidy it", lastReply: "Tidied." })
+      s.db.run("update sessions set listed = ? where id = 'ses_conf_g'", at(5))
     },
   }
 }
@@ -153,14 +158,19 @@ describe("the source contract's conformance kit", () => {
       sources,
       describe: { id: TOOLS_RPC_ID },
       atomicPages: { reason: ATOMIC },
+      noExpiry: { reason: NO_EXPIRY },
     })
     reports.push(report)
     s.close()
     expect(report.problems).toEqual([])
-    // A cursor is a session's last change and its id, over the local index, which keeps every session it indexed, so no
-    // history behind a cursor is ever lost: History never answers CURSOR_EXPIRED, and the kit's gap check cannot run.
-    // v0.1.0 has no way to say so (source-contract#30, item 5), so the report stays incomplete on that one check.
-    expect(report.checks.filter(check => !check.ran && !check.notApplicable).map(check => check.name)).toEqual(["gap-and-cursor-expired"])
+    // Every check that applies ran. The two History cannot exercise say why (failed[] and an expired cursor); the rest are
+    // not applicable because the source has no gap, removal, price, details, suggest or snapshot output.
+    expect(report.checks.filter(check => !check.ran && !check.notApplicable).map(check => check.name)).toEqual([])
+    expect(report.checks.filter(check => check.reason !== undefined).map(check => [check.name, check.reason])).toEqual([
+      ["failed-holds-cursor", ATOMIC],
+      ["gap-and-cursor-expired", NO_EXPIRY],
+    ])
+    expect(report.ok).toBe(true)
   })
 
   it("a consumer's fenced session allows only the method's own action: the source reads only the local index", () => {
