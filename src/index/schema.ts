@@ -1,7 +1,10 @@
 // Sidecar index schema. The plugin owns this file; it is a cache that can be rebuilt at any time.
-import { INDEX_SCHEMA_VERSION } from "../domain/contract.js"
+import { INDEX_SCHEMA_VERSION, LISTED } from "../domain/contract.js"
 
 export const SCHEMA_VERSION = INDEX_SCHEMA_VERSION
+
+/** Columns added after a table was first shipped, which an existing index gains in place: [table, column, type]. */
+export const ADDED_COLUMNS: readonly (readonly [string, string, string])[] = [["sessions", "listed", "integer"]]
 
 export const TABLES: readonly string[] = [
   `create table if not exists meta (key text primary key, value text not null)`,
@@ -29,12 +32,15 @@ export const TABLES: readonly string[] = [
     compactions integer not null default 0,
     tool_calls integer not null default 0,
     indexed_seq integer not null default -1,
-    indexed_at integer not null default 0
+    indexed_at integer not null default 0,
+    listed integer
   )`,
   `create index if not exists sessions_root on sessions(root_id)`,
   `create index if not exists sessions_parent on sessions(parent_id)`,
   `create index if not exists sessions_project on sessions(project_id, updated)`,
   `create index if not exists sessions_updated on sessions(updated)`,
+  // Where history_events_list lists a session: `listed`, or `updated` where an older build wrote the row (see LISTED).
+  `create index if not exists sessions_listed on sessions(${LISTED}, id)`,
   // A doc's metadata and its text live apart, so a search that joins thousands of matches reads small rows.
   `create table if not exists docs (
     id integer primary key,

@@ -1,6 +1,7 @@
 import { rmSync } from "node:fs"
 import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { LATE_LISTING_MS } from "../../../src/domain/contract.js"
 import { IndexStore, TITLE_SEQ } from "../../../src/index/store.js"
 import { Indexer, SYNCED_AT, WATERMARK, type IndexerOptions, type Progress } from "../../../src/index/sync.js"
 import { chat, extract, FakeSource, reply, tick, titleDoc, user } from "./fakes.js"
@@ -211,6 +212,27 @@ describe("syncSession", () => {
     await indexer({ batch: 3 }).syncSession("ses_a")
     spinning = false
     expect(seen).toEqual(expect.arrayContaining([1, 2, 3]))
+  })
+})
+
+describe("where a version is listed", () => {
+  const listed = (id: string) => row("select listed, updated from sessions where id = ?", id)
+
+  it("when it changed while the first index is built, then where it is indexed when that is late", async () => {
+    source.add("ses_a", { updated: 1_000 }, chat(1))
+    time = 1_000_000
+    const sync = indexer()
+    await sync.syncSession("ses_a")
+    expect(listed("ses_a")).toEqual({ listed: 1_000, updated: 1_000 })
+    await sync.catchUp()
+    // Indexed long after it changed, once sessions are listed: a cursor may stand past 500_000 already.
+    source.touch("ses_a", 500_000)
+    await sync.syncSession("ses_a")
+    expect(listed("ses_a")).toEqual({ listed: 1_000_000 - LATE_LISTING_MS, updated: 500_000 })
+    // Indexed promptly: where it changed.
+    source.touch("ses_a", 990_000)
+    await sync.syncSession("ses_a")
+    expect(listed("ses_a")).toEqual({ listed: 990_000, updated: 990_000 })
   })
 })
 
@@ -440,6 +462,19 @@ describe("reconcile", () => {
     }
     expect(await sync.reconcile()).toEqual([])
     expect(store.sessionState("ses_new")).toBeDefined()
+  })
+
+  it("prunes nothing from the partial fallback, which may leave sessions out; OpenCode's deletion events still delete", async () => {
+    source.add("ses_1", {}, chat(1))
+    source.add("ses_2", {}, chat(1))
+    source.kind = "context"
+    const sync = indexer()
+    await sync.catchUp()
+    source.sessions.delete("ses_2")
+    expect(await sync.reconcile()).toEqual([])
+    expect(store.sessionCount()).toBe(2)
+    await sync.deleteSession("ses_2")
+    expect(store.db.all("select id from sessions")).toEqual([{ id: "ses_1" }])
   })
 
   it("skips when the source reports no sessions but the index has some", async () => {

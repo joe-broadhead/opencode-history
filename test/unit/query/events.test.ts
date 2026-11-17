@@ -226,6 +226,29 @@ describe("history_events_list, the sessions source history.sessions", () => {
     expect((await sessions(s)({ account: IDENTITY.account, cursor: building.cursor, limit: 2 })).events.map(event => event.external_id.split("@")[0])).toEqual(["ses_a", "ses_b"])
   })
 
+  it("lists a version indexed after a cursor passed the time it changed, after that cursor, and keeps each page oldest first", async () => {
+    const s = index()
+    history(s)
+    const ids = (page: EventsListResult) => page.events.map(event => event.external_id.split("@")[0])
+    const list = sessions(s)
+    const first = await list({ since: new Date(NOW - DAY).toISOString() })
+    expect(ids(first)).toEqual(["ses_a", "ses_b", "ses_c", "ses_d", "ses_e"])
+    // ses_late changed before ses_e but was indexed only now: the store lists it where it was indexed (LISTED).
+    session(s.db, { id: "ses_late", updated: NOW - 18 * HOUR, title: "Indexed late" })
+    s.db.run("update sessions set listed = ? where id = 'ses_late'", NOW - 5 * HOUR)
+    session(s.db, { id: "ses_f", updated: NOW - 6 * HOUR, title: "Synthetic task 6" })
+    const next = await list({ account: IDENTITY.account, cursor: first.cursor })
+    expect(ids(next)).toEqual(["ses_late", "ses_f"])
+    expect(next.events.map(event => event.occurred_at)).toEqual([new Date(NOW - 18 * HOUR).toISOString(), new Date(NOW - 6 * HOUR).toISOString()])
+    expect(resultProblems(next, PAGE.max, PAGE_MAX_BYTES)).toEqual([])
+    // One at a time, the cursor follows the listing order, so nothing is listed twice or skipped.
+    const one = await list({ account: IDENTITY.account, cursor: first.cursor, limit: 1 })
+    expect(ids(one)).toEqual(["ses_f"])
+    expect(ids(await list({ account: IDENTITY.account, cursor: one.cursor }))).toEqual(["ses_late"])
+    // Contract 1's source lists the same way.
+    expect((await lister(s)({ cursor: (await lister(s)({ since: new Date(NOW - DAY).toISOString(), limit: 5 })).cursor })).events.map(event => event.external_id.split("@")[0])).toEqual(["ses_late", "ses_f"])
+  })
+
   it("probe names this machine and its OS user, and refuses another account or source", () => {
     expect(probe({ source: SESSIONS_SOURCE }, IDENTITY)).toEqual({ source: SESSIONS_SOURCE, account: "studio-mac", owner: { id: "os-user:sam@studio-mac", label: "sam on studio-mac" }, trust: "untrusted" })
     expect(codeOf(() => probe({ account: "other-mac" }, IDENTITY))).toBe("ACCOUNT_MISMATCH")

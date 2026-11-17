@@ -3,7 +3,8 @@ import { closeSync, mkdirSync, openSync } from "node:fs"
 import { dirname } from "node:path"
 import type { Doc, Extracted, SessionFacts, SessionLink, SourceProject, SourceSession } from "../domain/contract.js"
 import { openDb, type Db } from "../domain/sqlite.js"
-import { SCHEMA_VERSION, TABLES, TRIGGERS, VIEWS } from "./schema.js"
+import { LATE_LISTING_MS } from "../domain/contract.js"
+import { ADDED_COLUMNS, SCHEMA_VERSION, TABLES, TRIGGERS, VIEWS } from "./schema.js"
 
 /** Messages with seq from `from` to `to`, both inclusive; empty when `to < from`. */
 interface SeqRange {
@@ -95,8 +96,17 @@ function dropAll(db: Db): void {
   }
 }
 
+/** Add the columns an index made by an earlier build lacks, so it is kept rather than rebuilt. */
+function addColumns(db: Db): void {
+  for (const [table, column, type] of ADDED_COLUMNS) {
+    const columns = db.all<{ name: string }>(`select name from pragma_table_info('${table}')`)
+    if (columns.length > 0 && !columns.some(entry => entry.name === column)) db.exec(`alter table ${quote(table)} add column ${quote(column)} ${type}`)
+  }
+}
+
 function create(db: Db): void {
   db.exec(`pragma application_id = ${APPLICATION_ID}`)
+  addColumns(db)
   for (const sql of [...TABLES, ...TRIGGERS, ...VIEWS]) db.exec(sql)
   db.run("insert into meta (key, value) values ('schema_version', ?) on conflict(key) do update set value = excluded.value", String(SCHEMA_VERSION))
 }
@@ -210,14 +220,17 @@ export class IndexStore {
    * (counts, docs, files, links) is replaced, and the session's counts are the sum over all recorded ranges. Writing the
    * same range twice leaves the same totals. `range.from` must not fall inside a range written earlier; see `restartSeq`.
    */
-  upsertSession(session: SourceSession, rootID: string, facts: Partial<SessionFacts> = {}, range?: SeqRange): void {
-    this.transaction(() => this.writeSession(session, rootID, facts, range))
+  upsertSession(session: SourceSession, rootID: string, facts: Partial<SessionFacts> = {}, range?: SeqRange, listing?: number): void {
+    this.transaction(() => this.writeSession(session, rootID, facts, range, listing))
   }
 
-  /** Replace everything indexed for `session` at seq >= `range.from` with one batch, in one transaction. */
-  writeBatch(session: SourceSession, rootID: string, range: SeqRange, batch: Batch): void {
+  /**
+   * Replace everything indexed for `session` at seq >= `range.from` with one batch, in one transaction. `listing` is
+   * now, by the indexer's clock, once sessions are being listed: see `writeSession`.
+   */
+  writeBatch(session: SourceSession, rootID: string, range: SeqRange, batch: Batch, listing?: number): void {
     this.transaction(() => {
-      this.writeSession(session, rootID, batch.facts, range)
+      this.writeSession(session, rootID, batch.facts, range, listing)
       const inRange = (what: string, sessionID: string, seq: number) => {
         if (sessionID !== session.id || seq < range.from || seq > range.to) {
           throw new Error(`history index: ${what} at ${sessionID}#${seq} is outside ${session.id}#${range.from}..${range.to}`)
@@ -318,7 +331,12 @@ export class IndexStore {
     this.db.close()
   }
 
-  private writeSession(session: SourceSession, rootID: string, facts: Partial<SessionFacts>, range: SeqRange | undefined): void {
+  /**
+   * A new version of a session is listed at the time it changed, unless it is written later than LATE_LISTING_MS after
+   * that while sessions are being listed (`listing` is now): then at `listing` less LATE_LISTING_MS, after every place a
+   * cursor issued before this write can stand, so no cursor passes it. The same version keeps its place.
+   */
+  private writeSession(session: SourceSession, rootID: string, facts: Partial<SessionFacts>, range: SeqRange | undefined, listing?: number): void {
     if (!range && COUNTS.some(key => facts[key] !== undefined)) {
       throw new Error("history index: session counts need the seq range they were counted over")
     }
@@ -331,11 +349,12 @@ export class IndexStore {
     const previous = this.db.get<{ root_id: string }>("select root_id from sessions where id = ?", session.id)
     this.db.run(
       `insert into sessions (id, parent_id, root_id, project_id, directory, title, agent, model, cost, tokens_input, tokens_output,
-          created, updated, archived, indexed_at)
-        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          created, updated, archived, indexed_at, listed)
+        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         on conflict(id) do update set parent_id = excluded.parent_id, root_id = excluded.root_id, project_id = excluded.project_id,
           directory = excluded.directory, title = excluded.title, agent = excluded.agent, model = excluded.model, cost = excluded.cost,
           tokens_input = excluded.tokens_input, tokens_output = excluded.tokens_output, created = excluded.created,
+          listed = case when sessions.updated = excluded.updated and sessions.listed is not null then sessions.listed else excluded.listed end,
           updated = excluded.updated, archived = excluded.archived, indexed_at = excluded.indexed_at`,
       session.id,
       session.parentID,
@@ -352,6 +371,7 @@ export class IndexStore {
       session.updated,
       session.archived,
       Date.now(),
+      listing === undefined ? session.updated : Math.max(session.updated, listing - LATE_LISTING_MS),
     )
     if (previous && previous.root_id !== rootID) this.moveRoot(session.id, rootID)
     // A session indexed before its parent could only guess the parent's ID as its root.
