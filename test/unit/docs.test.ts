@@ -121,6 +121,8 @@ describe("the tested releases", () => {
       expect(said).toEqual([...TESTED_HOSTS])
     }
     expect(TESTED_HOSTS).toContain("2.3.0")
+    expect(TESTED_HOSTS).toContain("2.3.1")
+    expect(TESTED_HOSTS).toContain("2.3.2")
   })
 })
 
