@@ -1,4 +1,5 @@
 // List indexed sessions with the shared filters, a title filter and a sort.
+import { secretKinds } from "@we-the-rebel-alliance/source-contract/events"
 import type { Caller, Hidden, IndexState, SessionsInput, SessionsOutput } from "../domain/api.js"
 import { BOUNDS } from "../domain/bounds.js"
 import type { Db } from "../domain/sqlite.js"
@@ -9,6 +10,21 @@ import { decodeCursor, encodeCursor } from "./parse.js"
 /** Largest first; ties go to the most recently updated. */
 /** Characters of each row's first prompt. */
 const FIRST_PROMPT_CHARS = 200
+/** The list registry holds 50 items. A list read asks for that many and returns no more. */
+export const LIST_CAP = 50
+
+/** One session as the contract's `list` item: its id and title. A title that still holds a secret is left out. */
+export function sessionListItems(sessions: readonly { readonly sessionID: string; readonly title: string }[]) {
+  const items: { id: string; text: string }[] = []
+  for (const session of sessions) {
+    if (items.length >= LIST_CAP) break
+    const id = session.sessionID.slice(0, 128)
+    const text = session.title.replace(/\s+/g, " ").trim().slice(0, 200)
+    if (id === "" || text === "" || secretKinds(text).length > 0 || secretKinds(id).length > 0) continue
+    items.push({ id, text })
+  }
+  return items
+}
 
 const SORTS = { updated: "s.updated", created: "s.created", cost: "s.cost", messages: "s.messages" } as const
 

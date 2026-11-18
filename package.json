@@ -94,6 +94,34 @@
           "class": "free"
         },
         "maxBytes": 262144
+      },
+      {
+        "id": "history.sessions.list",
+        "kind": "snapshot",
+        "tool": "sessions",
+        "input": {
+          "source": "sessions",
+          "list": "sessions"
+        },
+        "output": "list",
+        "accounts": {
+          "named": false
+        },
+        "permission": {
+          "tool": "history_sessions",
+          "rules": [
+            {
+              "action": "history_sessions",
+              "resource": "*"
+            }
+          ]
+        },
+        "private": true,
+        "cost": {
+          "class": "free"
+        },
+        "maxAgeSec": 900,
+        "maxBytes": 65536
       }
     ]
   },
