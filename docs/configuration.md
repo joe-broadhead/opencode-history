@@ -6,7 +6,7 @@ Plugin ID: `history.sessions`. Options live on the `plugins` entry in `opencode.
 {
   "$schema": "https://opencode.ai/config.json",
   "plugins": [{
-    "package": "github:joe-broadhead/opencode-history#v0.0.7",
+    "package": "github:joe-broadhead/opencode-history#v0.0.8",
     "options": {
       "database": "<absolute path>",
       "indexPath": "<absolute path>",
@@ -341,7 +341,7 @@ Each tool's action is its effective name, `history_<name>`, on resource `*`. At 
 | `"read-only"` | the reads | nothing: `history_pin` and new tools are **denied** |
 
 ```json
-{ "plugins": [{ "package": "github:joe-broadhead/opencode-history#v0.0.7", "options": { "access": "ask-changes" } }] }
+{ "plugins": [{ "package": "github:joe-broadhead/opencode-history#v0.0.8", "options": { "access": "ask-changes" } }] }
 ```
 
 The default block, generated from `defaultRules(access)`:
