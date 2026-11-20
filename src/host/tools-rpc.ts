@@ -26,10 +26,12 @@ import {
   type ToolsRpcOptions as PackageOptions,
   type ToolsRpcPlugin,
 } from "@we-the-rebel-alliance/source-contract/tools-rpc"
-import { FAILURES, parse } from "../domain/common.js"
+import { fail, FAILURES, parse } from "../domain/common.js"
 import { PLUGIN_ID as HISTORY_ID } from "../domain/contract.js"
 import { ProbeInputSchema, ProbeOutputSchema } from "../domain/schemas.js"
+import { sessionListItems, LIST_CAP } from "../query/sessions.js"
 import { isFailure } from "./errors.js"
+import { localIdentity } from "./identity.js"
 import { PROBE_ACTION, permissionRequest } from "./permissions.js"
 import { bounded, runTool, TOOL_DEFINITIONS, type ToolSources } from "./tools.js"
 
@@ -61,6 +63,8 @@ export const PLUGIN_ID = HISTORY_ID
  * that table into the module's methods, so a script runs the same tool code with the same assert as the model, then
  * adds `probe`, the source contract's, which is a method and not a tool.
  */
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value)
+
 export function scriptMethods(sources: ToolSources): readonly MethodSpec[] {
   return [
     ...TOOL_DEFINITIONS.map(
@@ -74,6 +78,24 @@ export function scriptMethods(sources: ToolSources): readonly MethodSpec[] {
         input: schemaOf(tool.input, "input"),
         output: schemaOf(tool.output, "output"),
         async run(input, call) {
+          // history.sessions.list: the sessions read as the contract's list output. The model path does not pass list.
+          if (tool.name === "sessions" && isRecord(input) && input["list"] === "sessions") {
+            await sources.assert(permissionRequest(call, tool.action))
+            const mine = (sources.identity ?? localIdentity)().account
+            const account = typeof input["account"] === "string" ? input["account"] : undefined
+            if (account !== undefined && account !== mine) {
+              fail("ACCOUNT_MISMATCH", { hint: "Pass this machine's account, as probe names it." })
+            }
+            const caller = { sessionID: call.sessionID, projectID: sources.location.projectID, directory: sources.location.directory }
+            const listed = await sources.runtime.sessions(caller, { limit: LIST_CAP, scope: "all" })
+            const items = sessionListItems(listed.sessions)
+            return {
+              ...(account === undefined ? {} : { account }),
+              data: { items, editable: false },
+              asOf: new Date().toISOString(),
+              trust: "untrusted" as const,
+            }
+          }
           const result = bounded(await runTool(tool, sources, call, parse(tool.input, input ?? {}, "INPUT_INVALID"), call.signal))
           // RPC output must be a JSON value: drop undefined keys.
           return JSON.parse(JSON.stringify(result.output))

@@ -17,6 +17,7 @@ import { identityOf } from "../../src/host/identity.js"
 import type { PermissionRequest } from "../../src/host/permissions.js"
 import { pluginError, scriptMethods, TOOLS_RPC_ID, type PluginMethod } from "../../src/host/tools-rpc.js"
 import { eventsList, eventsRequest, PACKAGE, probe, SESSIONS_SOURCE } from "../../src/query/events.js"
+import { sessions as querySessions } from "../../src/query/sessions.js"
 import { fakeSession } from "../host/session.js"
 import { DAY, NO_MASK, NOW, project, session, sidecar, STATE } from "./query/fixture.js"
 
@@ -67,12 +68,14 @@ function plugin(db: ReturnType<typeof sidecar>["db"]) {
   const runtime = {
     eventsList: async (_caller: unknown, input: unknown) => eventsList(db, eventsRequest(input), IDENTITY, STATE, NO_MASK, NOW) as EventsListOutput,
     probe: async (_caller: unknown, input: { source?: string; account?: string }) => probe(input, IDENTITY) as ProbeOutput,
+    sessions: async (caller: unknown, input: unknown) => querySessions(db, caller as never, input as never, STATE),
   }
   const table = scriptMethods({
     runtime: runtime as never,
     session: fakeSession().session,
     location: { projectID: "prj_app", directory: "/work/app" },
     defaults: { scope: "project" },
+    identity: () => IDENTITY,
     assert: async (request: PermissionRequest) => {
       if (current === undefined) throw new Error("an assert ran outside a kit call")
       await current.assert({ action: request.action, resources: request.resources })
@@ -90,7 +93,7 @@ function plugin(db: ReturnType<typeof sidecar>["db"]) {
       },
     ).finally(() => (current = undefined))
   }
-  return { list: run("events_list"), probe: run("probe") }
+  return { list: run("events_list"), probe: run("probe"), snapshot: run("sessions") }
 }
 
 const open: SessionContext = { account: ACCOUNT, permission: { assert: async () => {} } }
@@ -118,7 +121,11 @@ describe("the source contract's conformance kit", () => {
     expect(declarationProblems(pkg.sources, { tools })).toEqual([])
     expect(sources.rpc).toBe(TOOLS_RPC_ID)
     expect(pkg.name).toBe(PACKAGE)
-    expect(sources.items.map(item => [item.id, item.input?.["source"]])).toEqual([["history.sessions", SESSIONS_SOURCE]])
+    expect(sources.items.map(item => [item.id, item.kind, item.input?.["source"]])).toEqual([
+      ["history.sessions", "events", SESSIONS_SOURCE],
+      ["history.sessions.list", "snapshot", SESSIONS_SOURCE],
+    ])
+    expect(sources.items.find(item => item.id === "history.sessions.list")).toMatchObject({ output: "list", tool: "sessions" })
   })
 
   it("history.sessions keeps the contract", async () => {
@@ -170,6 +177,27 @@ describe("the source contract's conformance kit", () => {
       ["failed-holds-cursor", ATOMIC],
       ["gap-and-cursor-expired", NO_EXPIRY],
     ])
+    expect(report.ok).toBe(true)
+  })
+
+  it("history.sessions.list keeps the contract", async () => {
+    const { s } = index()
+    const { snapshot, probe: probed } = plugin(s.db)
+    const listed = sources.items.find(item => item.id === "history.sessions.list")!
+    const report = await sourceConformance({
+      plugin: PACKAGE,
+      source: listed,
+      tools,
+      calls: { snapshot, probe: probed },
+      snapshotCases: [{ ...(listed.input ?? {}), account: ACCOUNT }],
+      cases: [],
+      account: ACCOUNT,
+      sources,
+      describe: { id: TOOLS_RPC_ID },
+    })
+    reports.push(report)
+    s.close()
+    expect(report.problems).toEqual([])
     expect(report.ok).toBe(true)
   })
 

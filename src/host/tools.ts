@@ -7,6 +7,7 @@ import { NAMESPACE } from "../domain/contract.js"
 import { formatPin, PinInputSchema, PinOutputSchema, runPin, type ActionSources } from "./actions.js"
 import { mapFailures } from "./errors.js"
 import { formatBrief, formatEvents, formatFiles, formatRead, formatRecall, formatSearch, formatSessions, formatSql } from "./format.js"
+import type { LocalIdentity } from "./identity.js"
 import { READ_TOOLS, permissionRequest, type Assert, type Call } from "./permissions.js"
 import type { HistoryRuntime, QueryMethod } from "./runtime.js"
 import {
@@ -56,6 +57,8 @@ export interface ToolSources {
   readonly defaults: { readonly scope: DefaultScope }
   /** The host's permission check, `ctx.permission.assert`: every call asserts its tool's action first. */
   readonly assert: Assert
+  /** Whose this machine's sessions are. The list snapshot checks a named account against it. Default: this process. */
+  readonly identity?: () => LocalIdentity
 }
 
 interface ToolResult { readonly output: unknown; readonly content: string }
