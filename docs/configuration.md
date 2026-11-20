@@ -262,7 +262,7 @@ Times are UTC text `YYYY-MM-DD HH:MM:SS`, such as `2026-10-12 09:30:00`, with a 
 
 ### Events list
 
-`history_events_list` is History's side of the source contract, [`@we-the-rebel-alliance/source-contract`](https://github.com/we-the-rebel-alliance/source-contract) `v0.2.0`, which Memory and other consumers read. Memory's collector calls it on a schedule, with no model and no one there, so it never asks. It serves two sources, which list the same sessions:
+`history_events_list` is History's side of the source contract, [`@we-the-rebel-alliance/source-contract`](https://github.com/we-the-rebel-alliance/source-contract) `v0.3.0`, which Memory and other consumers read. Memory's collector calls it on a schedule, with no model and no one there, so it never asks. It serves two sources, which list the same sessions:
 
 - `sessions`, the declared source `history.sessions` (`package.json`'s `sources`), for consumers of the source contract;
 - `history`, the default, the listing scripts and Memory's collector read before the source contract, with the same answers as before.
