@@ -6,7 +6,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
-- **List snapshot** `history.sessions.list` (`output: "list"`). An app can bind it and render sessions without knowing History. It calls the existing `sessions` read, not a second client. `history.sessions` stays the events source and is not renamed. No write is declared. The source-contract pin stays v0.2.0.
+- **List snapshot** `history.sessions.list` (`output: "list"`). An app can bind it and render sessions without knowing History. It calls the existing `sessions` read with `scope: "all"`, not a second client, so it lists **every project's** session titles on this computer, not only the current project's: at most 50 items of a session id and a title, and a title that still holds a secret is left out. `history.sessions` stays the events source and is not renamed. No write is declared.
 
 ## [0.0.7] - 2026-11-18
 
