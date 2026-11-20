@@ -1,4 +1,5 @@
 // List indexed sessions with the shared filters, a title filter and a sort.
+import { secretKinds } from "@we-the-rebel-alliance/source-contract/events"
 import type { Caller, Hidden, IndexState, SessionsInput, SessionsOutput } from "../domain/api.js"
 import { BOUNDS } from "../domain/bounds.js"
 import type { Db } from "../domain/sqlite.js"
@@ -9,6 +10,31 @@ import { decodeCursor, encodeCursor } from "./parse.js"
 /** Largest first; ties go to the most recently updated. */
 /** Characters of each row's first prompt. */
 const FIRST_PROMPT_CHARS = 200
+/** The list registry holds 50 items. A list read asks for that many and returns no more. */
+export const LIST_CAP = 50
+
+/** Control characters would escape to six bytes each in JSON and only make a title unreadable. */
+const CONTROLS = /[\u0000-\u001f\u007f-\u009f]/g
+
+/**
+ * One session as the contract's `list` item: its id and title. A title is screened whole and only then cut, so a secret
+ * that straddles the cut cannot pass as a prefix, and a repeated id is listed once. The 50-item cap with the 128- and
+ * 200-code-unit item caps bounds the whole answer well inside the declared `maxBytes`; the test proves the bytes.
+ * The caller passes them newest first.
+ */
+export function sessionListItems(sessions: readonly { readonly sessionID: string; readonly title: string }[]) {
+  const items: { id: string; text: string }[] = []
+  const seen = new Set<string>()
+  for (const session of sessions) {
+    if (items.length >= LIST_CAP) break
+    const id = session.sessionID.replace(CONTROLS, "").slice(0, 128)
+    const full = session.title.replace(CONTROLS, " ").replace(/\s+/g, " ").trim()
+    if (id === "" || full === "" || seen.has(id) || secretKinds(full).length > 0 || secretKinds(id).length > 0) continue
+    seen.add(id)
+    items.push({ id, text: full.slice(0, 200) })
+  }
+  return items
+}
 
 const SORTS = { updated: "s.updated", created: "s.created", cost: "s.cost", messages: "s.messages" } as const
 

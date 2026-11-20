@@ -6,7 +6,7 @@ Plugin ID: `history.sessions`. Options live on the `plugins` entry in `opencode.
 {
   "$schema": "https://opencode.ai/config.json",
   "plugins": [{
-    "package": "github:joe-broadhead/opencode-history#v0.0.7",
+    "package": "github:joe-broadhead/opencode-history#v0.0.8",
     "options": {
       "database": "<absolute path>",
       "indexPath": "<absolute path>",
@@ -262,7 +262,7 @@ Times are UTC text `YYYY-MM-DD HH:MM:SS`, such as `2026-10-12 09:30:00`, with a 
 
 ### Events list
 
-`history_events_list` is History's side of the source contract, [`@we-the-rebel-alliance/source-contract`](https://github.com/we-the-rebel-alliance/source-contract) `v0.2.0`, which Memory and other consumers read. Memory's collector calls it on a schedule, with no model and no one there, so it never asks. It serves two sources, which list the same sessions:
+`history_events_list` is History's side of the source contract, [`@we-the-rebel-alliance/source-contract`](https://github.com/we-the-rebel-alliance/source-contract) `v0.3.0`, which Memory and other consumers read. Memory's collector calls it on a schedule, with no model and no one there, so it never asks. It serves two sources, which list the same sessions:
 
 - `sessions`, the declared source `history.sessions` (`package.json`'s `sources`), for consumers of the source contract;
 - `history`, the default, the listing scripts and Memory's collector read before the source contract, with the same answers as before.
@@ -309,6 +309,12 @@ A `sessions` page also carries `plugin` and, when it has any, `refused`:
 
 The `history` source answers as before: its own cursor, `ACCOUNT_UNKNOWN` for another machine, and no `plugin` or `refused`.
 
+#### The `history.sessions.list` list snapshot
+
+`history.sessions.list` is a snapshot source for an app that binds it and renders sessions, such as Memory's screens. A consumer calls the tools RPC method `sessions` with `{ "source": "sessions", "list": "sessions", "account": "<this machine>" }`; the plugin answers the source contract's `list` output, `{ account?, data: { items, editable: false }, asOf, trust: "untrusted" }`.
+
+It is **not** the model path: the `history_sessions` tool the model sees keeps its own schema, its own default of the current project, and its answer, and no `list` input is part of it. The method declares both answers, the model's page of sessions and this list, because the host validates a tools-RPC method's answer against its declaration. The snapshot runs the same `sessions` read with `scope: "all"`, so it lists **every project's** session titles on this computer, not only the current project's. Each item is a session id and its title, and a title that still holds a secret after masking is left out: the read asks for 50 sessions before that screen, so a page can hold fewer than 50 items and the next one carries on. The method's grant covers the whole `sessions` read it rides, as the design note in the PR says. It asserts `history_sessions`, and another machine's account is `ACCOUNT_MISMATCH`. No write is declared and nothing is editable.
+
 ### Pin
 
 | Input | Default | Rule |
@@ -335,7 +341,7 @@ Each tool's action is its effective name, `history_<name>`, on resource `*`. At 
 | `"read-only"` | the reads | nothing: `history_pin` and new tools are **denied** |
 
 ```json
-{ "plugins": [{ "package": "github:joe-broadhead/opencode-history#v0.0.7", "options": { "access": "ask-changes" } }] }
+{ "plugins": [{ "package": "github:joe-broadhead/opencode-history#v0.0.8", "options": { "access": "ask-changes" } }] }
 ```
 
 The default block, generated from `defaultRules(access)`:

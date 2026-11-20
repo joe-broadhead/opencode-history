@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.8] - 2026-11-20
+
+### Added
+
+- **List snapshot** `history.sessions.list` (`output: "list"`). An app can bind it and render sessions without knowing History. It calls the existing `sessions` read with `scope: "all"`, not a second client, so it lists **every project's** session titles on this computer, not only the current project's: at most 50 items of a session id and a title, and a title that still holds a secret is left out. `history.sessions` stays the events source and is not renamed. No write is declared.
+
+### Fixed
+
+- **The sessions list is readable through the tools RPC on every host.** The `sessions` method declared the model tool's answer as its own, and OpenCode validates a tools-RPC method's answer against that declaration, so a list read would have been refused `rpc.invalid_output`. The method now declares both answers, the model's page and the list, and its declared input carries the `list` and `account` a consumer passes; the model's `sessions` tool keeps its own schema and description, so no `list` input is ever a model's. A host test reads the list through the tools RPC on every tested release.
+- A session title is screened whole and only then cut, so a secret that straddles the cut cannot pass as a prefix; control characters are dropped, a repeated id is listed once, and the 50 items the caps allow stay inside the declared `maxBytes`.
+
+### Changed
+
+- `npm run check` runs `npm run conformance`, so CI runs the source contract's kit.
+- `sources` gains `history.sessions.list`, so Jelly asks for consent again; `history.sessions` and the `jelly` tools are unchanged.
+- The source-contract devDependency is pinned at v0.3.0, still bundled into `dist/index.js`. History declares no fact, hint or routine, so a page reads the same for a consumer still on v0.2.0.
+
 ## [0.0.7] - 2026-11-18
 
 ### Changed

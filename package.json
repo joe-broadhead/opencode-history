@@ -1,6 +1,6 @@
 {
   "name": "@joe-broadhead/opencode-history",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "private": true,
   "description": "Unofficial OpenCode plugin: search, read and recall your past OpenCode sessions",
   "keywords": [
@@ -94,6 +94,34 @@
           "class": "free"
         },
         "maxBytes": 262144
+      },
+      {
+        "id": "history.sessions.list",
+        "kind": "snapshot",
+        "tool": "sessions",
+        "input": {
+          "source": "sessions",
+          "list": "sessions"
+        },
+        "output": "list",
+        "accounts": {
+          "named": false
+        },
+        "permission": {
+          "tool": "history_sessions",
+          "rules": [
+            {
+              "action": "history_sessions",
+              "resource": "*"
+            }
+          ]
+        },
+        "private": true,
+        "cost": {
+          "class": "free"
+        },
+        "maxAgeSec": 900,
+        "maxBytes": 65536
       }
     ]
   },
@@ -237,7 +265,7 @@
     "test:pack": "npx -y bun@1.4.4 test test/pack",
     "bench": "vitest run -c vitest.bench.config.ts --silent=false",
     "lint": "node scripts/check-forbidden.mjs && node scripts/check-copies.mjs && node scripts/check-icons.mjs && node scripts/check-workflows.mjs",
-    "check": "npm run typecheck && npm test && npm run test:kit && npm run build && npm run test:host && npm run test:tui && npm run lint && npm run test:pack",
+    "check": "npm run typecheck && npm test && npm run conformance && npm run test:kit && npm run build && npm run test:host && npm run test:tui && npm run lint && npm run test:pack",
     "capture": "node scripts/capture-tools.mjs"
   },
   "devDependencies": {
@@ -252,7 +280,7 @@
     "@opentui/solid": "0.8.0",
     "@types/bun": "1.4.4",
     "@types/node": "24.19.2",
-    "@we-the-rebel-alliance/source-contract": "github:we-the-rebel-alliance/source-contract#v0.2.0",
+    "@we-the-rebel-alliance/source-contract": "github:we-the-rebel-alliance/source-contract#v0.3.0",
     "babel-preset-solid": "1.9.16",
     "effect": "4.0.6",
     "esbuild": "0.28.2",
