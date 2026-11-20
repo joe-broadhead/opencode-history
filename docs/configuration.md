@@ -6,7 +6,7 @@ Plugin ID: `history.sessions`. Options live on the `plugins` entry in `opencode.
 {
   "$schema": "https://opencode.ai/config.json",
   "plugins": [{
-    "package": "github:joe-broadhead/opencode-history#v0.0.7",
+    "package": "github:joe-broadhead/opencode-history#v0.0.8",
     "options": {
       "database": "<absolute path>",
       "indexPath": "<absolute path>",
@@ -313,7 +313,7 @@ The `history` source answers as before: its own cursor, `ACCOUNT_UNKNOWN` for an
 
 `history.sessions.list` is a snapshot source for an app that binds it and renders sessions, such as Memory's screens. A consumer calls the tools RPC method `sessions` with `{ "source": "sessions", "list": "sessions", "account": "<this machine>" }`; the plugin answers the source contract's `list` output, `{ account?, data: { items, editable: false }, asOf, trust: "untrusted" }`.
 
-It is **not** the model path: the `history_sessions` tool the model sees keeps its own schema, its own default of the current project, and its answer. The snapshot runs the same `sessions` read with `scope: "all"`, so it lists **every project's** session titles on this computer, not only the current project's. Each item is a session id and its title, at most 50 items, and a title that still holds a secret after masking is left out. It asserts `history_sessions`, and another machine's account is `ACCOUNT_MISMATCH`. No write is declared and nothing is editable.
+It is **not** the model path: the `history_sessions` tool the model sees keeps its own schema, its own default of the current project, and its answer, and no `list` input is part of it. The method declares both answers, the model's page of sessions and this list, because the host validates a tools-RPC method's answer against its declaration. The snapshot runs the same `sessions` read with `scope: "all"`, so it lists **every project's** session titles on this computer, not only the current project's. Each item is a session id and its title, at most 50 items, and a title that still holds a secret after masking is left out. It asserts `history_sessions`, and another machine's account is `ACCOUNT_MISMATCH`. No write is declared and nothing is editable.
 
 ### Pin
 
@@ -341,7 +341,7 @@ Each tool's action is its effective name, `history_<name>`, on resource `*`. At 
 | `"read-only"` | the reads | nothing: `history_pin` and new tools are **denied** |
 
 ```json
-{ "plugins": [{ "package": "github:joe-broadhead/opencode-history#v0.0.7", "options": { "access": "ask-changes" } }] }
+{ "plugins": [{ "package": "github:joe-broadhead/opencode-history#v0.0.8", "options": { "access": "ask-changes" } }] }
 ```
 
 The default block, generated from `defaultRules(access)`:

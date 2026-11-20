@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import type { Caller, SessionsInput } from "../../../src/domain/api.js"
 import type { Db } from "../../../src/domain/sqlite.js"
 import { decodeCursor, encodeCursor } from "../../../src/query/parse.js"
-import { sessions } from "../../../src/query/sessions.js"
+import { sessionListItems, sessions } from "../../../src/query/sessions.js"
 import { CALLER, DAY, NOW, STATE, doc, file, project, session, sidecar, type Sidecar } from "./fixture.js"
 
 let index: Sidecar
@@ -107,6 +107,15 @@ describe("sessions", () => {
     expect(ids({ title: "explore", includeSubagents: true }, { ...CALLER, sessionID: "ses_a" })).toEqual(["ses_a_child"])
     expect(list({ title: "explore" }, { ...CALLER, sessionID: "ses_a_child" }).hidden).toEqual({ ...none, subagents: 1, current: 1 })
     expect(ids({ title: "explore", includeSubagents: true, includeCurrent: true }, { ...CALLER, sessionID: "ses_a_child" })).toEqual(["ses_a_child"])
+  })
+
+  it("renders a list snapshot item: id and title, screened whole before the cut, deduped, inside the byte budget", () => {
+    const secret = `${"a".repeat(196)}Password: Ku7pLm2QzR9w`
+    expect(sessionListItems([{ sessionID: "ses_a", title: secret }])).toEqual([])
+    expect(sessionListItems([{ sessionID: "ses_a", title: "b".repeat(300) }])).toEqual([{ id: "ses_a", text: "b".repeat(200) }])
+    expect(sessionListItems([{ sessionID: "ses_a", title: "Once" }, { sessionID: "ses_a", title: "Twice" }])).toEqual([{ id: "ses_a", text: "Once" }])
+    const many = Array.from({ length: 50 }, (_, index) => ({ sessionID: `ses_${index}`, title: "c".repeat(200) }))
+    expect(Buffer.byteLength(JSON.stringify({ data: { items: sessionListItems(many), editable: false } }))).toBeLessThanOrEqual(60_000)
   })
 
   it("pages with a cursor", () => {

@@ -65,6 +65,60 @@ export const PLUGIN_ID = HISTORY_ID
  */
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value)
 
+/** The registry's `list` output, as a consumer validates it. */
+const LIST_DATA: JsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["items", "editable"],
+  properties: {
+    items: {
+      type: "array",
+      maxItems: LIST_CAP,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["id", "text"],
+        properties: { id: { type: "string", minLength: 1, maxLength: 128 }, text: { type: "string", maxLength: 200 } },
+      },
+    },
+    editable: { type: "boolean" },
+  },
+}
+
+/**
+ * The `history.sessions.list` snapshot's answer: the family's snapshot envelope around the registry's `list` output.
+ * The host validates every tools-RPC method's answer against the method's declared output, so `sessions` declares both
+ * this and the model tool's own answer, and a list read is not refused `rpc.invalid_output`.
+ */
+const LIST_ANSWER: JsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["data", "asOf", "trust"],
+  properties: {
+    account: { type: "string" },
+    data: LIST_DATA,
+    asOf: { type: "string" },
+    trust: { type: "string", const: "untrusted" },
+  },
+}
+
+/** The `list` and `account` inputs the `sessions` method takes for the snapshot. The model's tool keeps its own. */
+const LIST_INPUT: JsonSchema = {
+  list: { type: "string", enum: ["sessions"], description: 'A consumer\'s list snapshot: "sessions" answers the contract\'s `list` output, not a page of sessions.' },
+  account: { type: "string", description: "This machine's account, as probe names it; another is refused." },
+}
+
+/** A tool's declared input with the snapshot's extra inputs, when the method takes them. */
+function rpcInput(name: string, input: JsonSchema): JsonSchema {
+  if (name !== "sessions") return input
+  return { ...input, properties: { ...(input.properties ?? {}), ...LIST_INPUT } }
+}
+
+/** A tool's declared output, with the list answer beside it for the method that carries the snapshot. */
+function rpcOutput(name: string, output: JsonSchema): JsonSchema {
+  return name === "sessions" ? { anyOf: [output, LIST_ANSWER] } : output
+}
+
 export function scriptMethods(sources: ToolSources): readonly MethodSpec[] {
   return [
     ...TOOL_DEFINITIONS.map(
@@ -75,8 +129,8 @@ export function scriptMethods(sources: ToolSources): readonly MethodSpec[] {
         class: tool.class,
         ...(tool.codemode ? {} : { directOnly: true }),
         description: tool.description,
-        input: schemaOf(tool.input, "input"),
-        output: schemaOf(tool.output, "output"),
+        input: rpcInput(tool.name, schemaOf(tool.input, "input")),
+        output: rpcOutput(tool.name, schemaOf(tool.output, "output")),
         async run(input, call) {
           // history.sessions.list: the sessions read as the contract's list output. The model path does not pass list.
           if (tool.name === "sessions" && isRecord(input) && input["list"] === "sessions") {

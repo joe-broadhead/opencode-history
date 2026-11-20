@@ -109,6 +109,29 @@ describe(`tools RPC on @opencode/sdk, host version ${HOST_VERSION}`, () => {
     expect((await host.sdk.session.get({ sessionID: sessions.build! } as never) as { time?: unknown }).time).toEqual(before)
   })
 
+  // history.sessions.list rides the `sessions` method. The host validates a tools-RPC method's answer against the
+  // method's declared output, so this read is what proves a list answer is accepted on every tested release.
+  test("a consumer reads the sessions list snapshot through the tools RPC", async () => {
+    const probed = (await run("probe", sessions.build!, {})).value as { account: string; owner: { id: string } }
+    expect(typeof probed.account).toBe("string")
+    const listed = await run("sessions", sessions.build!, { source: "sessions", list: "sessions", account: probed.account })
+    expect(listed.value, listed.message).toMatchObject({
+      account: probed.account,
+      data: { editable: false, items: expect.any(Array) },
+      trust: "untrusted",
+    })
+    expect(Number.isNaN(Date.parse(String((listed.value as { asOf: string }).asOf)))).toBe(false)
+    // Every project's titles, as the source documents, and each item is an id and a title.
+    for (const item of (listed.value as { data: { items: { id: string; text: string }[] } }).data.items) {
+      expect(typeof item.id).toBe("string")
+      expect(typeof item.text).toBe("string")
+    }
+    // Another machine's account is refused before anything is read.
+    expect(await run("sessions", sessions.build!, { list: "sessions", account: "another-machine" })).toMatchObject({ type: "failed", code: "ACCOUNT_MISMATCH" })
+    // The model's own read is unchanged: a page of sessions, not a list.
+    expect((await run("sessions", sessions.build!, {})).value).toMatchObject({ sessions: expect.any(Array), index: expect.any(Object) })
+  })
+
   test("an agent deny, which hides the tools from the model, refuses every method", async () => {
     for (const method of ["search", "sql", "sessions"]) {
       expect(await run(method, sessions.locked!, method === "search" ? { query: "x" } : method === "sql" ? { sql: "select 1" } : {}), method).toMatchObject({ type: "failed", code: "PERMISSION_DENIED" })

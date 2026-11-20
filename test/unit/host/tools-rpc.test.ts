@@ -48,7 +48,10 @@ describe("history's own block", () => {
     for (const method of table) {
       expect(method).toMatchObject({ kind: "plugin", action: `history_${method.name}` })
       expect((method as PluginMethod).input).toMatchObject({ type: "object" })
-      expect((method as PluginMethod).output).toMatchObject({ type: "object" })
+      // `sessions` declares the list snapshot's answer beside the model tool's page, because the host validates a
+      // method's answer against its declaration and the snapshot rides this method.
+      if (method.name === "sessions") expect((method as PluginMethod).output).toMatchObject({ anyOf: [expect.objectContaining({ type: "object" }), expect.objectContaining({ type: "object" })] })
+      else expect((method as PluginMethod).output).toMatchObject({ type: "object" })
     }
     expect(shapeInput("any", { q: 1 }, { sessionID: "s", agent: "a", action: "x" })).toEqual({ q: 1 })
     expect(shapeResult("any", { text: "t" }, { sessionID: "s", agent: "a", action: "x" })).toEqual({ text: "t" })
