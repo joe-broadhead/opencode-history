@@ -109,13 +109,13 @@ describe("sessions", () => {
     expect(ids({ title: "explore", includeSubagents: true, includeCurrent: true }, { ...CALLER, sessionID: "ses_a_child" })).toEqual(["ses_a_child"])
   })
 
-  it("renders a list snapshot item: id and title, screened whole before the cut, deduped, inside the byte budget", () => {
+  it("renders a list snapshot item: id and title, screened whole before the cut, deduped, inside the item cap", () => {
     const secret = `${"a".repeat(196)}Password: Ku7pLm2QzR9w`
     expect(sessionListItems([{ sessionID: "ses_a", title: secret }])).toEqual([])
     expect(sessionListItems([{ sessionID: "ses_a", title: "b".repeat(300) }])).toEqual([{ id: "ses_a", text: "b".repeat(200) }])
     expect(sessionListItems([{ sessionID: "ses_a", title: "Once" }, { sessionID: "ses_a", title: "Twice" }])).toEqual([{ id: "ses_a", text: "Once" }])
-    const many = Array.from({ length: 50 }, (_, index) => ({ sessionID: `ses_${index}`, title: "c".repeat(200) }))
-    expect(Buffer.byteLength(JSON.stringify({ data: { items: sessionListItems(many), editable: false } }))).toBeLessThanOrEqual(60_000)
+    const many = Array.from({ length: 60 }, (_, index) => ({ sessionID: `ses_${index}`, title: "c".repeat(200) }))
+    expect(sessionListItems(many)).toHaveLength(50)
   })
 
   it("pages with a cursor", () => {

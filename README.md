@@ -319,7 +319,7 @@ The codes a tool call can return, each with its next step, are in [docs/configur
 2. Remove the plugin, then run `opencode reload` or restart OpenCode:
 
    ```sh
-   opencode plugin remove github:joe-broadhead/opencode-history#v0.0.7
+   opencode plugin remove github:joe-broadhead/opencode-history#v0.0.6
    ```
 
 3. Delete the index, which removing the plugin keeps: `~/.local/share/opencode-history`, or your `indexPath` with its `-wal` and `-shm` files. OpenCode's database is not touched either way.
