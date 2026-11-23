@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.9] - 2026-11-23
+
+### Changed
+
+- The docs now say what the plugin does: six tools are pinned — `search`, `brief`, `read`, `sessions`, `files` and `sql` — so their signatures reach the model, `history_pin` is a direct tool, and `history_pin` follows `access`: it runs at the default `"all"`, asks at `"ask-changes"` and is denied at `"read-only"`. The README, `AGENTS.md`, `docs/architecture.md`, `docs/configuration.md`, `docs/scripting.md` and the `history-recall` skill say so.
+- `docs/jelly.md` documents the three settings Jelly reads: `access`, `defaultScope` and `maskDefaults`.
+- Two source comments name the tools RPC file, `src/host/tools-rpc.ts`, instead of the old `scripting.ts`, and the action-tool comment states the `access` effect.
+- A docs test now keeps the pin and permission wording and the Jelly settings page in step with the source.
+
+No runtime change: the plugin's behaviour, its tools and its source declaration are unchanged.
+
 ## [0.0.8] - 2026-11-20
 
 ### Added
