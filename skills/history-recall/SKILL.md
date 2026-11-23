@@ -31,17 +31,7 @@ Four rules decide most answers:
 
 Answer from the history tools, not from `git log`: git does not know which session made a change, or why.
 
-### What moved here in 0.0.9
-
-The tools keep one line each, so the recipes that used to be in their descriptions live here.
-`search` wants 2-4 phrasings of the same thing: the user's words, the technical terms, the exact
-error text or file name. Widen once before giving up: `scope: "all"`, then `includeArchived: true`,
-then `includeSubagents: true`. Prefer the newest session when two disagree. `brief` a hit before
-`read`ing it, and `read` at a snippet's seq to quote exact wording. `sessions` answers time, cost
-and counts; `sql` answers totals and rankings over `v_sessions`, `v_docs` and `v_files`; `recall`
-answers a question from quoted evidence in one call. Cite as (ses_… #seq), with the session ID
-every time.
-
+The tools keep one line each, so the recipes that used to be in their descriptions live here. `search` wants 2-4 phrasings of the same thing: the user's words, the technical terms, the exact error text or file name. Widen once before giving up: `scope: "all"`, then `includeArchived: true`, then `includeSubagents: true`. Prefer the newest session when two disagree. `brief` a hit before `read`ing it, and `read` at a snippet's seq to quote exact wording. `sessions` answers time, cost and counts; `sql` answers totals and rankings over `v_sessions`, `v_docs` and `v_files`; `recall` answers a question from quoted evidence in one call. Cite as (ses_… #seq), with the session ID every time.
 
 ## 1. Search with 2-4 phrasings
 
