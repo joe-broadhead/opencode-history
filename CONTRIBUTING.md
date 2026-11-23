@@ -28,7 +28,7 @@ There are no native programs and no install scripts. SQLite is `node:sqlite`, wh
 | `src/query/` | Search, sessions, files, read, brief, recall and SQL over the index, with the shared filters and query parser. |
 | `src/host/` | Everything that talks to OpenCode: setup, tools, schemas, result text, pin, commands, RPC handlers, status, skills, events and errors. |
 | `src/runtime.ts` | `createRuntime`: connects a source, the shared index and the query functions behind the `HistoryRuntime` interface in `src/host/runtime.ts`. |
-| `src/rpc.ts` | The status RPC contract, in plain JSON Schema. The tools RPC for scripts is `src/host/scripting.ts`. |
+| `src/rpc.ts` | The status RPC contract, in plain JSON Schema. The tools RPC for scripts is `src/host/tools-rpc.ts`. |
 | `skills/history-recall/SKILL.md` | The one skill. |
 | `scripts/build.mjs` | The esbuild build of `dist/`, and the `NOTICE` check. |
 | `scripts/check-forbidden.mjs` | The lint: uses this plugin must never make. |

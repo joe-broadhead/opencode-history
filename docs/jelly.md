@@ -61,6 +61,20 @@ None.
 None. History reads the OpenCode history on the machine it runs on and has no account, so it
 declares no sign-ins.
 
+## Settings
+
+`jelly.contributes.settings` declares the plugin's three options, with Jelly's own labels and choices:
+
+- `access` — **Allowed** (`all`, the default), **Ask before changes** (`ask-changes`) or **Read only** (`read-only`).
+  It generates the default rules for agents with a base allow rule; `history.pin` is the one declared change.
+- `defaultScope` — **This project** (`project`, the default), **This folder** (`directory`) or **Every project**
+  (`all`): where a search of past sessions looks when it names no scope.
+- `maskDefaults` — **Default masking** (`true` by default): use the built-in masking patterns when indexing and
+  returning session text.
+
+`allowUntestedHost`, `indexPath`, `database`, `mask` and the index settings are not declared: set them in
+`opencode.json` or the plugin options.
+
 ## Versions
 
 Jelly's curated catalogue pins an exact version. Publish each release under a new version, so

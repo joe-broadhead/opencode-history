@@ -135,6 +135,26 @@ test("no shipped text carries internal wording", () => {
   }
 })
 
+test("the permission wording matches the default access and pinned routing", () => {
+  const skill = read("skills/history-recall/SKILL.md")
+  expect(skill).toContain('At the default `access: "all"` it runs without asking')
+  expect(skill).toContain('`"ask-changes"` makes it ask')
+  expect(skill).toContain('`"read-only"` denies it')
+  expect(skill).not.toContain("it asks the user first")
+  for (const file of ["README.md", "AGENTS.md", "docs/configuration.md", "docs/architecture.md"]) {
+    expect({ file, stale: read(file).includes("No tool is pinned") }).toEqual({ file, stale: false })
+    expect({ file, pinned: read(file).includes("Six tools are pinned") }).toEqual({ file, pinned: true })
+  }
+  for (const file of ["docs/configuration.md", "docs/scripting.md"]) expect(read(file)).not.toContain("seven reads")
+  expect(read("docs/architecture.md")).toContain("eight reads")
+})
+
+test("docs/jelly.md documents every declared Jelly setting", () => {
+  const page = read("docs/jelly.md")
+  const settings = (JSON.parse(read("package.json")) as { jelly: { contributes: { settings: { key: string }[] } } }).jelly.contributes.settings
+  for (const { key } of settings) expect({ key, documented: page.includes(`\`${key}\``) }).toEqual({ key, documented: true })
+})
+
 describe("docs/scripting.md", () => {
   // Continuation lines joined, so a call split over lines is read whole.
   const text = read("docs/scripting.md").replace(/\\\n\s*/g, " ")

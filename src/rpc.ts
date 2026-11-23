@@ -36,7 +36,7 @@ const errors = { failed: object({ code: string, next: string }, ["code", "next"]
 
 /**
  * The plugin's status RPC, the one status view, which the TUI dialog reads. Scripts call the tools through the tools
- * RPC, `history.sessions.tools` (host/scripting.ts), as a session and its agent.
+ * RPC, `history.sessions.tools` (host/tools-rpc.ts), as a session and its agent.
  */
 export const History = Rpc.define({
   id: PLUGIN_ID,
