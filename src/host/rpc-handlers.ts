@@ -9,7 +9,7 @@ export interface RpcSources { readonly status: () => Promise<StatusView> }
 
 /**
  * The status RPC. A failure answers `failed` with the code, the text and the next step. The tools are scripted through
- * the tools RPC (scripting.ts), which runs them as a session and its agent.
+ * the tools RPC (tools-rpc.ts), which runs them as a session and its agent.
  */
 export function rpcHandlers(sources: RpcSources): RpcHandlers<typeof History> {
   return {

@@ -43,7 +43,7 @@ opencode api post /api/session -d '{"title":"weekly history report","agent":"bui
 ]}'
 ```
 
-The default block allows the seven reads and, at `access: "all"`, `pin` too, so neither needs an extra rule. If you set
+The default block allows the eight reads and, at `access: "all"`, `pin` too, so neither needs an extra rule. If you set
 `access` to `"ask-changes"`, a script that pins needs its own allow, such as
 `{"action":"history_pin","resource":"*","effect":"allow"}`, in the session's or the agent's rules.
 

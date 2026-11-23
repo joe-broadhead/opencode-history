@@ -21,7 +21,7 @@ type ToolEditor = Parameters<Parameters<Plugin.Context["tool"]["transform"]>[0]>
 export const TOOL_NAMES = ["search", "brief", "read", "sessions", "files", "recall", "sql", "events_list", "pin"] as const
 export type ToolName = typeof TOOL_NAMES[number]
 const PINNED: ReadonlySet<ToolName> = new Set(["search", "brief", "read", "sessions", "files", "sql"])
-/** Action tools change the current session through the plugin context, so Code Mode does not get them, and they ask. */
+/** Action tools change the current session through the plugin context, so Code Mode does not get them. Each takes the access effect: it runs at "all", asks at "ask-changes" and is denied at "read-only". */
 export const ACTIONS: ReadonlySet<ToolName> = new Set(["pin"])
 /** The tools the default rules allow; every other tool is an action. */
 export const READS: ReadonlySet<ToolName> = new Set(READ_TOOLS)

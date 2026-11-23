@@ -125,7 +125,7 @@ The plugin reads no other table. The database is opened with SQLite's read-only 
 
 ## Tools
 
-Effective name `history_<name>`. `options.permission` is that name, so a deny with resource `*` hides the tool. No tool is pinned; `history-recall` explains the calls and Code Mode search finds signatures. Every tool except `history_pin` is in Code Mode as `tools.history.<name>`.
+Effective name `history_<name>`. `options.permission` is that name, so a deny with resource `*` hides the tool. Six tools are pinned — `search`, `brief`, `read`, `sessions`, `files` and `sql` — so their signatures reach the model; `history_pin` is a direct tool. Every tool except `history_pin` is in Code Mode as `tools.history.<name>`.
 
 | Tool | What it does | Effect |
 | --- | --- | --- |
@@ -305,7 +305,7 @@ A `sessions` page also carries `plugin` and, when it has any, `refused`:
 - a listing with a cursor names its `account` (`INPUT_INVALID` otherwise), and another machine's account, or a cursor for one, is `ACCOUNT_MISMATCH`, before the index is read;
 - a cursor of another source or plugin, of another OS user, or from before this release (the `history` source's) is `CURSOR_INVALID`: start again with `since`;
 - a session whose title or text still holds a secret after masking, such as a password a mask pattern does not describe, is left out for good: it is listed in `refused` with the reason `secret`, and the cursor moves past it;
-- nothing behind a cursor expires, so the source never answers `CURSOR_EXPIRED` or a `gap`: OpenCode (2.2.3 to 2.3.0) keeps a session until the person or their client deletes it, and History keeps every session OpenCode keeps. A deleted session no longer exists, so a consumer that had not listed it never sees it. One it had listed is not withdrawn yet: `removals[]` waits until consumers read source-contract 0.2.0. While History reads the fallback session API, which may leave sessions out, it removes a session only on OpenCode's deletion event. A rebuild keeps those places. That covers `/history-reindex rebuild`, the rebuild status asks for when the mask patterns change, and the drop on opening an index of another layout. Each one carries where every version was listed (the `carried` table, kept until the rebuild finishes, including one interrupted and started again). A version the old index never listed is listed at the rebuild's start less a minute, after every cursor issued before it.
+- nothing behind a cursor expires, so the source never answers `CURSOR_EXPIRED` or a `gap`: OpenCode (2.2.3 to 2.3.0) keeps a session until the person or their client deletes it, and History keeps every session OpenCode keeps. A deleted session no longer exists, so a consumer that had not listed it never sees it. One it had listed is not withdrawn: the source does not send `removals[]`. While History reads the fallback session API, which may leave sessions out, it removes a session only on OpenCode's deletion event. A rebuild keeps those places. That covers `/history-reindex rebuild`, the rebuild status asks for when the mask patterns change, and the drop on opening an index of another layout. Each one carries where every version was listed (the `carried` table, kept until the rebuild finishes, including one interrupted and started again). A version the old index never listed is listed at the rebuild's start less a minute, after every cursor issued before it.
 
 The `history` source answers as before: its own cursor, `ACCOUNT_UNKNOWN` for another machine, and no `plugin` or `refused`.
 
@@ -332,7 +332,7 @@ A pin is an OpenCode instruction entry on the current session, keyed `history.<s
 
 ### The `access` option
 
-Each tool's action is its effective name, `history_<name>`, on resource `*`. At setup the plugin inserts a block into every agent, directly after the agent's base `* * allow` rule, generated from the tool classes: the seven reads, and `history_pin`, which is the one write.
+Each tool's action is its effective name, `history_<name>`, on resource `*`. At setup the plugin inserts a block into every agent, directly after the agent's base `* * allow` rule, generated from the tool classes: the eight reads, and `history_pin`, which is the one write.
 
 | Value | What runs | What asks |
 | --- | --- | --- |
@@ -431,7 +431,7 @@ The status RPC has the plugin ID, `history.sessions`, and no events. Its contrac
 History status
 Connection: connected
 Account: none; History needs no sign-in
-Access: reads OpenCode's database read-only and writes only its own index; history_pin asks before it changes a session
+Access: reads OpenCode's database read-only and writes only its own index; every tool runs, so history_pin changes this session's instructions without asking
 Index: ready, 412 of 412 sessions, 35 s behind
 Source: OpenCode database
 Database: <database>
