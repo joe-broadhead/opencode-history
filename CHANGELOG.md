@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.9] - 2026-11-23
+
+### Changed
+
+- **A tool's description is one line** (rdsdk-upgrade, D301's prompt budget). Eight descriptions
+  that taught the whole recipe were pinned in every engine's catalogue: 5,417 characters between
+  them, and the one-line forms are 895, so about 1,260 pinned tokens go. (rdsdk-upgrade measured
+  History at 3,190 tokens pinned in all, schemas and namespace included; the rest of that split is
+  the next change, not this one.) The recipes moved to the `history-recall` skill, which is read
+  when a question needs it, so a start pays nothing for them: 2-4 phrasings, the widening order,
+  brief-then-read, and the (ses_… #seq) citation.
+- `test/unit/host/tools.test.ts` holds the budget: no description is over 200 characters.
+
 ## [0.0.8] - 2026-11-20
 
 ### Added
