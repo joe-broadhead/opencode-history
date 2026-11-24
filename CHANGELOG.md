@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Impossible calendar dates such as `2026-02-30` are rejected with `QUERY_INVALID` instead of being overflowed by `Date.parse` onto another day. Leap days and date-times with `Z` or an offset still parse as before (#44).
+
 ## [0.0.9] - 2026-11-23
 
 ### Changed

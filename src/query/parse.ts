@@ -348,7 +348,57 @@ const DAY = 86_400_000
 const UNITS: Record<string, number> = { h: DAY / 24, d: DAY, w: 7 * DAY, m: 30 * DAY, y: 365 * DAY }
 const DURATION = /^(\d+(?:\.\d+)?)\s*(h|hr|hrs|hours?|d|days?|w|wks?|weeks?|m|mo|mos|months?|y|yrs?|years?)$/i
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
-const ISO = /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/i
+const ISO = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?(Z|[+-]\d{2}:?\d{2})?)?$/i
+const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
+function isLeapYear(year: number): boolean {
+  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)
+}
+
+function daysInMonth(year: number, month: number): number {
+  if (month === 2) return isLeapYear(year) ? 29 : 28
+  return MONTH_DAYS[month - 1] ?? 0
+}
+
+function offsetMinutes(zone: string): number | undefined {
+  if (zone === "Z") return 0
+  const match = /^([+-])(\d{2}):?(\d{2})$/.exec(zone)
+  if (!match) return undefined
+  const minutes = Number(match[2]) * 60 + Number(match[3])
+  if (Number(match[2]) > 23 || Number(match[3]) > 59) return undefined
+  return match[1] === "-" ? -minutes : minutes
+}
+
+/** True when `text` is a real calendar date or offset date-time, not a Date.parse overflow such as 2026-02-30. */
+export function isValidCalendarIso(text: string): boolean {
+  return Number.isFinite(parseCalendarIso(text))
+}
+
+function parseCalendarIso(text: string): number {
+  const match = ISO.exec(text)
+  if (!match) return Number.NaN
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  if (month < 1 || month > 12 || day < 1 || day > daysInMonth(year, month)) return Number.NaN
+  const dateOnly = match[4] === undefined
+  if (dateOnly) return Date.UTC(year, month - 1, day)
+  const hour = Number(match[4])
+  const minute = Number(match[5])
+  const second = Number(match[6] ?? 0)
+  const fraction = match[7] ? Number(`0.${match[7]}`) : 0
+  if (hour > 23 || minute > 59 || second > 59) return Number.NaN
+  const zone = match[8]
+  if (zone === undefined) {
+    // No offset: keep Date.parse local-time behaviour for a bare date-time.
+    const pad = (n: number, w = 2) => String(n).padStart(w, "0")
+    const ms = match[7] ? `.${match[7]}` : ""
+    return Date.parse(`${pad(year, 4)}-${pad(month)}-${pad(day)}T${pad(hour)}:${pad(minute)}:${pad(second)}${ms}`)
+  }
+  const shift = offsetMinutes(zone)
+  if (shift === undefined) return Number.NaN
+  return Date.UTC(year, month - 1, day, hour, minute, second, Math.round(fraction * 1000)) - shift * 60_000
+}
 
 /**
  * Epoch milliseconds for a `since` or `until` filter: a duration back from `now` ("36h", "7d", "2w", "3m" months, "1y")
@@ -362,7 +412,7 @@ export function parseTime(value: string, now: number, edge: "since" | "until"): 
     const size = unit.startsWith("mo") || unit === "m" ? UNITS.m! : UNITS[unit[0]!]!
     return now - Number(duration[1]) * size
   }
-  const time = ISO.test(text) ? Date.parse(DATE_ONLY.test(text) ? `${text}T00:00:00Z` : text) : Number.NaN
+  const time = parseCalendarIso(text)
   if (!Number.isFinite(time)) {
     throw refused("QUERY_INVALID", `${edge} must be an ISO date such as "2026-10-01" or an age such as "36h", "7d", "2w", "3m" or "1y"`, QUERY_HINTS.time)
   }

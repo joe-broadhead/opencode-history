@@ -261,6 +261,19 @@ describe("parseTime", () => {
     expect(() => parseTime("soon", NOW, "until")).toThrow(/^The search query cannot be used: until must be an ISO date/)
     expect(() => parseTime("soon", NOW, "until")).not.toThrow(/soon/)
   })
+
+  it("rejects impossible calendar dates instead of overflowing them", () => {
+    for (const bad of ["2026-02-30", "2026-02-29", "2026-13-01", "2026-00-10", "2026-04-31", "2026-02-30T08:30:00Z", "2026-02-30T08:30:00+02:00", "2026-10-01T24:00:00Z", "2026-10-01T08:60:00Z"]) {
+      expect(() => parseTime(bad, NOW, "since")).toThrow(HistoryError)
+      expect(() => parseTime(bad, NOW, "since")).toThrow(/since must be an ISO date/)
+      expect(() => parseTime(bad, NOW, "since")).not.toThrow(/2026/)
+    }
+    expect(parseTime("2026-02-28", NOW, "since")).toBe(Date.parse("2026-02-28T00:00:00Z"))
+    expect(parseTime("2026-02-28", NOW, "until")).toBe(Date.parse("2026-03-01T00:00:00Z") - 1)
+    expect(parseTime("2024-02-29", NOW, "since")).toBe(Date.parse("2024-02-29T00:00:00Z"))
+    expect(parseTime("2024-02-29T08:30:00Z", NOW, "until")).toBe(Date.parse("2024-02-29T08:30:00Z"))
+    expect(parseTime("2024-02-29T08:30:00+02:00", NOW, "since")).toBe(Date.parse("2024-02-29T06:30:00Z"))
+  })
 })
 
 describe("parseRegex", () => {
